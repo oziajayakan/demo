@@ -1,0 +1,51 @@
+{
+  "type_classes": [
+    "berminyak",
+    "kering",
+    "normal",
+    "kombinasi"
+  ],
+  "concern_classes": [
+    "jerawat",
+    "flek_hitam",
+    "kemerahan",
+    "pori_besar",
+    "kerutan"
+  ],
+  "display": {
+    "berminyak": "Berminyak",
+    "kering": "Kering",
+    "normal": "Normal",
+    "kombinasi": "Kombinasi",
+    "jerawat": "Berjerawat",
+    "flek_hitam": "Flek hitam / bekas jerawat",
+    "kemerahan": "Kemerahan",
+    "pori_besar": "Pori besar",
+    "kerutan": "Kerutan / garis halus"
+  },
+  "input_size": 224,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "resize": "crop wajah persegi, direct resize ke input_size x input_size",
+  "layout": "NCHW float32, RGB, pixel/255 lalu normalisasi",
+  "outputs": {
+    "type_probs": "softmax",
+    "concern_probs": "sigmoid"
+  },
+  "concern_thresholds": {
+    "jerawat": 0.35,
+    "flek_hitam": 0.65,
+    "kemerahan": 0.45,
+    "pori_besar": 0.55,
+    "kerutan": 0.35
+  },
+  "min_confidence": 0.45
+}

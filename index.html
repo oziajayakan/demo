@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>S'luv AI Skin Analysis - Analisis Kulit &amp; Rekomendasi Produk</title>
+  <meta name="description"
+    content="Scan wajah langsung lewat kamera untuk mengetahui tipe kulit dan masalah kulit. Diproses di browser, foto tidak dikirim ke server.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+  <style>
+    :root {
+      --bg: #faf5fb;
+      --panel: #ffffff;
+      --line: #e8d8ea;
+      --txt: #3a1440;
+      --mute: #8a6b90;
+      --ok: #2f9e6e;
+      --warn: #b7791f;
+      --bad: #b0396b;
+      --a1: #7a2a7e;
+      --a2: #c58fcb;
+      --plum: #5b1f5e;
+      --lilac: #f3e6f5;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', system-ui, sans-serif;
+      color: var(--txt);
+      min-height: 100vh;
+      background: radial-gradient(900px 500px at 0% -10%, rgba(197, 143, 203, .35), transparent),
+        radial-gradient(800px 500px at 100% 0%, rgba(122, 42, 126, .15), transparent), var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 24px;
+      overflow-x: hidden;
+    }
+
+    .brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 34px;
+      font-weight: 700;
+      color: var(--plum);
+      letter-spacing: .5px;
+    }
+
+    .brand small {
+      display: block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--a2);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    main {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    h1 {
+      font-size: clamp(18px, 2.4vw, 24px);
+      font-weight: 600;
+      margin-top: 6px;
+      color: var(--a1);
+    }
+
+    header p {
+      color: var(--mute);
+      font-size: 13.5px;
+      margin-top: 2px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 14px 36px rgba(91, 31, 94, .12);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Stage kamera horizontal/landscape 4:3 */
+    .stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      max-height: 380px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #2a0f2e;
+    }
+
+    video,
+    #snap {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    video {
+      transform: scaleX(-1);
+    }
+
+    #snap {
+      display: none;
+    }
+
+    svg.guide {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .ring {
+      fill: none;
+      stroke: rgba(255, 255, 255, .8);
+      stroke-width: 3;
+      stroke-dasharray: 10 8;
+      transition: stroke .25s;
+    }
+
+    .ring.ok {
+      stroke: var(--ok);
+      stroke-dasharray: none;
+      filter: drop-shadow(0 0 8px var(--ok));
+    }
+
+    .prog {
+      fill: none;
+      stroke: var(--a2);
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dashoffset .15s linear;
+    }
+
+    .hint {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 12px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 15px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, .8);
+      padding: 0 12px;
+    }
+
+    .scanline {
+      position: absolute;
+      left: 15%;
+      right: 15%;
+      height: 3px;
+      top: 15%;
+      border-radius: 3px;
+      display: none;
+      background: linear-gradient(90deg, transparent, var(--a2), transparent);
+      box-shadow: 0 0 18px var(--a2);
+      animation: sweep 1.3s ease-in-out infinite alternate;
+    }
+
+    .stage.scanning .scanline {
+      display: block;
+    }
+
+    @keyframes sweep {
+      to {
+        top: 82%;
+      }
+    }
+
+    /* Checklist 3 kolom agar hemat tempat */
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .chk {
+      font-size: 12px;
+      color: var(--mute);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      transition: all .2s;
+    }
+
+    .chk i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #475069;
+      flex: none;
+      transition: background .2s;
+    }
+
+    .chk.ok {
+      color: var(--txt);
+      border-color: rgba(52, 211, 153, .5);
+    }
+
+    .chk.ok i {
+      background: var(--ok);
+      box-shadow: 0 0 8px var(--ok);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button,
+    .btn {
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 18px;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(90deg, var(--plum), var(--a1));
+      transition: transform .15s, box-shadow .15s;
+    }
+
+    button:hover,
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(122, 42, 126, .35);
+    }
+
+    button.ghost,
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid var(--a2);
+      color: var(--a1);
+    }
+
+    .rec {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin-top: 8px;
+      background: linear-gradient(135deg, #fff, var(--lilac));
+      animation: pop .5s ease both;
+    }
+
+    .rec .n {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 700;
+      color: var(--plum);
+      font-size: 14.5px;
+    }
+
+    .rec .n em {
+      font-style: normal;
+      font-size: 11px;
+      background: var(--plum);
+      color: #fff;
+      border-radius: 999px;
+      padding: 3px 9px;
+      white-space: nowrap;
+      align-self: flex-start;
+    }
+
+    .rec p {
+      font-size: 12.5px;
+      color: var(--mute);
+      margin-top: 4px;
+      line-height: 1.45;
+    }
+
+    .rec b {
+      color: var(--a1);
+    }
+
+    @keyframes pop {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Panel Hasil Analisis */
+    .res-card {
+      justify-content: flex-start;
+      overflow-y: auto;
+      max-height: 520px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-bottom: 2px;
+    }
+
+    .sub {
+      color: var(--mute);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .empty {
+      color: var(--mute);
+      text-align: center;
+      padding: 48px 12px;
+    }
+
+    .empty b {
+      display: block;
+      font-size: 38px;
+      margin-bottom: 6px;
+    }
+
+    .bar {
+      margin: 8px 0 10px;
+    }
+
+    .bar .l {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .bar .t {
+      height: 8px;
+      border-radius: 8px;
+      background: var(--lilac);
+      overflow: hidden;
+    }
+
+    .bar .f {
+      height: 100%;
+      width: 0;
+      border-radius: 8px;
+      background: linear-gradient(90deg, var(--a1), var(--a2));
+      transition: width .8s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .bar.top .l {
+      font-weight: 700;
+      color: var(--plum);
+    }
+
+    .sec {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--mute);
+      margin: 12px 0 4px;
+      font-weight: 600;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .tag {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 13px;
+      background: var(--lilac);
+      border: 1px solid var(--a2);
+      color: var(--plum);
+    }
+
+    .tag.good {
+      background: rgba(47, 158, 110, .1);
+      border-color: rgba(47, 158, 110, .5);
+      color: var(--ok);
+    }
+
+    .note {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      color: var(--mute);
+      border: 1px solid var(--line);
+      line-height: 1.45;
+    }
+
+    .note.warn {
+      color: var(--warn);
+      border-color: rgba(183, 121, 31, .5);
+      background: rgba(183, 121, 31, .08);
+    }
+
+    #status {
+      font-size: 12px;
+      color: var(--mute);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <div class="brand">Ai<small>Skin Analisys</small></div>
+      <h1>AI Skin Analysis</h1>
+      <p>Posisikan wajah di dalam bingkai oval. Foto diproses di perangkat Anda dan tidak disimpan.</p>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="Kamera">
+        <div class="stage" id="stage">
+          <video id="video" playsinline muted></video>
+          <canvas id="snap"></canvas>
+          <svg class="guide" viewBox="0 0 400 300" preserveAspectRatio="none">
+            <ellipse id="ring" class="ring" cx="200" cy="150" rx="90" ry="120" />
+            <ellipse id="prog" class="prog" cx="200" cy="150" rx="100" ry="130" transform="rotate(-90 200 150)"
+              stroke-dasharray="0 2000" />
+          </svg>
+          <div class="scanline"></div>
+          <div class="hint" id="hint">Memuat kamera dan model...</div>
+        </div>
+        <div class="checks" id="checks">
+          <div class="chk" id="c-face"><i></i>Wajah terdeteksi</div>
+          <div class="chk" id="c-pos"><i></i>Posisi di tengah</div>
+          <div class="chk" id="c-dist"><i></i>Jarak pas</div>
+          <div class="chk" id="c-light"><i></i>Cahaya cukup</div>
+          <div class="chk" id="c-still"><i></i>Diam sejenak</div>
+          <div class="chk" id="c-model"><i></i>Model siap</div>
+        </div>
+        <div class="row">
+          <button id="btnStart">Mulai Kamera</button>
+          <button id="btnManualCap" class="btn" style="display:none;">Ambil Foto Sekarang</button>
+          <button id="btnRetry" class="ghost" style="display:none">Scan Ulang</button>
+        </div>
+        <div id="status" style="word-break: break-all; margin-top: 8px;"></div>
+      </section>
+
+      <section class="card res-card" aria-label="Hasil">
+        <h2>Hasil Analisis & Rekomendasi</h2>
+        <p class="sub">Tipe kulit, masalah kulit, dan produk S'luv yang sesuai.</p>
+        <div id="result">
+          <div class="empty"><b>🪞</b>Belum ada hasil.<br>Mulai kamera lalu arahkan wajah ke bingkai oval.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">
+    let FaceDetector = null, FilesetResolver = null;
+    try {
+      const mp = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm");
+      FaceDetector = mp.FaceDetector;
+      FilesetResolver = mp.FilesetResolver;
+    } catch (eMp) {
+      console.warn("Import MediaPipe gagal, menggunakan fallback mode:", eMp);
+    }
+
+    const $ = id => document.getElementById(id);
+    const video = $("video"), snap = $("snap"), stage = $("stage"), hint = $("hint");
+    const FRAMES = 6, HOLD_MS = 1000, FRAME_GAP = 180;
+
+    // Data produk S'luv (sumber: data/dataset/DataProduk.xlsx) + aturan rekomendasi (sama dengan ml/recommend.py)
+    const PRODUK = [
+      {
+        nama: "S'Luv Perfect Sunscreen All-in-One", kat: "Sunscreen", spf: "SPF 50 PA++++", harga: 85000,
+        tipe: ["normal", "berminyak", "kering", "kombinasi"], target: ["flek_hitam", "pori_besar", "jerawat", "kemerahan"],
+        bahan: "niacinamide alpha-arbutin tranexamic salicylic panthenol allantoin ceramide",
+        bobot: { flek_hitam: 1.2, kemerahan: 1.1, jerawat: 1.05, pori_besar: 1.05, kerutan: .4 }
+      },
+      {
+        nama: "S'Luv Brightening Calming Essence with DNA Salmon", kat: "Essence / Serum", spf: "", harga: 95000,
+        tipe: ["normal", "berminyak", "kering", "kombinasi"], target: ["flek_hitam", "kerutan", "kemerahan", "pori_besar", "jerawat"],
+        bahan: "dna salmon niacinamide tranexamic alpha-arbutin glutathione cysteamine vitamin c panthenol allantoin centella chamomile green tea witch hazel",
+        bobot: { kerutan: 1.5, flek_hitam: 1.2 }
+      }
+    ];
+    const BAHAN = {
+      jerawat: ["Salicylic Acid", "Centella", "Witch Hazel", "Niacinamide"], flek_hitam: ["Niacinamide", "Alpha-Arbutin", "Tranexamic Acid", "Glutathione"],
+      kemerahan: ["Panthenol", "Allantoin", "Centella", "Chamomile"], pori_besar: ["Niacinamide", "Salicylic Acid", "Witch Hazel", "Green Tea"],
+      kerutan: ["DNA Salmon", "Vitamin C", "Cysteamine"]
+    };
+    const NAMA = { jerawat: "jerawat", flek_hitam: "flek hitam", kemerahan: "kemerahan", pori_besar: "pori besar", kerutan: "kerutan" };
+    function recommend(tipe, masalah) {
+      return PRODUK.map(p => {
+        let skor = p.tipe.includes(tipe) ? .5 : 0; const alasan = [];
+        for (const [m, prob] of Object.entries(masalah)) {
+          if (!p.target.includes(m)) continue;
+          skor += prob * (p.bobot[m] ?? 1);
+          const ada = BAHAN[m].filter(b => p.bahan.includes(b.toLowerCase().replace(" acid", "")));
+          alasan.push(ada.length ? `${NAMA[m]} (${ada.join(", ")})` : NAMA[m]);
+        }
+        return { ...p, skor, alasan };
+      }).sort((a, b) => b.skor - a.skor);
+    }
+    const RING_LEN = 2 * Math.PI * Math.sqrt((110 * 110 + 145 * 145) / 2) * 0.99;
+
+    let spec, session, detector, stream, state = "idle"; // idle | ready | holding | capturing | done
+    let holdStart = 0, lastBox = null, frames = [], lastCap = 0, modelReady = false;
+
+    const setChk = (id, ok) => $(id).classList.toggle("ok", !!ok);
+    const setHint = t => hint.textContent = t;
+    const setProg = p => $("prog").setAttribute("stroke-dasharray", `${p * RING_LEN} 2000`);
+
+    // Logging helper agar error di HP terlihat jelas di layar
+    function logStatus(msg, isErr = false) {
+      const el = $("status");
+      el.textContent = msg;
+      el.style.color = isErr ? "#b0396b" : "#8a6b90";
+    }
+
+    async function loadModel() {
+      try {
+        logStatus("Mengunduh config label...");
+        const ngrokHeaders = { "ngrok-skip-browser-warning": "69420" };
+
+        const resp = await fetch("./labels.json", { headers: ngrokHeaders });
+        if (!resp.ok) throw new Error("Gagal mengambil labels.json: HTTP " + resp.status);
+        spec = await resp.json();
+
+        logStatus("Mengunduh model AI (4.9MB)...");
+        const onnxResp = await fetch("./skin_model.onnx", { headers: ngrokHeaders });
+        if (!onnxResp.ok) throw new Error("Gagal mengambil skin_model.onnx: HTTP " + onnxResp.status);
+        const onnxBuffer = await onnxResp.arrayBuffer();
+
+        logStatus("Menginisialisasi ONNX WebAssembly...");
+        // Konfigurasi wasm ort untuk mobile
+        ort.env.wasm.numThreads = 1;
+        session = await ort.InferenceSession.create(onnxBuffer, { executionProviders: ["wasm"] });
+        modelReady = true;
+        setChk("c-model", true);
+        logStatus("✅ Model AI Siap!");
+        setHint("Tekan Mulai Kamera");
+
+        // Unduh modul MediaPipe jika library berhasil di-import
+        if (FilesetResolver && FaceDetector) {
+          try {
+            logStatus("Menyiapkan detektor wajah...");
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+            const base = { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite" };
+            detector = await FaceDetector.createFromOptions(vision, { baseOptions: { ...base, delegate: "CPU" }, runningMode: "VIDEO" });
+            logStatus("✅ Kamera & Detektor Wajah Siap Digunakan!");
+          } catch (eMedia) {
+            console.warn("MediaPipe gagal di HP, fallback aktif:", eMedia);
+            detector = null;
+            logStatus("✅ Model AI Siap (Mode Oval Pintar)");
+          }
+        } else {
+          detector = null;
+          logStatus("✅ Model AI Siap (Mode Oval Pintar)");
+        }
+      } catch (e) {
+        logStatus("⚠️ Error Model: " + e.message, true);
+        console.error(e);
+      }
+    }
+
+    async function startCamera() {
+      logStatus("Meminta izin kamera...");
+      setHint("Membuka kamera...");
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        logStatus("Browser tidak mendukung izin kamera WebRTC. Pastikan pakai Chrome/Safari & HTTPS.", true);
+        setHint("Gunakan tombol Upload Foto");
+        return;
+      }
+
+      // Coba resolusi ideal, jika ditolak HP gunakan fallback fleksibel
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+      } catch (err1) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch (e) {
+          logStatus("Izin kamera ditolak: " + e.message, true);
+          setHint("Izin kamera ditolak. Gunakan 'Upload Foto'.");
+          return;
+        }
+      }
+
+      video.srcObject = stream;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+      try {
+        await video.play();
+      } catch (playErr) {
+        console.warn("Autoplay dicegah:", playErr);
+      }
+
+      $("btnStart").style.display = "none";
+      $("btnRetry").style.display = "none";
+      $("btnManualCap").style.display = "inline-block";
+      snap.style.display = "none";
+      video.style.display = "block";
+      state = "ready";
+      frames = [];
+      holdStart = 0;
+      lastBox = null;
+      setHint("Arahkan wajah ke oval panduan");
+      logStatus("Kamera aktif. Silakan posisikan wajah.");
+      requestAnimationFrame(loop);
+    }
+
+    function stopCamera() { stream?.getTracks().forEach(t => t.stop()); }
+
+    function evalFace(box) {
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const cx = (box.originX + box.width / 2) / vw, cy = (box.originY + box.height / 2) / vh;
+      const ratio = box.width / vw;
+      const pos = Math.abs(cx - 0.5) < 0.10 && Math.abs(cy - 0.47) < 0.12;
+      const dist = ratio > 0.30 && ratio < 0.62;
+      // kecerahan di area wajah
+      const c = document.createElement("canvas"); c.width = c.height = 32;
+      const x = c.getContext("2d");
+      x.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 32, 32);
+      const d = x.getImageData(0, 0, 32, 32).data; let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const lum = s / 1024, light = lum > 70 && lum < 215;
+      let still = false;
+      if (lastBox) still = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY) < 0.03 * vw
+        && Math.abs(box.width - lastBox.width) < 0.04 * vw;
+      return { pos, dist, light, still, ratio, cx, cy, lum };
+    }
+
+    function guideText(e) {
+      if (!e.dist) return e.ratio <= 0.30 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
+      if (!e.pos) return "Pusatkan wajah di bingkai";
+      if (!e.light) return e.lum <= 70 ? "Terlalu gelap, cari cahaya" : "Terlalu terang, kurangi cahaya";
+      return "Tahan sebentar...";
+    }
+
+    function loop(ts) {
+      if (state === "done" || state === "idle") return;
+
+      let box = null;
+      if (detector) {
+        try {
+          const r = detector.detectForVideo(video, ts);
+          if (r.detections?.[0]) box = r.detections[0].boundingBox;
+        } catch (err) {
+          box = null;
+        }
+      } else {
+        // Fallback: Gunakan area bingkai oval tengah video
+        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+        const w = vw * 0.45, h = vh * 0.55;
+        box = { originX: (vw - w) / 2, originY: (vh - h) / 2, width: w, height: h };
+      }
+
+      if (state === "capturing") {
+        captureStep(box ? { boundingBox: box } : null);
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      if (!box) {
+        setChk("c-face", 0);["c-pos", "c-dist", "c-light", "c-still"].forEach(i => setChk(i, 0));
+        $("ring").classList.remove("ok"); setHint("Wajah tidak terdeteksi"); setProg(0);
+        holdStart = 0; lastBox = null; requestAnimationFrame(loop); return;
+      }
+      const e = evalFace(box);
+      e.still = e.still;
+      setChk("c-face", 1); setChk("c-pos", e.pos); setChk("c-dist", e.dist); setChk("c-light", e.light); setChk("c-still", e.still);
+      lastBox = { ...box };
+      const good = e.pos && e.dist && e.light && e.still;
+      $("ring").classList.toggle("ok", e.pos && e.dist && e.light);
+      if (good) {
+        if (!holdStart) holdStart = performance.now();
+        const p = Math.min(1, (performance.now() - holdStart) / HOLD_MS);
+        setProg(p); setHint("Tahan, jangan bergerak");
+        if (p >= 1) { state = "capturing"; frames = []; lastCap = 0; stage.classList.add("scanning"); setHint("Memindai..."); setProg(1); }
+      } else { holdStart = 0; setProg(0); setHint(guideText(e)); }
+      requestAnimationFrame(loop);
+    }
+
+    let busy = false;
+    async function captureStep(det) {
+      if (busy) return;
+      const now = performance.now();
+      if (now - lastCap < FRAME_GAP) return;
+      if (!det) return;
+      lastCap = now; busy = true;
+      try {
+        const probs = await infer(video, det.boundingBox);
+        frames.push(probs);
+        setHint(`Memindai... ${frames.length}/${FRAMES}`);
+        if (frames.length === 1) drawSnapshot(video, det.boundingBox);
+        if (frames.length >= FRAMES) finish();
+      } finally { busy = false; }
+    }
+
+    function squareCrop(box, vw, vh) {
+      const side = Math.max(box.width, box.height) * 1.35;
+      const cx = box.originX + box.width / 2, cy = box.originY + box.height / 2 - box.height * 0.05;
+      let x = cx - side / 2, y = cy - side / 2, s = side;
+      s = Math.min(s, vw, vh);
+      x = Math.max(0, Math.min(vw - s, x)); y = Math.max(0, Math.min(vh - s, y));
+      return { x, y, s };
+    }
+
+    const work = document.createElement("canvas"); work.width = work.height = 224;
+    async function infer(src, box) {
+      const vw = src.videoWidth || src.naturalWidth, vh = src.videoHeight || src.naturalHeight;
+      const c = box ? squareCrop(box, vw, vh) : { x: 0, y: 0, s: Math.min(vw, vh) };
+      if (!box) { c.x = (vw - c.s) / 2; c.y = (vh - c.s) / 2; }
+      const ctx = work.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(src, c.x, c.y, c.s, c.s, 0, 0, 224, 224);
+      const d = ctx.getImageData(0, 0, 224, 224).data, n = 224 * 224, f = new Float32Array(3 * n);
+      for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) f[k * n + i] = (d[i * 4 + k] / 255 - spec.mean[k]) / spec.std[k];
+      const out = await session.run({ input: new ort.Tensor("float32", f, [1, 3, 224, 224]) });
+      return { type: Array.from(out.type_probs.data), concern: Array.from(out.concern_probs.data) };
+    }
+
+    function drawSnapshot(src, box) {
+      const vw = src.videoWidth || src.naturalWidth, vh = src.videoHeight || src.naturalHeight;
+      snap.width = vw; snap.height = vh;
+      snap.getContext("2d").drawImage(src, 0, 0);
+      snap.style.transform = src === video ? "scaleX(-1)" : "none";
+    }
+
+    function average(list, key) {
+      const n = list[0][key].length, a = new Array(n).fill(0);
+      list.forEach(p => p[key].forEach((v, i) => a[i] += v / list.length)); return a;
+    }
+
+    function finish() {
+      state = "done"; stage.classList.remove("scanning"); stopCamera();
+      video.style.display = "none"; snap.style.display = "block";
+      setHint("Selesai"); setProg(0); $("ring").classList.add("ok");
+      show(average(frames, "type"), average(frames, "concern"));
+      $("btnRetry").style.display = "inline-block";
+      $("btnManualCap").style.display = "none";
+    }
+
+    function show(tp, cp) {
+      const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
+      const order = tp.map((p, i) => i).sort((a, b) => tp[b] - tp[a]);
+      const topP = tp[order[0]];
+      let html = `<div class="sec">Tipe kulit</div>`;
+      order.forEach((i, rank) => {
+        html += `<div class="bar ${rank === 0 ? "top" : ""}"><div class="l"><span>${D[T[i]]}</span><span>${(tp[i] * 100).toFixed(0)}%</span></div>
+             <div class="t"><div class="f" data-w="${tp[i] * 100}"></div></div></div>`;
+      });
+      const found = C.map((c, j) => ({ c, p: cp[j], t: spec.concern_thresholds[c] }))
+        .filter(x => x.p >= x.t).sort((a, b) => b.p - a.p);
+      html += `<div class="sec">Masalah kulit terdeteksi</div><div class="tags">`;
+      html += found.length ? found.map(x => `<span class="tag">${D[x.c]} · ${(x.p * 100).toFixed(0)}%</span>`).join("")
+        : `<span class="tag good">Tidak ada masalah menonjol</span>`;
+      html += `</div>`;
+      const tipe = T[order[0]], mp = Object.fromEntries(found.map(x => [x.c, x.p]));
+      html += `<div class="sec">Rekomendasi produk S'luv</div>` + recommend(tipe, mp).map((r, i) =>
+        `<div class="rec" style="animation-delay:${i * .12}s"><div class="n"><span>${r.nama}</span><em>${i === 0 ? "Paling cocok" : "Pelengkap"}</em></div>
+     <p>${r.kat}${r.spf ? " · " + r.spf : ""} · Rp ${r.harga.toLocaleString("id-ID")}</p>
+     <p>${r.alasan.length ? "Cocok untuk: <b>" + r.alasan.join("</b>; <b>") + "</b>" : "Perawatan dasar harian untuk kulit " + D[tipe].toLowerCase()}</p></div>`).join("");
+      if (topP < spec.min_confidence)
+        html += `<div class="note warn">Keyakinan tipe kulit rendah (${(topP * 100).toFixed(0)}%). Coba scan ulang dengan cahaya merata dan tanpa makeup tebal.</div>`;
+      html += `<div class="note">Hasil ini perkiraan berbasis AI untuk rekomendasi perawatan, <b>bukan diagnosis medis</b>. Jika ada keluhan kulit yang mengkhawatirkan, konsultasikan ke dokter kulit.</div>`;
+      $("result").innerHTML = html;
+      requestAnimationFrame(() => document.querySelectorAll(".f").forEach(el => el.style.width = el.dataset.w + "%"));
+    }
+
+    $("btnStart").onclick = startCamera;
+    $("btnManualCap").onclick = async () => {
+      if (state === "done") return;
+      setHint("Mengambil foto...");
+      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+      const w = vw * 0.5, h = vh * 0.6;
+      const box = { originX: (vw - w) / 2, originY: (vh - h) / 2, width: w, height: h };
+      drawSnapshot(video, box);
+      const p = await infer(video, box);
+      frames = [p];
+      finish();
+    };
+    $("btnRetry").onclick = () => {
+      $("result").innerHTML = `<div class="empty"><b>🪞</b>Belum ada hasil.</div>`;
+      $("ring").classList.remove("ok");
+      startCamera();
+    };
+
+
+    setProg(0);
+    loadModel();
+  </script>
+</body>
+
+</html>
