@@ -4,28 +4,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>S'luv AI Skin Analysis - Analisis Kulit &amp; Rekomendasi Produk</title>
+  <title>DEMO AI - AI Skin Analysis &amp; Rekomendasi Produk S'luv</title>
   <meta name="description"
-    content="Scan wajah langsung lewat kamera untuk mengetahui tipe kulit dan masalah kulit. Diproses di browser, foto tidak dikirim ke server.">
+    content="Scan wajah langsung lewat kamera untuk mengetahui tipe kulit dan masalah kulit, lengkap dengan rekomendasi produk S'luv. Diproses di browser, foto tidak dikirim ke server.">
+  <meta name="theme-color" content="#1a0b1f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap"
     rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
   <style>
     :root {
-      --bg: #faf5fb;
-      --panel: #ffffff;
-      --line: #e8d8ea;
-      --txt: #3a1440;
-      --mute: #8a6b90;
-      --ok: #2f9e6e;
-      --warn: #b7791f;
-      --bad: #b0396b;
-      --a1: #7a2a7e;
-      --a2: #c58fcb;
-      --plum: #5b1f5e;
-      --lilac: #f3e6f5;
+      --bg: #170a1c;
+      --bg2: #24102b;
+      --panel: rgba(255, 255, 255, .06);
+      --panel-strong: rgba(255, 255, 255, .1);
+      --line: rgba(255, 255, 255, .14);
+      --txt: #f6ecf8;
+      --mute: #b79bc0;
+      --ok: #5eead4;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --a1: #c26bd0;
+      --a2: #f0b6ff;
+      --plum: #7a2a7e;
+      --lilac: rgba(194, 107, 208, .16);
+      --grad: linear-gradient(135deg, #8e2f94 0%, #c26bd0 55%, #f0b6ff 100%);
     }
 
     * {
@@ -34,67 +39,138 @@
       padding: 0;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       font-family: 'Outfit', system-ui, sans-serif;
       color: var(--txt);
       min-height: 100vh;
-      background: radial-gradient(900px 500px at 0% -10%, rgba(197, 143, 203, .35), transparent),
-        radial-gradient(800px 500px at 100% 0%, rgba(122, 42, 126, .15), transparent), var(--bg);
+      background: var(--bg);
+      padding: 28px 20px 40px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Orb cahaya dekoratif */
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 520px;
+      height: 520px;
+      border-radius: 50%;
+      filter: blur(110px);
+      opacity: .55;
+      z-index: 0;
+      pointer-events: none;
+      animation: float 14s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      background: #8e2f94;
+      top: -160px;
+      left: -140px;
+    }
+
+    body::after {
+      background: #4b2a9a;
+      bottom: -180px;
+      right: -120px;
+      animation-delay: -6s;
+    }
+
+    @keyframes float {
+      to {
+        transform: translate(60px, 40px) scale(1.15);
+      }
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
+      gap: 22px;
+    }
+
+    /* ---------- Header ---------- */
+    header {
+      text-align: center;
+      padding-top: 6px;
+    }
+
+    .pill {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      padding: 16px 24px;
-      overflow-x: hidden;
+      gap: 8px;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--a2);
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+    }
+
+    .pill i {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 10px var(--ok);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: .35;
+        transform: scale(.7);
+      }
     }
 
     .brand {
       font-family: 'Playfair Display', serif;
-      font-size: 34px;
+      font-size: clamp(44px, 7vw, 76px);
       font-weight: 700;
-      color: var(--plum);
-      letter-spacing: .5px;
-    }
-
-    .brand small {
-      display: block;
-      font-family: 'Outfit', sans-serif;
-      font-size: 11px;
-      letter-spacing: 3px;
-      color: var(--a2);
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    main {
-      width: 100%;
-      max-width: 1200px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    header {
-      text-align: center;
+      line-height: 1.05;
+      margin-top: 16px;
+      letter-spacing: 1px;
+      background: linear-gradient(120deg, #fff 10%, var(--a2) 45%, var(--a1) 90%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
 
     h1 {
-      font-size: clamp(18px, 2.4vw, 24px);
-      font-weight: 600;
+      font-size: clamp(15px, 2vw, 19px);
+      font-weight: 400;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--a2);
       margin-top: 6px;
-      color: var(--a1);
     }
 
     header p {
       color: var(--mute);
-      font-size: 13.5px;
-      margin-top: 2px;
+      font-size: 14.5px;
+      margin: 12px auto 0;
+      max-width: 520px;
+      line-height: 1.6;
     }
 
+    /* ---------- Layout ---------- */
     .grid {
       display: grid;
-      grid-template-columns: 1.25fr 1fr;
-      gap: 18px;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 22px;
       align-items: stretch;
     }
 
@@ -107,22 +183,25 @@
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 18px;
-      box-shadow: 0 14px 36px rgba(91, 31, 94, .12);
+      border-radius: 28px;
+      padding: 20px;
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      box-shadow: 0 30px 70px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12);
       display: flex;
       flex-direction: column;
     }
 
-    /* Stage kamera horizontal/landscape 4:3 */
+    /* ---------- Kamera ---------- */
     .stage {
       position: relative;
       width: 100%;
       aspect-ratio: 4/3;
-      max-height: 380px;
-      border-radius: 16px;
+      max-height: 400px;
+      border-radius: 20px;
       overflow: hidden;
-      background: #2a0f2e;
+      background: radial-gradient(circle at 50% 40%, #3a1a45, #12081a);
+      border: 1px solid var(--line);
     }
 
     video,
@@ -142,58 +221,77 @@
       display: none;
     }
 
+    /* Vignette lembut di atas video */
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse 36% 48% at 50% 50%, transparent 60%, rgba(18, 8, 26, .62) 100%);
+    }
+
     svg.guide {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       pointer-events: none;
+      z-index: 2;
     }
 
     .ring {
       fill: none;
-      stroke: rgba(255, 255, 255, .8);
-      stroke-width: 3;
-      stroke-dasharray: 10 8;
+      stroke: rgba(255, 255, 255, .85);
+      stroke-width: 2.5;
+      stroke-dasharray: 8 8;
       transition: stroke .25s;
     }
 
     .ring.ok {
       stroke: var(--ok);
       stroke-dasharray: none;
-      filter: drop-shadow(0 0 8px var(--ok));
+      filter: drop-shadow(0 0 10px var(--ok));
     }
 
     .prog {
       fill: none;
       stroke: var(--a2);
-      stroke-width: 6;
+      stroke-width: 5;
       stroke-linecap: round;
-      transition: stroke-dashoffset .15s linear;
+      filter: drop-shadow(0 0 6px var(--a1));
     }
 
     .hint {
       position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 12px;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      z-index: 3;
+      max-width: 90%;
       text-align: center;
-      font-weight: 600;
-      font-size: 15px;
-      text-shadow: 0 2px 10px rgba(0, 0, 0, .8);
-      padding: 0 12px;
+      font-weight: 500;
+      font-size: 13.5px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(18, 8, 26, .72);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .scanline {
       position: absolute;
-      left: 15%;
-      right: 15%;
+      left: 20%;
+      right: 20%;
       height: 3px;
       top: 15%;
+      z-index: 3;
       border-radius: 3px;
       display: none;
       background: linear-gradient(90deg, transparent, var(--a2), transparent);
-      box-shadow: 0 0 18px var(--a2);
+      box-shadow: 0 0 22px 3px var(--a1);
       animation: sweep 1.3s ease-in-out infinite alternate;
     }
 
@@ -203,53 +301,60 @@
 
     @keyframes sweep {
       to {
-        top: 82%;
+        top: 80%;
       }
     }
 
-    /* Checklist 3 kolom agar hemat tempat */
     .checks {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      margin-top: 12px;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 520px) {
+      .checks {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
     .chk {
       font-size: 12px;
       color: var(--mute);
       display: flex;
-      gap: 6px;
+      gap: 8px;
       align-items: center;
-      padding: 6px 8px;
-      border-radius: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
       border: 1px solid var(--line);
-      transition: all .2s;
+      background: rgba(255, 255, 255, .03);
+      transition: all .25s;
     }
 
     .chk i {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #475069;
+      background: #5a4563;
       flex: none;
-      transition: background .2s;
+      transition: all .25s;
     }
 
     .chk.ok {
       color: var(--txt);
-      border-color: rgba(52, 211, 153, .5);
+      border-color: rgba(94, 234, 212, .45);
+      background: rgba(94, 234, 212, .08);
     }
 
     .chk.ok i {
       background: var(--ok);
-      box-shadow: 0 0 8px var(--ok);
+      box-shadow: 0 0 10px var(--ok);
     }
 
     .row {
       display: flex;
       gap: 10px;
-      margin-top: 12px;
+      margin-top: 16px;
       flex-wrap: wrap;
       align-items: center;
     }
@@ -257,55 +362,222 @@
     button,
     .btn {
       font: inherit;
-      font-size: 14px;
+      font-size: 14.5px;
       font-weight: 600;
       border: 0;
-      border-radius: 12px;
-      padding: 10px 18px;
+      border-radius: 14px;
+      padding: 13px 24px;
       cursor: pointer;
       color: #fff;
-      background: linear-gradient(90deg, var(--plum), var(--a1));
-      transition: transform .15s, box-shadow .15s;
+      background: var(--grad);
+      box-shadow: 0 10px 28px rgba(194, 107, 208, .35);
+      transition: transform .18s, box-shadow .18s, filter .18s;
     }
 
     button:hover,
     .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(122, 42, 126, .35);
+      filter: brightness(1.08);
+      box-shadow: 0 14px 34px rgba(194, 107, 208, .5);
+    }
+
+    button:active {
+      transform: translateY(0);
     }
 
     button.ghost,
     .btn.ghost {
       background: transparent;
-      border: 1px solid var(--a2);
-      color: var(--a1);
+      border: 1px solid var(--a1);
+      color: var(--a2);
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #status {
+      font-size: 12px;
+      color: var(--mute);
+      margin-top: 12px;
+    }
+
+    /* ---------- Hasil ---------- */
+    .res-card {
+      justify-content: flex-start;
+      overflow-y: auto;
+      max-height: 640px;
+    }
+
+    .res-card::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .res-card::-webkit-scrollbar-thumb {
+      background: var(--a1);
+      border-radius: 6px;
+    }
+
+    h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .sub {
+      color: var(--mute);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .empty {
+      color: var(--mute);
+      text-align: center;
+      padding: 54px 14px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .empty b {
+      display: grid;
+      place-items: center;
+      width: 78px;
+      height: 78px;
+      margin: 0 auto 14px;
+      font-size: 34px;
+      border-radius: 50%;
+      background: var(--lilac);
+      border: 1px dashed var(--a1);
+      animation: bob 3s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+      50% {
+        transform: translateY(-6px);
+      }
+    }
+
+    .sec {
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--a2);
+      margin: 18px 0 6px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sec::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--line), transparent);
+    }
+
+    .bar {
+      margin: 9px 0 11px;
+    }
+
+    .bar .l {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: var(--mute);
+      margin-bottom: 5px;
+    }
+
+    .bar .t {
+      height: 9px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, .08);
+      overflow: hidden;
+    }
+
+    .bar .f {
+      height: 100%;
+      width: 0;
+      border-radius: 9px;
+      background: linear-gradient(90deg, #6d2a78, var(--a1));
+      transition: width .9s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .bar.top .l {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .bar.top .f {
+      background: var(--grad);
+      box-shadow: 0 0 14px rgba(194, 107, 208, .6);
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .tag {
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-weight: 500;
+      font-size: 13px;
+      background: var(--lilac);
+      border: 1px solid rgba(194, 107, 208, .5);
+      color: var(--a2);
+    }
+
+    .tag.good {
+      background: rgba(94, 234, 212, .1);
+      border-color: rgba(94, 234, 212, .5);
+      color: var(--ok);
     }
 
     .rec {
+      position: relative;
       border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 12px 14px;
-      margin-top: 8px;
-      background: linear-gradient(135deg, #fff, var(--lilac));
-      animation: pop .5s ease both;
+      border-radius: 20px;
+      padding: 14px 16px;
+      margin-top: 10px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .09), rgba(194, 107, 208, .12));
+      animation: pop .55s cubic-bezier(.2, .8, .2, 1) both;
+      transition: transform .2s, border-color .2s;
+    }
+
+    .rec:hover {
+      transform: translateY(-3px);
+      border-color: var(--a1);
+    }
+
+    .rec:first-of-type {
+      border-color: rgba(240, 182, 255, .55);
     }
 
     .rec .n {
       display: flex;
       justify-content: space-between;
-      gap: 8px;
-      font-weight: 700;
-      color: var(--plum);
-      font-size: 14.5px;
+      gap: 10px;
+      font-weight: 600;
+      color: #fff;
+      font-size: 15px;
+      line-height: 1.35;
     }
 
     .rec .n em {
       font-style: normal;
-      font-size: 11px;
-      background: var(--plum);
+      font-size: 10.5px;
+      letter-spacing: .5px;
+      background: var(--grad);
       color: #fff;
       border-radius: 999px;
-      padding: 3px 9px;
+      padding: 4px 10px;
       white-space: nowrap;
       align-self: flex-start;
     }
@@ -313,141 +585,44 @@
     .rec p {
       font-size: 12.5px;
       color: var(--mute);
-      margin-top: 4px;
-      line-height: 1.45;
+      margin-top: 6px;
+      line-height: 1.5;
     }
 
     .rec b {
-      color: var(--a1);
+      color: var(--a2);
+      font-weight: 600;
     }
 
     @keyframes pop {
       from {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(14px) scale(.98);
       }
     }
 
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    /* Panel Hasil Analisis */
-    .res-card {
-      justify-content: flex-start;
-      overflow-y: auto;
-      max-height: 520px;
-    }
-
-    h2 {
-      font-size: 18px;
-      margin-bottom: 2px;
-    }
-
-    .sub {
-      color: var(--mute);
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-
-    .empty {
-      color: var(--mute);
-      text-align: center;
-      padding: 48px 12px;
-    }
-
-    .empty b {
-      display: block;
-      font-size: 38px;
-      margin-bottom: 6px;
-    }
-
-    .bar {
-      margin: 8px 0 10px;
-    }
-
-    .bar .l {
-      display: flex;
-      justify-content: space-between;
-      font-size: 14px;
-      margin-bottom: 4px;
-    }
-
-    .bar .t {
-      height: 8px;
-      border-radius: 8px;
-      background: var(--lilac);
-      overflow: hidden;
-    }
-
-    .bar .f {
-      height: 100%;
-      width: 0;
-      border-radius: 8px;
-      background: linear-gradient(90deg, var(--a1), var(--a2));
-      transition: width .8s cubic-bezier(.2, .8, .2, 1);
-    }
-
-    .bar.top .l {
-      font-weight: 700;
-      color: var(--plum);
-    }
-
-    .sec {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      color: var(--mute);
-      margin: 12px 0 4px;
-      font-weight: 600;
-    }
-
-    .tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 6px;
-    }
-
-    .tag {
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-weight: 600;
-      font-size: 13px;
-      background: var(--lilac);
-      border: 1px solid var(--a2);
-      color: var(--plum);
-    }
-
-    .tag.good {
-      background: rgba(47, 158, 110, .1);
-      border-color: rgba(47, 158, 110, .5);
-      color: var(--ok);
-    }
-
     .note {
-      margin-top: 14px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      font-size: 12.5px;
+      margin-top: 16px;
+      padding: 11px 14px;
+      border-radius: 14px;
+      font-size: 12px;
       color: var(--mute);
       border: 1px solid var(--line);
-      line-height: 1.45;
+      background: rgba(255, 255, 255, .03);
+      line-height: 1.55;
     }
 
     .note.warn {
       color: var(--warn);
-      border-color: rgba(183, 121, 31, .5);
-      background: rgba(183, 121, 31, .08);
+      border-color: rgba(251, 191, 36, .5);
+      background: rgba(251, 191, 36, .08);
     }
 
-    #status {
+    footer {
+      text-align: center;
       font-size: 12px;
       color: var(--mute);
-      margin-top: 8px;
+      opacity: .8;
     }
   </style>
 </head>
@@ -455,9 +630,10 @@
 <body>
   <main>
     <header>
-      <div class="brand">Ai<small>Skin Analisys</small></div>
-      <h1>AI Skin Analysis</h1>
-      <p>Posisikan wajah di dalam bingkai oval. Foto diproses di perangkat Anda dan tidak disimpan.</p>
+      <span class="pill"><i></i> Dianalisis di perangkat Anda</span>
+      <div class="brand">DEMO AI</div>
+      <h1>Skin Analysis</h1>
+      <p>Posisikan wajah di dalam bingkai oval. Foto diproses langsung di peramban dan tidak disimpan.</p>
     </header>
 
     <div class="grid">
@@ -486,17 +662,19 @@
           <button id="btnManualCap" class="btn" style="display:none;">Ambil Foto Sekarang</button>
           <button id="btnRetry" class="ghost" style="display:none">Scan Ulang</button>
         </div>
-        <div id="status" style="word-break: break-all; margin-top: 8px;"></div>
+        <div id="status" style="word-break: break-all;"></div>
       </section>
 
       <section class="card res-card" aria-label="Hasil">
-        <h2>Hasil Analisis & Rekomendasi</h2>
+        <h2>Hasil Analisis &amp; Rekomendasi</h2>
         <p class="sub">Tipe kulit, masalah kulit, dan produk S'luv yang sesuai.</p>
         <div id="result">
           <div class="empty"><b>🪞</b>Belum ada hasil.<br>Mulai kamera lalu arahkan wajah ke bingkai oval.</div>
         </div>
       </section>
     </div>
+
+    <footer>Hasil berupa perkiraan AI, bukan diagnosis medis.</footer>
   </main>
 
   <script type="module">
@@ -559,7 +737,7 @@
     function logStatus(msg, isErr = false) {
       const el = $("status");
       el.textContent = msg;
-      el.style.color = isErr ? "#b0396b" : "#8a6b90";
+      el.style.color = isErr ? "#fb7185" : "#b79bc0";
     }
 
     async function loadModel() {
