@@ -827,16 +827,11 @@
           <div class="chk" id="c-pos"><i></i>Posisi di tengah</div>
           <div class="chk" id="c-dist"><i></i>Jarak pas</div>
           <div class="chk" id="c-light"><i></i>Cahaya cukup</div>
-          <div class="chk" id="c-still"><i></i>Diam sejenak</div>
+          <div class="chk" id="c-still"><i></i>Wajah asli live</div>
           <div class="chk" id="c-model"><i></i>Model siap</div>
-        </div>
-          <div class="chk" id="c-dist"><i></i>Jarak pas</div>
-          <div class="chk" id="c-light"><i></i>Cahaya cukup</div>
-          <div class="chk" id="c-still"><i></i>Diam sejenak</div>
         </div>
         <div class="row">
           <button id="btnStart">Mulai Kamera</button>
-          <button id="btnManualCap" class="btn" style="display:none; background:linear-gradient(135deg, #38bdf8, #818cf8);">📸 Ambil Foto Langsung</button>
           <button id="btnRetry" class="ghost" style="display:none">Scan Ulang</button>
         </div>
         <div id="status" style="word-break: break-all;"></div>
@@ -1090,7 +1085,7 @@
 
       $("btnStart").style.display = "none";
       $("btnRetry").style.display = "none";
-      $("btnManualCap").style.display = "inline-block";
+      if ($("btnManualCap")) $("btnManualCap").style.display = "none";
       snap.style.display = "none";
       video.style.display = "block";
       state = "ready";
@@ -1112,32 +1107,94 @@
 
     function stopCamera() { stream?.getTracks().forEach(t => t.stop()); }
 
-    // Evaluasi tekstur untuk menolak foto layar / foto cetak statis (Anti-Spoofing Moire / Low Texture)
-    function checkLiveTexture(box) {
-      const c = document.createElement("canvas"); c.width = c.height = 48;
-      const x = c.getContext("2d");
-      x.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 48, 48);
-      const d = x.getImageData(0, 0, 48, 48).data;
-      let sum = 0, sumSq = 0;
-      const count = 48 * 48;
-      for (let i = 0; i < d.length; i += 4) {
-        const val = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        sum += val;
-        sumSq += val * val;
+    // Analisis anti-spoofing: menolak pantulan layar ponsel, foto galeri statis, dan kertas foto
+    const testCanvas = document.createElement("canvas");
+    testCanvas.width = 64; testCanvas.height = 64;
+    const testCtx = testCanvas.getContext("2d", { willReadFrequently: true });
+
+    let liveHistory = []; // buffer frame untuk uji dinamika mikro wajah hidup vs foto statis
+    let lastValidDetectionTime = 0;
+
+    function checkScreenAndLiveness(box, keypoints, now) {
+      if (!box || box.width < 20 || box.height < 20) return { ok: false, reason: "Wajah tidak valid" };
+
+      // 1. Uji Spekularitas & Saturasi Ekstrem (Layar HP cenderung memiliki piksel RGB putih jenuh / glare atau distorsi warna backlight)
+      testCtx.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 64, 64);
+      const imgData = testCtx.getImageData(0, 0, 64, 64).data;
+      let totalL = 0, totalSq = 0, glarePixels = 0, deadBlackPixels = 0;
+      const totalPixels = 64 * 64;
+
+      for (let i = 0; i < imgData.length; i += 4) {
+        const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        totalL += l;
+        totalSq += l * l;
+        if (r > 248 && g > 248 && b > 248) glarePixels++;
+        if (r < 10 && g < 10 && b < 10) deadBlackPixels++;
       }
-      const mean = sum / count;
-      const variance = (sumSq / count) - (mean * mean);
-      // Layar ponsel berpiksel seragam atau foto kertas flat biasanya punya varians tekstur rendah/ekstrem
-      return variance > 120;
+
+      const meanL = totalL / totalPixels;
+      const variance = (totalSq / totalPixels) - (meanL * meanL);
+      const stdDev = Math.sqrt(Math.max(0, variance));
+
+      // Layar HP yang diarahkan ke webcam sering memantulkan glare layar / moire
+      const glareRatio = glarePixels / totalPixels;
+      if (glareRatio > 0.18) {
+        return { ok: false, reason: "Silau pantulan layar terdeteksi" };
+      }
+
+      // 2. Wajah 2D dari HP / foto kertas memiliki rentang kontras datar (standar deviasi terlalu rendah)
+      if (stdDev < 18) {
+        return { ok: false, reason: "Objek 2D / foto datar terdeteksi" };
+      }
+
+      // 3. Verifikasi Landmark 3D Realistis (MediaPipe Keypoints)
+      // Keypoints: 0: right eye, 1: left eye, 2: nose tip, 3: mouth center, 4: right ear tragion, 5: left ear tragion
+      if (keypoints && keypoints.length >= 4) {
+        const eyeR = keypoints[0], eyeL = keypoints[1], nose = keypoints[2], mouth = keypoints[3];
+        const eyeDist = Math.hypot((eyeR.x - eyeL.x) * video.videoWidth, (eyeR.y - eyeL.y) * video.videoHeight);
+        const eyeMidY = (eyeR.y + eyeL.y) / 2;
+        const noseToEyeY = (nose.y - eyeMidY) * video.videoHeight;
+        const mouthToNoseY = (mouth.y - nose.y) * video.videoHeight;
+
+        // Proporsi fisiologis wajah manusia asli
+        if (eyeDist < box.width * 0.18 || eyeDist > box.width * 0.65) {
+          return { ok: false, reason: "Proporsi wajah tidak wajar" };
+        }
+        if (noseToEyeY < 5 || mouthToNoseY < 5) {
+          return { ok: false, reason: "Sudut wajah terlalu miring" };
+        }
+
+        // Catat jejak mikro-gerak alami (manusia hidup selalu memiliki mikro getaran mikroskopis mata & nafas)
+        // Layar HP yang dipegang statis atau foto cetak memiliki selisih koordinat internal nol mutlak atau goyangan kaku
+        liveHistory.push({ t: now, eyeDist, noseY: nose.y, cx: box.originX + box.width / 2, cy: box.originY + box.height / 2, meanL });
+        if (liveHistory.length > 25) liveHistory.shift();
+
+        if (liveHistory.length >= 10) {
+          // Hitung variasi mikroskopis alami
+          let deltaDist = 0, deltaNose = 0;
+          for (let i = 1; i < liveHistory.length; i++) {
+            deltaDist += Math.abs(liveHistory[i].eyeDist - liveHistory[i - 1].eyeDist);
+            deltaNose += Math.abs(liveHistory[i].noseY - liveHistory[i - 1].noseY);
+          }
+          // Jika gambar benar-benar mati/statis 100% tanpa ada denyut mikroskopis/kedip
+          const totalJitter = deltaDist + deltaNose * 1000;
+          if (totalJitter < 0.0001 && liveHistory.length >= 20) {
+            return { ok: false, reason: "Gambar statis perangkat lain terdeteksi" };
+          }
+        }
+      }
+
+      return { ok: true, reason: "" };
     }
 
-    function evalFace(box, keypoints) {
+    function evalFace(box, keypoints, now) {
       const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
       const cx = (box.originX + box.width / 2) / vw, cy = (box.originY + box.height / 2) / vh;
       const ratio = box.width / vw;
-      // Toleransi posisi dan jarak yang ramah pengguna
+      
       const pos = Math.abs(cx - 0.5) < 0.16 && Math.abs(cy - 0.48) < 0.18;
-      const dist = ratio > 0.25 && ratio < 0.75;
+      const dist = ratio > 0.28 && ratio < 0.72;
 
       // Kecerahan di area wajah
       const c = document.createElement("canvas"); c.width = c.height = 32;
@@ -1145,20 +1202,27 @@
       x.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 32, 32);
       const d = x.getImageData(0, 0, 32, 32).data; let s = 0;
       for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      const lum = s / 1024, light = lum > 50 && lum < 235;
+      const lum = s / 1024, light = lum > 45 && lum < 235;
 
       let still = false;
-      if (lastBox) still = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY) < 0.06 * vw
-        && Math.abs(box.width - lastBox.width) < 0.08 * vw;
-      else still = true;
+      if (lastBox) {
+        const drift = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY);
+        still = drift < 0.05 * vw && Math.abs(box.width - lastBox.width) < 0.06 * vw;
+      } else {
+        still = true;
+      }
 
-      return { pos, dist, light, still, ratio, cx, cy, lum };
+      // Cek anti-spoofing layar & live
+      const spoof = checkScreenAndLiveness(box, keypoints, now);
+
+      return { pos, dist, light, still, liveOk: spoof.ok, reason: spoof.reason, ratio, cx, cy, lum };
     }
 
     function guideText(e) {
-      if (!e.dist) return e.ratio <= 0.25 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
+      if (!e.liveOk) return e.reason || "Posisikan wajah asli secara langsung";
+      if (!e.dist) return e.ratio <= 0.28 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
       if (!e.pos) return "Pusatkan wajah di dalam oval";
-      if (!e.light) return e.lum <= 50 ? "Terlalu gelap, cari pencahayaan" : "Terlalu terang, kurangi cahaya";
+      if (!e.light) return e.lum <= 45 ? "Terlalu gelap, cari pencahayaan" : "Terlalu terang, kurangi cahaya";
       if (!e.still) return "Tahan posisi sejenak...";
       return "Wajah terdeteksi. Tahan sebentar...";
     }
@@ -1172,24 +1236,30 @@
         try {
           const r = detector.detectForVideo(video, ts);
           if (r.detections && r.detections.length > 0) {
-            // Anti-spoofing: jika terdeteksi lebih dari 1 wajah (misal orang memegang foto berwajah lain), tolak
+            // Anti-spoofing: jika terdeteksi lebih dari 1 wajah (misal orang memegang foto/HP berwajah lain), tolak
             if (r.detections.length > 1) {
               setHint("Terdeteksi lebih dari 1 wajah! Pastikan hanya 1 orang");
               $("ring").classList.remove("ok");
+              setProg(0);
+              holdStart = 0;
               requestAnimationFrame(loop);
               return;
             }
             box = r.detections[0].boundingBox;
             keypoints = r.detections[0].keypoints;
+            lastValidDetectionTime = ts;
           }
         } catch (err) {
           box = null;
         }
       } else {
-        // Fallback oval pintar jika mediapipe offline
-        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-        const w = vw * 0.45, h = vh * 0.55;
-        box = { originX: (vw - w) / 2, originY: (vh - h) / 2, width: w, height: h };
+        // PERINGATAN KETAT: Jika MediaPipe belum siap, JANGAN pernah mengasumsikan wajah ada otomatis!
+        // Tunggu model deteksi wajah aktif agar foto sembarangan tidak bisa lolos.
+        setHint("Menyiapkan deteksi wajah cerdas...");
+        setProg(0);
+        holdStart = 0;
+        requestAnimationFrame(loop);
+        return;
       }
 
       if (state === "capturing") {
@@ -1200,21 +1270,20 @@
 
       if (!box) {
         setChk("c-face", 0); ["c-pos", "c-dist", "c-light", "c-still"].forEach(i => setChk(i, 0));
-        $("ring").classList.remove("ok"); setHint("Wajah tidak terdeteksi"); setProg(0);
-        holdStart = 0; lastBox = null; requestAnimationFrame(loop); return;
+        $("ring").classList.remove("ok"); setHint("Wajah asli tidak terdeteksi"); setProg(0);
+        holdStart = 0; lastBox = null; liveHistory = []; requestAnimationFrame(loop); return;
       }
 
-      const e = evalFace(box, keypoints);
+      const e = evalFace(box, keypoints, ts);
       setChk("c-face", 1);
-      // internal liveness check
       setChk("c-pos", e.pos);
       setChk("c-dist", e.dist);
       setChk("c-light", e.light);
-      setChk("c-still", e.still);
+      setChk("c-still", e.still && e.liveOk);
 
       lastBox = { ...box };
-      const good = e.pos && e.dist && e.light && e.still;
-      $("ring").classList.toggle("ok", e.pos && e.dist && e.light);
+      const good = e.pos && e.dist && e.light && e.still && e.liveOk;
+      $("ring").classList.toggle("ok", good);
 
       if (good) {
         if (!holdStart) holdStart = performance.now();
@@ -1293,7 +1362,7 @@
       setHint("Selesai"); setProg(0); $("ring").classList.add("ok");
       show(average(frames, "type"), average(frames, "concern"));
       $("btnRetry").style.display = "inline-block";
-      $("btnManualCap").style.display = "none";
+      if ($("btnManualCap")) $("btnManualCap").style.display = "none";
     }
 
     function show(tp, cp) {
@@ -1408,17 +1477,19 @@
     };
 
     $("btnStart").onclick = startCamera;
-    $("btnManualCap").onclick = async () => {
-      if (state === "done") return;
-      setHint("Mengambil foto...");
-      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-      const w = vw * 0.5, h = vh * 0.6;
-      const box = { originX: (vw - w) / 2, originY: (vh - h) / 2, width: w, height: h };
-      drawSnapshot(video, box);
-      const p = await infer(video, box);
-      frames = [p];
-      finish();
-    };
+    if ($("btnManualCap")) {
+      $("btnManualCap").onclick = async () => {
+        if (state === "done") return;
+        setHint("Mengambil foto...");
+        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+        const w = vw * 0.5, h = vh * 0.6;
+        const box = { originX: (vw - w) / 2, originY: (vh - h) / 2, width: w, height: h };
+        drawSnapshot(video, box);
+        const p = await infer(video, box);
+        frames = [p];
+        finish();
+      };
+    }
     $("btnRetry").onclick = () => {
       $("result").innerHTML = `<div class="empty"><b>🪞</b>Belum ada hasil.</div>`;
       $("ring").classList.remove("ok");
