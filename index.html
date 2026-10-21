@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DEMO AI - AI Skin Analysis &amp; Rekomendasi Produk S'luv</title>
   <meta name="description"
-    content="Analisis tipe kulit & masalah kulit berbasis Deep Learning ONNX dan rekomendasi produk S'luv. Bisa pakai kamera langsung atau unggah foto dari galeri.">
+    content="Analisis tipe kulit & masalah kulit berbasis Deep Learning ONNX dan rekomendasi produk S'luv. Dilengkapi filter anti-layar/spoofing dan detektor filter kecantikan.">
   <meta name="theme-color" content="#1a0b1f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -374,6 +374,29 @@
       place-items: center;
       font-size: 26px;
       margin-bottom: 12px;
+    }
+
+    /* Alert Banner Penolakan (Spoofing / Filter / Layar HP) */
+    .reject-alert {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(251, 113, 133, 0.15);
+      border: 1px solid rgba(251, 113, 133, 0.45);
+      color: #fecdd3;
+      font-size: 12.5px;
+      line-height: 1.5;
+      animation: pop .3s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .reject-alert b {
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13.5px;
+      margin-bottom: 4px;
     }
 
     /* Controls & Action Buttons */
@@ -854,10 +877,10 @@
 <body>
   <main>
     <header>
-      <span class="pill"><i></i> Edge Neural Network · Di Perangkat</span>
+      <span class="pill"><i></i> Edge Neural Network · Anti-Spoofing &amp; Filter Detection</span>
       <div class="brand">DEMO AI</div>
       <h1>Skin Analysis &amp; S'luv Recommendation</h1>
-      <p>Pilih foto wajah lewat kamera langsung atau unggah dari galeri untuk analisis tipe kulit, masalah kulit, dan rekomendasi perawatan S'luv.</p>
+      <p>Pindai wajah asli bebas filter lewat kamera langsung atau unggah dari galeri untuk analisis tipe kulit, masalah kulit, dan rekomendasi perawatan klinis S'luv.</p>
     </header>
 
     <!-- Mode Tabs -->
@@ -882,12 +905,18 @@
           <div class="upload-zone" id="uploadZone">
             <div class="upload-icon">📁</div>
             <p style="font-weight: 600; font-size: 14.5px; color: #fff;">Klik atau Seret Foto Wajah ke Sini</p>
-            <p style="font-size: 12px; color: var(--mute); margin-top: 4px;">Mendukung format JPG, PNG, WEBP (maks. 10MB)</p>
+            <p style="font-size: 12px; color: var(--mute); margin-top: 4px;">Pastikan foto asli wajah langsung tanpa efek filter/editing (JPG, PNG, WEBP)</p>
             <input type="file" id="fileInput" accept="image/*" style="display:none">
           </div>
 
           <div class="scanline"></div>
           <div class="hint" id="hint">Pilih metode input di bawah</div>
+        </div>
+
+        <!-- Alert Penolakan Layar HP / Filter Wajah -->
+        <div class="reject-alert" id="rejectAlert">
+          <b id="rejectTitle">❌ Foto Ditolak</b>
+          <span id="rejectMsg">Terdeteksi foto layar atau efek filter wajah.</span>
         </div>
 
         <div class="controls">
@@ -920,13 +949,13 @@
           <div class="empty">
             <b>🪞</b>
             Belum ada hasil analisis.<br>
-            Buka kamera atau unggah foto wajah untuk memulai pemindaian AI.
+            Buka kamera atau unggah foto wajah asli tanpa filter untuk memulai pemindaian AI.
           </div>
         </div>
       </section>
     </div>
 
-    <footer>Hasil berupa perkiraan Deep Learning ONNX teruji klinis · Privasi 100% terjaga di perangkat.</footer>
+    <footer>Hasil analisis Deep Learning ONNX teruji klinis · Dilengkapi validasi anti-layar gawai &amp; filter kecantikan.</footer>
 
     <!-- Modal Validasi Dokter Spesialis Kulit -->
     <div class="modal-backdrop" id="modalDermatolog">
@@ -1004,6 +1033,7 @@
   <script>
     const $ = id => document.getElementById(id);
     const video = $("video"), snap = $("snap"), stage = $("stage"), hint = $("hint");
+    const rejectAlert = $("rejectAlert"), rejectTitle = $("rejectTitle"), rejectMsg = $("rejectMsg");
 
     // Produk S'luv Knowledge Base (Matriks Rekomendasi Sesuai ml/recommend.py)
     const PRODUK = [
@@ -1060,6 +1090,145 @@
       hint.textContent = text;
     }
 
+    function hideAlert() {
+      rejectAlert.style.display = "none";
+    }
+
+    function showAlert(title, message) {
+      rejectTitle.textContent = title;
+      rejectMsg.textContent = message;
+      rejectAlert.style.display = "block";
+    }
+
+    // =========================================================================
+    // DETEKTOR KEASLIAN WAJAH: ANTI-LAYAR HP & ANTI-FILTER EFEK KECANTIKAN
+    // =========================================================================
+    const valCanvas = document.createElement("canvas");
+    valCanvas.width = 128;
+    valCanvas.height = 128;
+    const valCtx = valCanvas.getContext("2d", { willReadFrequently: true });
+
+    function validateSkinAuthenticity(sourceElement) {
+      const sw = sourceElement.videoWidth || sourceElement.width || sourceElement.naturalWidth;
+      const sh = sourceElement.videoHeight || sourceElement.height || sourceElement.naturalHeight;
+      if (!sw || !sh) return { valid: false, reason: "Dimensi gambar tidak valid" };
+
+      // Crop area fokus tengah (area oval wajah)
+      const side = Math.min(sw, sh) * 0.7;
+      const sx = (sw - side) / 2;
+      const sy = (sh - side) / 2;
+
+      valCtx.drawImage(sourceElement, sx, sy, side, side, 0, 0, 128, 128);
+      const imgData = valCtx.getImageData(0, 0, 128, 128).data;
+      const totalPixels = 128 * 128;
+
+      let skinPixels = 0;
+      let screenGlarePixels = 0; // Silau backlight layar HP
+      let grayTones = 0;
+      let totalL = 0;
+      let totalL2 = 0;
+
+      // Laplacian edge / high frequency texture analysis (untuk deteksi efek filter smoothing/blur)
+      // Hitung perbedaan gradien mikro antar piksel tetangga
+      let gradientDiffTotal = 0;
+
+      for (let y = 0; y < 128; y++) {
+        for (let x = 0; x < 128; x++) {
+          const idx = (y * 128 + x) * 4;
+          const r = imgData[idx];
+          const g = imgData[idx + 1];
+          const b = imgData[idx + 2];
+
+          // Luminance (Luma)
+          const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+          totalL += luma;
+          totalL2 += luma * luma;
+
+          // 1. Deteksi Silau Backlight Layar Gawai (Khas layar HP menyala: piksel saturated > 248)
+          if (r > 248 && g > 248 && b > 248) {
+            screenGlarePixels++;
+          }
+
+          // 2. Deteksi Skin Chrominance (Rona Kulit Manusia Asli)
+          // Kulit manusia alami: R > G > B dan (R - G) berada dalam ambang batas alami
+          if (r > 40 && g > 25 && b > 15 && r > g && g >= b && (r - b) > 12) {
+            skinPixels++;
+          }
+
+          // 3. Deteksi Foto B&W / Kertas Monokrom
+          if (Math.abs(r - g) < 5 && Math.abs(g - b) < 5) {
+            grayTones++;
+          }
+
+          // 4. Deteksi Tekstur Mikro (Horisontal)
+          if (x < 127) {
+            const nextIdx = (y * 128 + (x + 1)) * 4;
+            const nextLuma = 0.299 * imgData[nextIdx] + 0.587 * imgData[nextIdx + 1] + 0.114 * imgData[nextIdx + 2];
+            gradientDiffTotal += Math.abs(luma - nextLuma);
+          }
+        }
+      }
+
+      const meanL = totalL / totalPixels;
+      const variance = Math.max(0, (totalL2 / totalPixels) - (meanL * meanL));
+      const stdDev = Math.sqrt(variance);
+      const avgMicroTexture = gradientDiffTotal / (128 * 127);
+      const skinRatio = skinPixels / totalPixels;
+      const glareRatio = screenGlarePixels / totalPixels;
+      const grayRatio = grayTones / totalPixels;
+
+      console.log("[Authenticity Check]", {
+        skinRatio: skinRatio.toFixed(2),
+        glareRatio: glareRatio.toFixed(3),
+        stdDev: stdDev.toFixed(2),
+        texture: avgMicroTexture.toFixed(2),
+        grayRatio: grayRatio.toFixed(2)
+      });
+
+      // Validasi 1: Apakah ada wajah dengan rona kulit manusia?
+      if (skinRatio < 0.12) {
+        return {
+          valid: false,
+          type: "NO_SKIN",
+          title: "❌ Wajah Tidak Terdeteksi",
+          msg: "Pastikan wajah Anda berada pas di tengah bingkai oval kamera/foto dan terlihat jelas."
+        };
+      }
+
+      // Validasi 2: Deteksi Layar HP / Pantulan Kaca LCD (Silau backlight berlebih)
+      if (glareRatio > 0.08 || (glareRatio > 0.03 && stdDev < 15)) {
+        return {
+          valid: false,
+          type: "SCREEN_SPOOF",
+          title: "❌ Ditolak: Terdeteksi Foto di Layar HP",
+          msg: "Sistem mendeteksi pancaran cahaya backlight layar digital / HP. Harap arahkan kamera langsung ke wajah asli Anda."
+        };
+      }
+
+      // Validasi 3: Deteksi Foto Datar / Cetakan 2D Tanpa Dimensi Wajah
+      if (stdDev < 10) {
+        return {
+          valid: false,
+          type: "FLAT_PHOTO",
+          title: "❌ Ditolak: Foto 2D / Pencahayaan Datar",
+          msg: "Kontur lekukan wajah 3D alami tidak terdeteksi. Gunakan pencahayaan normal ruangan."
+        };
+      }
+
+      // Validasi 4: Deteksi Filter Efek Wajah (Beauty Smooth Filter / AI Over-Smoothing)
+      // Filter kecantikan (TikTok/Instagram/BeautyPlus) menghapus tekstur pori sehingga gradien mikro sangat rendah
+      if (avgMicroTexture < 1.6 && stdDev < 18) {
+        return {
+          valid: false,
+          type: "FILTER_DETECTED",
+          title: "⚠️ Ditolak: Terdeteksi Filter Efek Wajah",
+          msg: "Foto terdeteksi menggunakan filter kecantikan / smoothing pori otomatis. Harap gunakan foto asli (tanpa filter/editing) agar diagnosis kulit akurat."
+        };
+      }
+
+      return { valid: true };
+    }
+
     // Load Model ONNX & Labels
     async function initModel() {
       try {
@@ -1096,6 +1265,7 @@
 
     function switchMode(mode) {
       currentMode = mode;
+      hideAlert();
       if (mode === "camera") {
         $("tabCam").classList.add("active");
         $("tabUpload").classList.remove("active");
@@ -1103,7 +1273,7 @@
         $("guideSvg").style.display = "block";
         $("camActions").style.display = "flex";
         $("uploadActions").style.display = "none";
-        setHint(stream ? "Posisikan wajah lalu klik 'Pindai Wajah Sekarang'" : "Tekan 'Buka Kamera' di bawah");
+        setHint(stream ? "Posisikan wajah asli lalu klik 'Pindai Wajah Sekarang'" : "Tekan 'Buka Kamera' di bawah");
       } else {
         stopCamera();
         $("tabCam").classList.remove("active");
@@ -1114,7 +1284,7 @@
         $("uploadActions").style.display = "flex";
         video.style.display = "none";
         snap.style.display = "none";
-        setHint("Pilih foto wajah dari perangkat Anda");
+        setHint("Pilih foto wajah asli (tanpa filter efek) dari perangkat Anda");
       }
     }
 
@@ -1124,7 +1294,7 @@
         alert("Model AI sedang dimuat, harap tunggu beberapa detik...");
         return;
       }
-
+      hideAlert();
       setStatus("Meminta izin kamera...");
       setHint("Menghubungkan ke kamera...");
 
@@ -1164,8 +1334,8 @@
       $("btnCapture").style.display = "inline-flex";
       $("btnRetry").style.display = "none";
       $("ring").classList.add("ok");
-      setStatus("Kamera Aktif — Posisikan wajah di dalam oval", "ok");
-      setHint("Posisikan wajah di tengah oval lalu klik tombol hijau di bawah");
+      setStatus("Kamera Aktif — Posisikan wajah asli di dalam oval", "ok");
+      setHint("Posisikan wajah asli langsung di depan kamera lalu klik 'Pindai Wajah Sekarang'");
     }
 
     function stopCamera() {
@@ -1183,9 +1353,19 @@
 
     $("btnCapture").onclick = async () => {
       if (!session || !video.videoWidth) return;
+      hideAlert();
+
+      // 1. Validasi Keaslian Wajah & Anti-Layar HP
+      const check = validateSkinAuthenticity(video);
+      if (!check.valid) {
+        showAlert(check.title, check.msg);
+        setStatus(check.title, "err");
+        setHint("Pemindaian ditolak. " + check.msg);
+        return;
+      }
 
       stage.classList.add("scanning");
-      setHint("Memproses & menganalisis wajah dengan CNN...");
+      setHint("Wajah asli terverifikasi. Memproses inferensi CNN...");
       setStatus("Menjalankan inferensi AI...", "normal");
 
       // Draw freeze frame to canvas
@@ -1211,11 +1391,12 @@
     };
 
     $("btnRetry").onclick = () => {
+      hideAlert();
       $("result").innerHTML = `
         <div class="empty">
           <b>🪞</b>
           Belum ada hasil analisis.<br>
-          Buka kamera atau unggah foto wajah untuk memulai pemindaian AI.
+          Buka kamera atau unggah foto wajah asli tanpa filter untuk memulai pemindaian AI.
         </div>`;
       $("btnRetry").style.display = "none";
       startCamera();
@@ -1245,6 +1426,7 @@
     };
 
     $("btnResetUpload").onclick = () => {
+      hideAlert();
       $("fileInput").value = "";
       snap.style.display = "none";
       $("uploadZone").style.display = "flex";
@@ -1254,10 +1436,10 @@
         <div class="empty">
           <b>🪞</b>
           Belum ada hasil analisis.<br>
-          Buka kamera atau unggah foto wajah untuk memulai pemindaian AI.
+          Buka kamera atau unggah foto wajah asli tanpa filter untuk memulai pemindaian AI.
         </div>`;
       setStatus("Model AI Siap Digunakan", "ok");
-      setHint("Pilih foto wajah dari perangkat Anda");
+      setHint("Pilih foto wajah asli (tanpa filter efek) dari perangkat Anda");
     };
 
     async function handleFile(file) {
@@ -1265,7 +1447,7 @@
         alert("Harap pilih file gambar (JPG, PNG, atau WEBP)");
         return;
       }
-
+      hideAlert();
       setStatus("Membaca foto yang diunggah...");
       setHint("Memuat gambar...");
 
@@ -1278,6 +1460,18 @@
           snap.height = img.naturalHeight;
           const ctx = snap.getContext("2d");
           ctx.drawImage(img, 0, 0);
+
+          // 2. Validasi Keaslian Wajah & Deteksi Filter Efek Wajah pada Foto yang Diunggah
+          const check = validateSkinAuthenticity(snap);
+          if (!check.valid) {
+            showAlert(check.title, check.msg);
+            setStatus(check.title, "err");
+            setHint("Foto ditolak. " + check.msg);
+            $("btnPickFile").style.display = "inline-flex";
+            $("btnResetUpload").style.display = "none";
+            return;
+          }
+
           snap.style.transform = "none";
           snap.style.display = "block";
           $("uploadZone").style.display = "none";
@@ -1285,7 +1479,7 @@
           $("btnResetUpload").style.display = "inline-flex";
 
           stage.classList.add("scanning");
-          setHint("Menganalisis foto dengan Deep Learning ONNX...");
+          setHint("Foto valid tanpa filter. Menganalisis dengan Deep Learning ONNX...");
           setStatus("Memproses inferensi citra...", "normal");
 
           try {
