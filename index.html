@@ -1137,13 +1137,13 @@
       const variance = (totalSq / totalPixels) - (meanL * meanL);
       const stdDev = Math.sqrt(Math.max(0, variance));
 
-      // Layar HP yang diarahkan ke webcam memancarkan backlight berlebih
-      if (glarePixels / totalPixels > 0.15) {
-        return { ok: false, reason: "Silau layar HP / perangkat lain terdeteksi" };
+      // Layar HP yang diarahkan ke webcam memancarkan backlight berlebih atau moiré
+      if (glarePixels / totalPixels > 0.35) {
+        return { ok: false, reason: "Silau berlebih pada wajah / layar terdeteksi" };
       }
 
       // Foto cetak / layar low-contrast datar
-      if (stdDev < 16) {
+      if (stdDev < 10) {
         return { ok: false, reason: "Foto 2D / layar datar terdeteksi" };
       }
 
