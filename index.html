@@ -302,7 +302,7 @@
     .prog {
       fill: none;
       stroke: url(#gradOk);
-      stroke-width: 4.5;
+      stroke-width: 5;
       stroke-linecap: round;
       transition: stroke-dasharray .1s linear;
       filter: drop-shadow(0 0 8px rgba(74, 222, 128, .8));
@@ -463,17 +463,6 @@
     .btn-main:hover {
       transform: translateY(-2px);
       box-shadow: 0 14px 30px rgba(142, 47, 148, .6);
-    }
-
-    .btn-action {
-      background: var(--grad-action);
-      color: #fff;
-      box-shadow: 0 10px 24px rgba(16, 185, 129, .35);
-    }
-
-    .btn-action:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 14px 30px rgba(16, 185, 129, .5);
     }
 
     .btn-ghost {
@@ -1120,7 +1109,7 @@
     const REQUIRED_HOLD_TIME = 1000; // 1 detik posisi pas & verified
     let animFrameId = null;
 
-    // Riwayat frame untuk Liveness Detection (Mencegah Layar HP / Foto Diam)
+    // Riwayat frame untuk Liveness Detection
     let previousLumaFrame = null;
     let motionHistory = [];
 
@@ -1148,11 +1137,11 @@
     }
 
     // =========================================================================
-    // DETEKTOR REAL-TIME: KULIT WAJAH ASLI & ANTI-LAYAR HP & ANTI-FILTER
+    // DETEKTOR REAL-TIME: ANTI-LAYAR HP (BEZEL & RECTANGLE) + LIVENESS + FILTER
     // =========================================================================
     const valCanvas = document.createElement("canvas");
-    valCanvas.width = 64;
-    valCanvas.height = 64;
+    valCanvas.width = 96;
+    valCanvas.height = 96;
     const valCtx = valCanvas.getContext("2d", { willReadFrequently: true });
 
     function analyzeCurrentFrame(sourceElement) {
@@ -1160,13 +1149,34 @@
       const sh = sourceElement.videoHeight || sourceElement.height || sourceElement.naturalHeight;
       if (!sw || !sh) return { ok: false, reason: "Menunggu video feed...", code: "NO_FEED" };
 
-      // Sample fokus oval tengah (dahi, hidung, pipi)
-      const side = Math.min(sw, sh) * 0.55;
-      const sx = (sw - side) / 2;
-      const sy = (sh - side) / 2;
+      // Sample seluruh frame untuk mendeteksi bezel HP & area tengah oval wajah
+      valCtx.drawImage(sourceElement, 0, 0, 96, 96);
+      const fullImg = valCtx.getImageData(0, 0, 96, 96).data;
 
-      valCtx.drawImage(sourceElement, sx, sy, side, side, 0, 0, 64, 64);
-      const imgData = valCtx.getImageData(0, 0, 64, 64).data;
+      // 1. DETEKSI BINGKAI LAYAR HP (Phone Bezel / Device Edge Detection)
+      // Layar HP selalu menampilkan kontras tajam persegi panjang (garis lurus gelap bezel vs layar menyala)
+      let borderHighContrastEdges = 0;
+      for (let y = 8; y < 88; y += 4) {
+        for (let x = 8; x < 88; x += 4) {
+          // Hanya cek di sekeliling tepi luar (sekitar 15-25% dari tepi)
+          if (x < 24 || x > 72 || y < 24 || y > 72) {
+            const idx = (y * 96 + x) * 4;
+            const luma1 = 0.299 * fullImg[idx] + 0.587 * fullImg[idx + 1] + 0.114 * fullImg[idx + 2];
+            const nextIdx = (y * 96 + (x + 2)) * 4;
+            const luma2 = 0.299 * fullImg[nextIdx] + 0.587 * fullImg[nextIdx + 1] + 0.114 * fullImg[nextIdx + 2];
+            if (Math.abs(luma1 - luma2) > 65) {
+              borderHighContrastEdges++;
+            }
+          }
+        }
+      }
+
+      // 2. SAMPLE AREA OVAL WAJAH (Tengah Frame)
+      const centerSide = Math.min(sw, sh) * 0.55;
+      const csx = (sw - centerSide) / 2;
+      const csy = (sh - centerSide) / 2;
+      valCtx.drawImage(sourceElement, csx, csy, centerSide, centerSide, 0, 0, 64, 64);
+      const faceImg = valCtx.getImageData(0, 0, 64, 64).data;
       const totalPixels = 64 * 64;
 
       let skinPixels = 0;
@@ -1174,34 +1184,31 @@
       let totalL = 0;
       let totalL2 = 0;
       let gradDiff = 0;
-
-      // Array luminance untuk liveness motion comparison
       const currentLuma = new Float32Array(totalPixels);
 
       for (let y = 0; y < 64; y++) {
         for (let x = 0; x < 64; x++) {
           const idx = (y * 64 + x) * 4;
-          const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2];
+          const r = faceImg[idx], g = faceImg[idx + 1], b = faceImg[idx + 2];
           const luma = 0.299 * r + 0.587 * g + 0.114 * b;
           currentLuma[y * 64 + x] = luma;
 
           totalL += luma;
           totalL2 += luma * luma;
 
-          // 1. Silau backlight tajam khas layar HP (piksel saturated > 245)
-          if (r > 245 && g > 245 && b > 245) {
+          // Backlight layar digital tajam
+          if (r > 240 && g > 240 && b > 240) {
             screenGlarePixels++;
           }
 
-          // 2. Rona kulit manusia alami (R > G > B & rasio alami)
+          // Rona kulit manusia alami
           if (r > 40 && g > 25 && b > 15 && r > g && g >= b && (r - b) > 10) {
             skinPixels++;
           }
 
-          // 3. Tekstur mikro (gradien antar piksel tetangga)
           if (x < 63) {
             const nextIdx = (y * 64 + (x + 1)) * 4;
-            const nextL = 0.299 * imgData[nextIdx] + 0.587 * imgData[nextIdx + 1] + 0.114 * imgData[nextIdx + 2];
+            const nextL = 0.299 * faceImg[nextIdx] + 0.587 * faceImg[nextIdx + 1] + 0.114 * faceImg[nextIdx + 2];
             gradDiff += Math.abs(luma - nextL);
           }
         }
@@ -1214,7 +1221,7 @@
       const skinRatio = skinPixels / totalPixels;
       const glareRatio = screenGlarePixels / totalPixels;
 
-      // 4. Liveness Micro-Motion Check (Membedakan manusia hidup vs gambar diam di layar HP)
+      // 3. Liveness Motion Tracking
       let motionScore = 0;
       if (previousLumaFrame) {
         let diffSum = 0;
@@ -1225,44 +1232,51 @@
       }
       previousLumaFrame = currentLuma;
 
-      // Catat motion history (5 frame terakhir)
       motionHistory.push(motionScore);
       if (motionHistory.length > 8) motionHistory.shift();
-
-      // Cek apakah gambar sama sekali tidak bergerak (khas HP ditaruh atau foto diam)
       const avgMotion = motionHistory.reduce((a, b) => a + b, 0) / (motionHistory.length || 1);
 
-      // Evaluasi Kualitas & Anti-Spoofing:
-      // A. Wajah belum masuk oval
-      if (skinRatio < 0.18) {
-        return { ok: false, reason: "Arahkan wajah pas ke dalam oval", code: "POSITION" };
-      }
+      // --- EVALUASI PENOLAKAN ANTI-SPOOFING & ANTI-FILTER ---
 
-      // B. Terlalu gelap atau terlalu silau
-      if (meanL < 30) {
-        return { ok: false, reason: "Pencahayaan kurang, cari tempat lebih terang", code: "DARK" };
-      }
-
-      // C. Terdeteksi layar HP (backlight glare tajam)
-      if (glareRatio > 0.05 || (glareRatio > 0.02 && stdDev < 15)) {
+      // A. Deteksi Bezel Layar HP / Kotak Layar Perangkat Lain
+      if (borderHighContrastEdges > 28) {
         return {
           ok: false,
-          reason: "❌ Ditolak: Terdeteksi pantulan layar HP / monitor",
+          reason: "❌ Ditolak: Terdeteksi bingkai layar HP / perangkat lain",
           code: "SCREEN_SPOOF"
         };
       }
 
-      // D. Terdeteksi foto 2D datar / kertas
-      if (stdDev < 11) {
+      // B. Wajah belum pas di oval
+      if (skinRatio < 0.20) {
+        return { ok: false, reason: "Arahkan wajah pas ke dalam bingkai oval", code: "POSITION" };
+      }
+
+      // C. Pencahayaan
+      if (meanL < 30) {
+        return { ok: false, reason: "Pencahayaan kurang, cari tempat lebih terang", code: "DARK" };
+      }
+
+      // D. Silau Backlight Layar Gawai
+      if (glareRatio > 0.04 || (glareRatio > 0.015 && stdDev < 16)) {
         return {
           ok: false,
-          reason: "❌ Ditolak: Terdeteksi foto 2D / permukaan datar",
+          reason: "❌ Ditolak: Terdeteksi pantulan cahaya layar HP",
+          code: "SCREEN_SPOOF"
+        };
+      }
+
+      // E. Permukaan Foto 2D Datar
+      if (stdDev < 12) {
+        return {
+          ok: false,
+          reason: "❌ Ditolak: Terdeteksi foto 2D / gambar datar",
           code: "FLAT_PHOTO"
         };
       }
 
-      // E. Terdeteksi filter kecantikan / beauty smoothing yang menghilangkan pori
-      if (avgGrad < 1.3 && stdDev < 16) {
+      // F. Filter Kecantikan / Beauty Smoothing
+      if (avgGrad < 1.35 && stdDev < 17) {
         return {
           ok: false,
           reason: "⚠️ Ditolak: Terdeteksi filter efek wajah / smoothing",
@@ -1270,17 +1284,17 @@
         };
       }
 
-      // F. Verifikasi Wajah Hidup (Liveness): Menolak jika gambar 100% beku/mati (layar HP diam)
-      if (motionHistory.length >= 6 && avgMotion < 0.15) {
+      // G. Gambar Diam / Layar HP Beku
+      if (motionHistory.length >= 6 && avgMotion < 0.20) {
         return {
           ok: false,
-          reason: "⚠️ Wajah tidak bergerak. Kedipkan mata / gerakkan kepala sedikit",
+          reason: "⚠️ Wajah tidak bergerak. Kedipkan mata di depan kamera",
           code: "STILL_SPOOF"
         };
       }
 
-      // Semua syarat terpenuhi! Wajah asli, hidup, dan berada di oval
-      return { ok: true, reason: "Wajah asli terdeteksi! Tahan sebentar...", code: "VALID" };
+      // Wajah asli manusia hidup terkonfirmasi!
+      return { ok: true, reason: "Wajah asli terverifikasi! Tahan sebentar...", code: "VALID" };
     }
 
     // Load Model ONNX & Labels
