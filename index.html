@@ -1092,13 +1092,7 @@
       frames = [];
       holdStart = 0;
       lastBox = null;
-      livenessPassed = false;
-      livenessStep = "blink";
-      blinkDetected = false;
-      nodDetected = false;
-      baselineEyeDist = null;
-      baselineY = null;
-      spoofCheckPassed = false;
+      resetLiveness();
       // reset
       setHint("Arahkan wajah asli ke oval panduan");
       logStatus("Kamera live aktif. Sistem memverifikasi wajah asli.");
@@ -1107,21 +1101,32 @@
 
     function stopCamera() { stream?.getTracks().forEach(t => t.stop()); }
 
-    // Analisis anti-spoofing: menolak pantulan layar ponsel, foto galeri statis, dan kertas foto
+    // Analisis anti-spoofing ketat: Wajib verifikasi Wajah Hidup (Liveness)
     const testCanvas = document.createElement("canvas");
     testCanvas.width = 64; testCanvas.height = 64;
     const testCtx = testCanvas.getContext("2d", { willReadFrequently: true });
 
-    let liveHistory = []; // buffer frame untuk uji dinamika mikro wajah hidup vs foto statis
-    let lastValidDetectionTime = 0;
+    let livenessPassed = false;
+    let blinkDetected = false;
+    let nodDetected = false;
+    let eyeRatioHistory = [];
+    let initialFaceState = null;
+
+    function resetLiveness() {
+      livenessPassed = false;
+      blinkDetected = false;
+      nodDetected = false;
+      eyeRatioHistory = [];
+      initialFaceState = null;
+    }
 
     function checkScreenAndLiveness(box, keypoints, now) {
       if (!box || box.width < 20 || box.height < 20) return { ok: false, reason: "Wajah tidak valid" };
 
-      // 1. Uji Spekularitas & Saturasi Ekstrem (Layar HP cenderung memiliki piksel RGB putih jenuh / glare atau distorsi warna backlight)
+      // 1. Uji Layar HP / Pantulan Glare & Saturasi Cahaya Layar
       testCtx.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 64, 64);
       const imgData = testCtx.getImageData(0, 0, 64, 64).data;
-      let totalL = 0, totalSq = 0, glarePixels = 0, deadBlackPixels = 0;
+      let totalL = 0, totalSq = 0, glarePixels = 0;
       const totalPixels = 64 * 64;
 
       for (let i = 0; i < imgData.length; i += 4) {
@@ -1129,60 +1134,69 @@
         const l = 0.299 * r + 0.587 * g + 0.114 * b;
         totalL += l;
         totalSq += l * l;
-        if (r > 248 && g > 248 && b > 248) glarePixels++;
-        if (r < 10 && g < 10 && b < 10) deadBlackPixels++;
+        if (r > 240 && g > 240 && b > 240) glarePixels++;
       }
 
       const meanL = totalL / totalPixels;
       const variance = (totalSq / totalPixels) - (meanL * meanL);
       const stdDev = Math.sqrt(Math.max(0, variance));
 
-      // Layar HP yang diarahkan ke webcam sering memantulkan glare layar / moire
-      const glareRatio = glarePixels / totalPixels;
-      if (glareRatio > 0.18) {
-        return { ok: false, reason: "Silau pantulan layar terdeteksi" };
+      // Layar HP yang diarahkan ke webcam memancarkan backlight berlebih
+      if (glarePixels / totalPixels > 0.15) {
+        return { ok: false, reason: "Silau layar HP / perangkat lain terdeteksi" };
       }
 
-      // 2. Wajah 2D dari HP / foto kertas memiliki rentang kontras datar (standar deviasi terlalu rendah)
-      if (stdDev < 18) {
-        return { ok: false, reason: "Objek 2D / foto datar terdeteksi" };
+      // Foto cetak / layar low-contrast datar
+      if (stdDev < 16) {
+        return { ok: false, reason: "Foto 2D / layar datar terdeteksi" };
       }
 
-      // 3. Verifikasi Landmark 3D Realistis (MediaPipe Keypoints)
-      // Keypoints: 0: right eye, 1: left eye, 2: nose tip, 3: mouth center, 4: right ear tragion, 5: left ear tragion
+      // 2. Verifikasi Liveness Dinamis Wajah Hidup Asli (Blink / Gerakan Alami)
+      // Keypoints: 0: right eye, 1: left eye, 2: nose tip, 3: mouth center
       if (keypoints && keypoints.length >= 4) {
         const eyeR = keypoints[0], eyeL = keypoints[1], nose = keypoints[2], mouth = keypoints[3];
         const eyeDist = Math.hypot((eyeR.x - eyeL.x) * video.videoWidth, (eyeR.y - eyeL.y) * video.videoHeight);
         const eyeMidY = (eyeR.y + eyeL.y) / 2;
-        const noseToEyeY = (nose.y - eyeMidY) * video.videoHeight;
-        const mouthToNoseY = (mouth.y - nose.y) * video.videoHeight;
+        const noseToEyeDist = Math.abs(nose.y - eyeMidY) * video.videoHeight;
+        const currentRatio = noseToEyeDist / (eyeDist || 1);
 
-        // Proporsi fisiologis wajah manusia asli
-        if (eyeDist < box.width * 0.18 || eyeDist > box.width * 0.65) {
-          return { ok: false, reason: "Proporsi wajah tidak wajar" };
-        }
-        if (noseToEyeY < 5 || mouthToNoseY < 5) {
-          return { ok: false, reason: "Sudut wajah terlalu miring" };
+        if (!initialFaceState) {
+          initialFaceState = { eyeDist, currentRatio, eyeR_y: eyeR.y, eyeL_y: eyeL.y, startT: now };
         }
 
-        // Catat jejak mikro-gerak alami (manusia hidup selalu memiliki mikro getaran mikroskopis mata & nafas)
-        // Layar HP yang dipegang statis atau foto cetak memiliki selisih koordinat internal nol mutlak atau goyangan kaku
-        liveHistory.push({ t: now, eyeDist, noseY: nose.y, cx: box.originX + box.width / 2, cy: box.originY + box.height / 2, meanL });
-        if (liveHistory.length > 25) liveHistory.shift();
+        eyeRatioHistory.push({ t: now, eyeDist, ratio: currentRatio, eyeR_y: eyeR.y, eyeL_y: eyeL.y });
+        if (eyeRatioHistory.length > 30) eyeRatioHistory.shift();
 
-        if (liveHistory.length >= 10) {
-          // Hitung variasi mikroskopis alami
-          let deltaDist = 0, deltaNose = 0;
-          for (let i = 1; i < liveHistory.length; i++) {
-            deltaDist += Math.abs(liveHistory[i].eyeDist - liveHistory[i - 1].eyeDist);
-            deltaNose += Math.abs(liveHistory[i].noseY - liveHistory[i - 1].noseY);
+        // Deteksi Kedip Mata Asli (Eye Blink Detection):
+        // Saat manusia berkedip, posisi kelopak mata / keypoint mata bergeser sesaat lalu kembali normal.
+        // Foto di HP tidak pernah berkedip.
+        const dR = Math.abs(eyeR.y - initialFaceState.eyeR_y);
+        const dL = Math.abs(eyeL.y - initialFaceState.eyeL_y);
+        if (dR > 0.012 || dL > 0.012) {
+          blinkDetected = true;
+        }
+
+        // Variasi rasio 3D perspektif: foto datar di HP yang digerakkan akan mengubah seluruh bidang sekaligus,
+        // sedangkan kepala manusia hidup memiliki pergeseran kedalaman (depth parallax).
+        if (eyeRatioHistory.length >= 15) {
+          let minR = 999, maxR = -999;
+          for (const h of eyeRatioHistory) {
+            if (h.ratio < minR) minR = h.ratio;
+            if (h.ratio > maxR) maxR = h.ratio;
           }
-          // Jika gambar benar-benar mati/statis 100% tanpa ada denyut mikroskopis/kedip
-          const totalJitter = deltaDist + deltaNose * 1000;
-          if (totalJitter < 0.0001 && liveHistory.length >= 20) {
-            return { ok: false, reason: "Gambar statis perangkat lain terdeteksi" };
+          const ratioDiff = maxR - minR;
+
+          // Hanya lolos jika terbukti ada kedipan mata atau perubahan perspektif wajah hidup yang signifikan
+          if (blinkDetected || ratioDiff > 0.055) {
+            livenessPassed = true;
           }
         }
+
+        if (!livenessPassed) {
+          return { ok: false, reason: "Kedipkan mata untuk verifikasi wajah asli" };
+        }
+      } else {
+        return { ok: false, reason: "Fitur wajah tidak lengkap" };
       }
 
       return { ok: true, reason: "" };
@@ -1219,7 +1233,7 @@
     }
 
     function guideText(e) {
-      if (!e.liveOk) return e.reason || "Posisikan wajah asli secara langsung";
+      if (!e.liveOk) return e.reason || "Wajah hidup asli belum terverifikasi";
       if (!e.dist) return e.ratio <= 0.28 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
       if (!e.pos) return "Pusatkan wajah di dalam oval";
       if (!e.light) return e.lum <= 45 ? "Terlalu gelap, cari pencahayaan" : "Terlalu terang, kurangi cahaya";
