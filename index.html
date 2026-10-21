@@ -1,1797 +1,391 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DEMO AI - AI Skin Analysis &amp; Rekomendasi Produk S'luv</title>
-  <meta name="description"
-    content="Auto-scan tipe kulit & masalah kulit berbasis Deep Learning ONNX dan rekomendasi produk S'luv. Dilengkapi verifikasi wajah hidup (liveness detection) anti-layar HP.">
-  <meta name="theme-color" content="#1a0b1f">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap"
-    rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
-  <style>
-    :root {
-      --bg: #14091a;
-      --bg2: #210d29;
-      --panel: rgba(255, 255, 255, .06);
-      --panel-strong: rgba(255, 255, 255, .1);
-      --line: rgba(255, 255, 255, .14);
-      --txt: #f8eefb;
-      --mute: #bca1c6;
-      --ok: #4ade80;
-      --warn: #fbbf24;
-      --bad: #fb7185;
-      --a1: #c26bd0;
-      --a2: #f0b6ff;
-      --plum: #7a2a7e;
-      --lilac: rgba(194, 107, 208, .16);
-      --grad: linear-gradient(135deg, #8e2f94 0%, #c26bd0 55%, #f0b6ff 100%);
-      --grad-action: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: 'Outfit', system-ui, sans-serif;
-      color: var(--txt);
-      min-height: 100vh;
-      background: var(--bg);
-      padding: 24px 16px 40px;
-      overflow-x: hidden;
-      position: relative;
-    }
-
-    /* Orb dekoratif */
-    body::before,
-    body::after {
-      content: "";
-      position: fixed;
-      width: 500px;
-      height: 500px;
-      border-radius: 50%;
-      filter: blur(120px);
-      opacity: .45;
-      z-index: 0;
-      pointer-events: none;
-      animation: float 14s ease-in-out infinite alternate;
-    }
-
-    body::before {
-      background: #8e2f94;
-      top: -160px;
-      left: -140px;
-    }
-
-    body::after {
-      background: #4b2a9a;
-      bottom: -180px;
-      right: -120px;
-      animation-delay: -6s;
-    }
-
-    @keyframes float {
-      to {
-        transform: translate(50px, 40px) scale(1.1);
-      }
-    }
-
-    main {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 1160px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    /* ---------- Header ---------- */
-    header {
-      text-align: center;
-      padding-top: 4px;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11.5px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: var(--a2);
-      padding: 6px 16px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      backdrop-filter: blur(10px);
-    }
-
-    .pill i {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--ok);
-      box-shadow: 0 0 10px var(--ok);
-      animation: pulse 1.8s infinite;
-    }
-
-    @keyframes pulse {
-      50% {
-        opacity: .35;
-        transform: scale(.7);
-      }
-    }
-
-    .brand {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(38px, 6vw, 68px);
-      font-weight: 700;
-      line-height: 1.05;
-      margin-top: 14px;
-      letter-spacing: 1px;
-      background: linear-gradient(120deg, #fff 10%, var(--a2) 45%, var(--a1) 90%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    h1 {
-      font-size: clamp(14px, 1.8vw, 17px);
-      font-weight: 400;
-      letter-spacing: 5px;
-      text-transform: uppercase;
-      color: var(--a2);
-      margin-top: 4px;
-    }
-
-    header p {
-      color: var(--mute);
-      font-size: 14px;
-      margin: 10px auto 0;
-      max-width: 600px;
-      line-height: 1.6;
-    }
-
-    /* ---------- Mode Selector Tabs ---------- */
-    .tab-bar {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 4px;
-    }
-
-    .tab-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, .05);
-      color: var(--mute);
-      font-size: 13.5px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all .25s ease;
-    }
-
-    .tab-btn:hover {
-      background: rgba(255, 255, 255, .1);
-      color: #fff;
-    }
-
-    .tab-btn.active {
-      background: var(--lilac);
-      border-color: var(--a1);
-      color: #fff;
-      box-shadow: 0 0 16px rgba(194, 107, 208, .35);
-    }
-
-    /* ---------- Grid Layout ---------- */
-    .grid {
-      display: grid;
-      grid-template-columns: 1.15fr 1fr;
-      gap: 20px;
-      align-items: stretch;
-    }
-
-    @media (max-width: 880px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 26px;
-      padding: 20px;
-      backdrop-filter: blur(22px);
-      -webkit-backdrop-filter: blur(22px);
-      box-shadow: 0 30px 60px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .1);
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* ---------- Stage Visualizer ---------- */
-    .stage {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 4/3;
-      max-height: 380px;
-      border-radius: 20px;
-      overflow: hidden;
-      background: radial-gradient(circle at 50% 40%, #35163f, #100617);
-      border: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    video,
-    #snap {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    video {
-      transform: scaleX(-1);
-    }
-
-    #snap {
-      display: none;
-    }
-
-    .stage::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: radial-gradient(ellipse 40% 50% at 50% 50%, transparent 55%, rgba(16, 6, 23, .65) 100%);
-    }
-
-    /* Guide Oval & Progress Ring */
-    svg.guide {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    .ring {
-      fill: none;
-      stroke: rgba(255, 255, 255, .6);
-      stroke-width: 2.5;
-      stroke-dasharray: 8 8;
-      transition: stroke .25s;
-    }
-
-    .ring.ok {
-      stroke: var(--ok);
-      stroke-dasharray: none;
-      filter: drop-shadow(0 0 10px rgba(74, 222, 128, .6));
-    }
-
-    .ring.warn {
-      stroke: var(--bad);
-      stroke-dasharray: none;
-      filter: drop-shadow(0 0 10px rgba(251, 113, 133, .7));
-    }
-
-    .prog {
-      fill: none;
-      stroke: url(#gradOk);
-      stroke-width: 5;
-      stroke-linecap: round;
-      transition: stroke-dasharray .1s linear;
-      filter: drop-shadow(0 0 8px rgba(74, 222, 128, .8));
-    }
-
-    /* Scan line animation */
-    .scanline {
-      display: none;
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, transparent, #5eead4 50%, transparent);
-      box-shadow: 0 0 16px #5eead4;
-      z-index: 3;
-    }
-
-    .stage.scanning .scanline {
-      display: block;
-      animation: sweep 1.2s ease-in-out infinite alternate;
-    }
-
-    @keyframes sweep {
-      from {
-        top: 15%;
-      }
-      to {
-        top: 85%;
-      }
-    }
-
-    /* Hint Overlay */
-    .hint {
-      position: absolute;
-      bottom: 14px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(16, 7, 22, .9);
-      border: 1px solid var(--line);
-      padding: 7px 18px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--txt);
-      z-index: 3;
-      white-space: nowrap;
-      pointer-events: none;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, .4);
-      transition: all .2s;
-    }
-
-    .hint.error {
-      background: rgba(225, 29, 72, .9);
-      border-color: #fb7185;
-      color: #fff;
-    }
-
-    /* Upload Drop Zone */
-    .upload-zone {
-      display: none;
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      inset: 0;
-      z-index: 4;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-      cursor: pointer;
-      background: rgba(20, 9, 27, .92);
-      border: 2px dashed rgba(194, 107, 208, .5);
-      border-radius: 20px;
-      transition: all .25s ease;
-    }
-
-    .upload-zone:hover,
-    .upload-zone.dragover {
-      background: rgba(35, 14, 45, .96);
-      border-color: var(--a2);
-    }
-
-    .upload-icon {
-      width: 58px;
-      height: 58px;
-      border-radius: 50%;
-      background: var(--lilac);
-      border: 1px solid var(--a1);
-      display: grid;
-      place-items: center;
-      font-size: 26px;
-      margin-bottom: 12px;
-    }
-
-    /* Alert Banner Penolakan */
-    .reject-alert {
-      display: none;
-      margin-top: 12px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(251, 113, 133, 0.15);
-      border: 1px solid rgba(251, 113, 133, 0.45);
-      color: #fecdd3;
-      font-size: 12.5px;
-      line-height: 1.5;
-      animation: pop .3s cubic-bezier(.2, .8, .2, 1);
-    }
-
-    .reject-alert b {
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13.5px;
-      margin-bottom: 4px;
-    }
-
-    /* Controls & Action Buttons */
-    .controls {
-      margin-top: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .action-row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      appearance: none;
-      border: 0;
-      cursor: pointer;
-      font-family: inherit;
-      font-weight: 600;
-      border-radius: 14px;
-      padding: 13px 22px;
-      font-size: 14px;
-      transition: all .2s cubic-bezier(.2, .8, .2, 1);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      text-decoration: none;
-    }
-
-    .btn-main {
-      flex: 1;
-      min-width: 180px;
-      background: var(--grad);
-      color: #fff;
-      box-shadow: 0 10px 24px rgba(142, 47, 148, .45);
-    }
-
-    .btn-main:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 14px 30px rgba(142, 47, 148, .6);
-    }
-
-    .btn-ghost {
-      background: rgba(255, 255, 255, .08);
-      color: var(--txt);
-      border: 1px solid var(--line);
-    }
-
-    .btn-ghost:hover {
-      background: rgba(255, 255, 255, .15);
-      transform: translateY(-2px);
-    }
-
-    /* Live status badge */
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 14px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, .04);
-      border: 1px solid var(--line);
-      font-size: 12.5px;
-      color: var(--mute);
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--warn);
-      flex-shrink: 0;
-    }
-
-    .status-dot.ok {
-      background: var(--ok);
-      box-shadow: 0 0 8px var(--ok);
-    }
-
-    .status-dot.err {
-      background: var(--bad);
-      box-shadow: 0 0 8px var(--bad);
-    }
-
-    /* ---------- Hasil Section ---------- */
-    .res-card {
-      justify-content: flex-start;
-      overflow-y: auto;
-      max-height: 640px;
-    }
-
-    .res-card::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .res-card::-webkit-scrollbar-thumb {
-      background: var(--a1);
-      border-radius: 6px;
-    }
-
-    h2 {
-      font-family: 'Playfair Display', serif;
-      font-size: 23px;
-      font-weight: 600;
-      margin-bottom: 2px;
-    }
-
-    .sub {
-      color: var(--mute);
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-
-    .empty {
-      color: var(--mute);
-      text-align: center;
-      padding: 48px 14px;
-      line-height: 1.6;
-      font-size: 14px;
-    }
-
-    .empty b {
-      display: grid;
-      place-items: center;
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 12px;
-      font-size: 32px;
-      border-radius: 50%;
-      background: var(--lilac);
-      border: 1px dashed var(--a1);
-      animation: bob 3s ease-in-out infinite;
-    }
-
-    @keyframes bob {
-      50% {
-        transform: translateY(-5px);
-      }
-    }
-
-    .sec {
-      font-size: 11.5px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: var(--a2);
-      margin: 16px 0 6px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .sec::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, var(--line), transparent);
-    }
-
-    .bar {
-      margin: 8px 0 10px;
-    }
-
-    .bar .l {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13.5px;
-      color: var(--mute);
-      margin-bottom: 4px;
-    }
-
-    .bar .t {
-      height: 8px;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, .08);
-      overflow: hidden;
-    }
-
-    .bar .f {
-      height: 100%;
-      width: 0;
-      border-radius: 8px;
-      background: linear-gradient(90deg, #6d2a78, var(--a1));
-      transition: width .9s cubic-bezier(.2, .8, .2, 1);
-    }
-
-    .bar.top .l {
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .bar.top .f {
-      background: var(--grad);
-      box-shadow: 0 0 12px rgba(194, 107, 208, .5);
-    }
-
-    .tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
-      margin-top: 5px;
-    }
-
-    .tag {
-      padding: 6px 13px;
-      border-radius: 999px;
-      font-weight: 500;
-      font-size: 12.5px;
-      background: var(--lilac);
-      border: 1px solid rgba(194, 107, 208, .5);
-      color: var(--a2);
-    }
-
-    .tag.good {
-      background: rgba(74, 222, 128, .1);
-      border-color: rgba(74, 222, 128, .4);
-      color: var(--ok);
-    }
-
-    .rec {
-      position: relative;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 13px 15px;
-      margin-top: 10px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, .08), rgba(194, 107, 208, .12));
-      animation: pop .55s cubic-bezier(.2, .8, .2, 1) both;
-      transition: transform .2s, border-color .2s;
-    }
-
-    .rec:hover {
-      transform: translateY(-2px);
-      border-color: var(--a1);
-    }
-
-    .rec:first-of-type {
-      border-color: rgba(240, 182, 255, .5);
-    }
-
-    .rec .n {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-weight: 600;
-      color: #fff;
-      font-size: 14.5px;
-      line-height: 1.35;
-    }
-
-    .rec .n em {
-      font-style: normal;
-      font-size: 10.5px;
-      letter-spacing: .5px;
-      background: var(--grad);
-      color: #fff;
-      border-radius: 999px;
-      padding: 3px 9px;
-      white-space: nowrap;
-      align-self: flex-start;
-    }
-
-    .rec p {
-      font-size: 12px;
-      color: var(--mute);
-      margin-top: 5px;
-      line-height: 1.5;
-    }
-
-    .rec b {
-      color: var(--a2);
-      font-weight: 600;
-    }
-
-    @keyframes pop {
-      from {
-        opacity: 0;
-        transform: translateY(12px) scale(.98);
-      }
-    }
-
-    .note {
-      font-size: 11.5px;
-      color: var(--mute);
-      margin-top: 14px;
-      line-height: 1.5;
-      padding: 10px 14px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, .04);
-      border: 1px solid var(--line);
-    }
-
-    .note.warn {
-      background: rgba(251, 191, 36, .1);
-      border-color: rgba(251, 191, 36, .35);
-      color: var(--warn);
-    }
-
-    footer {
-      text-align: center;
-      color: var(--mute);
-      font-size: 12px;
-      padding-top: 4px;
-    }
-
-    /* Modal Validasi Dokter */
-    .modal-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(10, 4, 15, .8);
-      backdrop-filter: blur(8px);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-
-    .modal-backdrop.active {
-      display: flex;
-    }
-
-    .modal-box {
-      background: #1e0d27;
-      border: 1px solid var(--a1);
-      border-radius: 24px;
-      width: 100%;
-      max-width: 580px;
-      padding: 24px;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, .6);
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 16px;
-      border-bottom: 1px solid var(--line);
-      padding-bottom: 12px;
-    }
-
-    .modal-head h3 {
-      font-family: 'Playfair Display', serif;
-      font-size: 18px;
-      margin: 0;
-      color: var(--txt);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .modal-head p {
-      font-size: 12px;
-      color: var(--mute);
-      margin-top: 3px;
-    }
-
-    .btn-close {
-      background: transparent;
-      border: 0;
-      color: var(--mute);
-      font-size: 22px;
-      cursor: pointer;
-      padding: 2px 6px;
-    }
-
-    .btn-close:hover {
-      color: #fff;
-    }
-
-    .form-group {
-      margin-bottom: 13px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #f5d0fe;
-      margin-bottom: 5px;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 10px 13px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      background: rgba(19, 9, 26, 0.7);
-      color: var(--txt);
-      font-family: inherit;
-      font-size: 13px;
-      outline: none;
-      transition: border-color .2s;
-    }
-
-    .form-control:focus {
-      border-color: var(--a1);
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .val-card {
-      background: rgba(74, 222, 128, 0.08);
-      border: 1px solid rgba(74, 222, 128, 0.35);
-      border-radius: 16px;
-      padding: 13px 15px;
-      margin-top: 12px;
-    }
-
-    .val-card.pending {
-      background: rgba(251, 191, 36, 0.08);
-      border-color: rgba(251, 191, 36, 0.35);
-    }
-
-    .val-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 6px;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .val-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      padding: 3px 8px;
-      border-radius: 6px;
-    }
-
-    .val-badge.verified {
-      background: rgba(74, 222, 128, 0.2);
-      color: var(--ok);
-    }
-
-    .val-badge.waiting {
-      background: rgba(251, 191, 36, 0.2);
-      color: var(--warn);
-    }
-
-    .val-meta {
-      font-size: 11.5px;
-      color: var(--mute);
-      line-height: 1.6;
-    }
-
-    .val-meta b {
-      color: var(--txt);
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEMO AI - Analisis Kulit &amp; Rekomendasi Produk S'luv</title>
+<meta name="description" content="Analisis tipe dan masalah kulit berbasis ONNX dengan verifikasi wajah hidup (liveness challenge).">
+<meta name="theme-color" content="#1a0b1f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<style>
+:root{--bg:#14091a;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.14);--txt:#f8eefb;--mute:#bca1c6;--ok:#4ade80;--warn:#fbbf24;--bad:#fb7185;--a1:#c26bd0;--a2:#f0b6ff;--lilac:rgba(194,107,208,.16);--grad:linear-gradient(135deg,#8e2f94,#c26bd0 55%,#f0b6ff)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',system-ui,sans-serif;color:var(--txt);min-height:100vh;background:var(--bg);padding:24px 16px 40px}
+main{max-width:1160px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{text-align:center}
+.pill{display:inline-block;font-size:11.5px;letter-spacing:2px;text-transform:uppercase;font-weight:600;color:var(--a2);padding:6px 16px;border-radius:999px;border:1px solid var(--line);background:var(--panel)}
+.brand{font-family:'Playfair Display',serif;font-size:clamp(38px,6vw,64px);font-weight:700;margin-top:12px;background:linear-gradient(120deg,#fff,var(--a2) 45%,var(--a1));-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{font-size:15px;font-weight:400;letter-spacing:5px;text-transform:uppercase;color:var(--a2)}
+header p{color:var(--mute);font-size:14px;margin:10px auto 0;max-width:620px;line-height:1.6}
+.grid{display:grid;grid-template-columns:1.15fr 1fr;gap:20px}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:26px;padding:20px;display:flex;flex-direction:column}
+.stage{position:relative;width:100%;aspect-ratio:4/3;border-radius:20px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#35163f,#100617);border:1px solid var(--line)}
+video,#snap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+video{transform:scaleX(-1)}#snap{display:none;transform:scaleX(-1)}
+svg.guide{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.ring{fill:none;stroke:rgba(255,255,255,.6);stroke-width:2.5;stroke-dasharray:8 8}
+.ring.ok{stroke:var(--ok);stroke-dasharray:none}.ring.warn{stroke:var(--bad);stroke-dasharray:none}
+.prog{fill:none;stroke:var(--ok);stroke-width:5;stroke-linecap:round}
+.hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);max-width:94%;background:rgba(16,7,22,.92);border:1px solid var(--line);padding:7px 18px;border-radius:999px;font-size:13px;font-weight:500;z-index:3;text-align:center}
+.hint.error{background:rgba(225,29,72,.9);border-color:var(--bad)}
+.challenge{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:3;display:none;background:var(--grad);padding:7px 18px;border-radius:999px;font-weight:700;font-size:15px}
+.stage.scanning::before{content:"";position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#5eead4,transparent);z-index:3;animation:sweep 1.2s ease-in-out infinite alternate}
+@keyframes sweep{from{top:15%}to{top:85%}}
+.reject-alert{display:none;margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(251,113,133,.15);border:1px solid rgba(251,113,133,.45);color:#fecdd3;font-size:12.5px}
+.controls{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.btn{border:0;cursor:pointer;font-family:inherit;font-weight:600;border-radius:14px;padding:13px 22px;font-size:14px;color:#fff;background:var(--grad);box-shadow:0 10px 24px rgba(142,47,148,.45)}
+.btn:hover{transform:translateY(-2px)}
+.btn-ghost{background:rgba(255,255,255,.08);border:1px solid var(--line);box-shadow:none}
+.status-badge{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:12.5px;color:var(--mute)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex-shrink:0}
+.status-dot.ok{background:var(--ok)}.status-dot.err{background:var(--bad)}
+.res-card{overflow-y:auto;max-height:640px}
+h2{font-family:'Playfair Display',serif;font-size:23px;font-weight:600}
+.sub{color:var(--mute);font-size:13px;margin-bottom:12px}
+.empty{color:var(--mute);text-align:center;padding:48px 14px;line-height:1.6;font-size:14px}
+.sec{font-size:11.5px;text-transform:uppercase;letter-spacing:2px;color:var(--a2);margin:16px 0 6px;font-weight:600}
+.bar{margin:8px 0 10px}.bar .l{display:flex;justify-content:space-between;font-size:13.5px;color:var(--mute);margin-bottom:4px}
+.bar .t{height:8px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar .f{height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,#6d2a78,var(--a1));transition:width .9s}
+.bar.top .l{font-weight:700;color:#fff}.bar.top .f{background:var(--grad)}
+.tags{display:flex;flex-wrap:wrap;gap:7px}
+.tag{padding:6px 13px;border-radius:999px;font-size:12.5px;background:var(--lilac);border:1px solid rgba(194,107,208,.5);color:var(--a2)}
+.tag.good{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.4);color:var(--ok)}
+.rec{border:1px solid var(--line);border-radius:18px;padding:13px 15px;margin-top:10px;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(194,107,208,.12))}
+.rec .n{display:flex;justify-content:space-between;gap:10px;font-weight:600;font-size:14.5px}
+.rec .n em{font-style:normal;font-size:10.5px;background:var(--grad);border-radius:999px;padding:3px 9px;white-space:nowrap;align-self:flex-start}
+.rec p{font-size:12px;color:var(--mute);margin-top:5px;line-height:1.5}.rec b{color:var(--a2)}
+.note{font-size:11.5px;color:var(--mute);margin-top:14px;line-height:1.5;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.note.warn{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.35);color:var(--warn)}
+footer{text-align:center;color:var(--mute);font-size:12px}
+</style>
 </head>
-
 <body>
-  <main>
-    <header>
-      <span class="pill"><i></i> Auto-Scan Liveness · Anti-Layar HP &amp; Filter Wajah</span>
-      <div class="brand">DEMO AI</div>
-      <h1>Skin Analysis &amp; S'luv Recommendation</h1>
-      <p>Arahkan wajah asli ke dalam bingkai oval. Sistem akan <b>otomatis memindai langsung</b> setelah memverifikasi keaslian wajah manusia (menolak foto layar HP &amp; filter kecantikan).</p>
-    </header>
+<main>
+<header>
+  <span class="pill">Verifikasi Wajah Hidup · Tantangan Acak</span>
+  <div class="brand">DEMO AI</div>
+  <h1>Skin Analysis &amp; S'luv Recommendation</h1>
+  <p>Arahkan wajah asli ke bingkai oval, lalu ikuti 2 perintah acak (misalnya kedip atau tengok). Foto atau video dari layar perangkat lain tidak dapat menjawab perintah acak sehingga akan ditolak.</p>
+</header>
 
-    <!-- Mode Tabs -->
-    <div class="tab-bar">
-      <button class="tab-btn active" id="tabCam">📷 Auto-Scan Kamera</button>
-      <button class="tab-btn" id="tabUpload">📁 Unggah Foto Galeri</button>
+<div class="grid">
+  <section class="card" aria-label="Input Wajah">
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="snap"></canvas>
+      <svg class="guide" viewBox="0 0 400 300" preserveAspectRatio="none">
+        <ellipse id="ring" class="ring" cx="200" cy="150" rx="90" ry="120"/>
+        <ellipse id="prog" class="prog" cx="200" cy="150" rx="96" ry="126" transform="rotate(-90 200 150)" stroke-dasharray="0 2000"/>
+      </svg>
+      <div class="challenge" id="challenge"></div>
+      <div class="hint" id="hint">Tekan "Mulai Scan" untuk memulai</div>
     </div>
-
-    <div class="grid">
-      <!-- Input Section -->
-      <section class="card" aria-label="Input Wajah">
-        <div class="stage" id="stage">
-          <video id="video" playsinline muted></video>
-          <canvas id="snap"></canvas>
-
-          <!-- Guide Oval & Progress Ring -->
-          <svg class="guide" id="guideSvg" viewBox="0 0 400 300" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="gradOk" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#5eead4" />
-                <stop offset="100%" stop-color="#4ade80" />
-              </linearGradient>
-            </defs>
-            <ellipse id="ring" class="ring" cx="200" cy="150" rx="90" ry="120" />
-            <ellipse id="prog" class="prog" cx="200" cy="150" rx="96" ry="126" transform="rotate(-90 200 150)"
-              stroke-dasharray="0 2000" />
-          </svg>
-
-          <!-- Upload Drop Zone (Aktif jika tab unggah dipilih) -->
-          <div class="upload-zone" id="uploadZone">
-            <div class="upload-icon">📁</div>
-            <p style="font-weight: 600; font-size: 14.5px; color: #fff;">Klik atau Seret Foto Wajah ke Sini</p>
-            <p style="font-size: 12px; color: var(--mute); margin-top: 4px;">Wajib foto asli wajah langsung tanpa efek filter/editing (JPG, PNG, WEBP)</p>
-            <input type="file" id="fileInput" accept="image/*" style="display:none">
-          </div>
-
-          <div class="scanline"></div>
-          <div class="hint" id="hint">Tekan "Buka Kamera" untuk Auto-Scan</div>
-        </div>
-
-        <!-- Alert Penolakan Layar HP / Filter Wajah -->
-        <div class="reject-alert" id="rejectAlert">
-          <b id="rejectTitle">❌ Foto Ditolak</b>
-          <span id="rejectMsg">Terdeteksi foto layar atau efek filter wajah.</span>
-        </div>
-
-        <div class="controls">
-          <!-- Tombol Kamera -->
-          <div class="action-row" id="camActions">
-            <button id="btnStart" class="btn btn-main">▶️ Buka Kamera &amp; Mulai Auto-Scan</button>
-            <button id="btnRetry" class="btn btn-ghost" style="display:none;">🔄 Auto-Scan Ulang</button>
-          </div>
-
-          <!-- Tombol Upload File -->
-          <div class="action-row" id="uploadActions" style="display:none;">
-            <button id="btnPickFile" class="btn btn-main">📁 Pilih Foto dari Perangkat</button>
-            <button id="btnResetUpload" class="btn btn-ghost" style="display:none;">🔄 Ganti Foto</button>
-          </div>
-
-          <!-- Status Pill -->
-          <div class="status-badge" id="statusBadge">
-            <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">Memuat model AI...</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Hasil Section -->
-      <section class="card res-card" aria-label="Hasil Analisis">
-        <h2>Hasil Analisis &amp; Rekomendasi</h2>
-        <p class="sub">Tipe kulit, masalah kulit, dan produk S'luv yang sesuai.</p>
-        <div id="result">
-          <div class="empty">
-            <b>🪞</b>
-            Belum ada hasil analisis.<br>
-            Buka kamera dan arahkan wajah asli ke oval untuk auto-scan langsung.
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <footer>Hasil analisis Deep Learning ONNX teruji klinis · Dilengkapi auto-scan liveness detection anti-layar HP.</footer>
-
-    <!-- Modal Validasi Dokter Spesialis Kulit -->
-    <div class="modal-backdrop" id="modalDermatolog">
-      <div class="modal-box">
-        <div class="modal-head">
-          <div>
-            <h3>🩺 Lembar Validasi Klinis Dermatolog</h3>
-            <p>Verifikasi diagnosis jenis & masalah kulit untuk standardisasi 100% akurasi medis.</p>
-          </div>
-          <button class="btn-close" id="btnCloseModal">&times;</button>
-        </div>
-
-        <form id="formValidasiDokter">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Nama Dokter Spesialis / Pakar</label>
-              <input type="text" id="valDokterNama" class="form-control" placeholder="dr. Sp.D.V.E / Sp.K.K" required value="dr. Siti Rahmawati, Sp.D.V.E">
-            </div>
-            <div class="form-group">
-              <label>No. SIP / ID Registrasi</label>
-              <input type="text" id="valDokterSIP" class="form-control" placeholder="SIP 446/XXX/DSK/2026" required value="SIP.503/441.1/IDI-SMD/2026">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Klinik / Instansi Praktik</label>
-            <input type="text" id="valDokterKlinik" class="form-control" placeholder="Nama Rumah Sakit / Klinik Kulit" required value="Klinik Spesialis Dermatologi & Estetika Samarinda">
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Diagnosis Tipe Kulit (Pakar)</label>
-              <select id="valTipeKulitPakar" class="form-control" required>
-                <option value="normal">Normal</option>
-                <option value="berminyak">Berminyak (Oily)</option>
-                <option value="kering">Kering (Dry)</option>
-                <option value="kombinasi">Kombinasi (Combination)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Kesesuaian dengan AI</label>
-              <select id="valKesesuaian" class="form-control" required>
-                <option value="Sesuai 100%">✅ Sesuai 100% (Confirmed)</option>
-                <option value="Sesuai dengan Catatan">⚠️ Sesuai dengan Catatan</option>
-                <option value="Koreksi Diagnosis">❌ Koreksi Diagnosis Medis</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Masalah Kulit Terkonfirmasi (Pakar)</label>
-            <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:12px; margin-top:4px;">
-              <label style="color:var(--txt); font-weight:normal;"><input type="checkbox" id="chkValJerawat" checked> Jerawat (Acne Vulgaris)</label>
-              <label style="color:var(--txt); font-weight:normal;"><input type="checkbox" id="chkValFlek"> Flek Hitam (Melasma/PIH)</label>
-              <label style="color:var(--txt); font-weight:normal;"><input type="checkbox" id="chkValKemerahan"> Kemerahan (Eritema/Rosacea)</label>
-              <label style="color:var(--txt); font-weight:normal;"><input type="checkbox" id="chkValPori"> Pori-pori Besar</label>
-              <label style="color:var(--txt); font-weight:normal;"><input type="checkbox" id="chkValKerutan"> Kerutan / Fine Lines</label>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Catatan Klinis & Rekomendasi Terapi Topikal</label>
-            <textarea id="valCatatanDokter" class="form-control" rows="2" placeholder="Catatan evaluasi kondisi stratum korneum, barrier kulit, dan kontraindikasi bahan aktif...">Kondisi stratum korneum terhidrasi cukup, komedo tertutup di area T-zone terkonfirmasi. Disetujui rekomendasi bahan aktif Salicylic Acid 1% dan Niacinamide.</textarea>
-          </div>
-
-          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
-            <button type="button" class="btn btn-ghost" id="btnCancelVal">Batal</button>
-            <button type="submit" class="btn btn-main">💾 Simpan Verifikasi Pakar</button>
-          </div>
-        </form>
+    <div class="reject-alert" id="rejectAlert"></div>
+    <div class="controls">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="btnStart" class="btn" style="flex:1;min-width:180px">▶️ Mulai Scan</button>
+        <button id="btnRetry" class="btn btn-ghost" style="display:none">🔄 Scan Ulang</button>
       </div>
+      <div class="status-badge"><span class="status-dot" id="statusDot"></span><span id="statusText">Memuat model AI...</span></div>
     </div>
-  </main>
+  </section>
 
-  <script>
-    const $ = id => document.getElementById(id);
-    const video = $("video"), snap = $("snap"), stage = $("stage"), hint = $("hint");
-    const rejectAlert = $("rejectAlert"), rejectTitle = $("rejectTitle"), rejectMsg = $("rejectMsg");
+  <section class="card res-card" aria-label="Hasil Analisis">
+    <h2>Hasil Analisis &amp; Rekomendasi</h2>
+    <p class="sub">Tipe kulit, masalah kulit, dan produk S'luv yang sesuai.</p>
+    <div id="result"><div class="empty"><div style="font-size:32px">🪞</div>Belum ada hasil analisis.<br>Mulai scan dan ikuti perintah di layar.</div></div>
+  </section>
+</div>
 
-    // Keliling oval untuk progress ring
-    const RING_CIRCUMFERENCE = 2 * Math.PI * Math.sqrt((96 * 96 + 126 * 126) / 2);
-    function setProgress(pct) {
-      const p = Math.max(0, Math.min(1, pct));
-      $("prog").setAttribute("stroke-dasharray", `${p * RING_CIRCUMFERENCE} 2000`);
+<footer>Prediksi AI untuk referensi perawatan kulit kosmetik. Bukan diagnosis medis.</footer>
+</main>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const $ = id => document.getElementById(id);
+const video = $("video"), snap = $("snap"), stage = $("stage");
+const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
+// Jika arah tengok terbalik di perangkat Anda, ubah ke -1
+const YAW_SIGN = 1;
+const CHALLENGE_TIMEOUT = 8000, HOLD_MS = 800, YAW_DEG = 20;
+const BLOCKED_CAMERA = /obs|virtual|manycam|droidcam|iriun|snap camera|epoccam|xsplit|camo|ndi/i;
+
+const CHALLENGES = [
+  { id: "blink", text: "👁️ Kedipkan mata" },
+  { id: "mouth", text: "😮 Buka mulut" },
+  { id: "left", text: "⬅️ Tengok ke kiri" },
+  { id: "right", text: "➡️ Tengok ke kanan" }
+];
+
+// ---------- Rekomendasi ----------
+const PRODUK = [
+  { nama: "S'Luv Perfect Sunscreen All-in-One", kat: "Sunscreen", spf: "SPF 50 PA++++", harga: 85000,
+    tipe: ["normal","berminyak","kering","kombinasi"], target: ["flek_hitam","pori_besar","jerawat","kemerahan"],
+    bahan: "niacinamide alpha-arbutin tranexamic salicylic panthenol allantoin ceramide",
+    bobot: { flek_hitam: 1.2, kemerahan: 1.1, jerawat: 1.05, pori_besar: 1.05, kerutan: .4 } },
+  { nama: "S'Luv Brightening Calming Essence with DNA Salmon", kat: "Essence / Serum", spf: "", harga: 95000,
+    tipe: ["normal","berminyak","kering","kombinasi"], target: ["flek_hitam","kerutan","kemerahan","pori_besar","jerawat"],
+    bahan: "dna salmon niacinamide tranexamic alpha-arbutin glutathione cysteamine vitamin c panthenol allantoin centella chamomile green tea witch hazel",
+    bobot: { kerutan: 1.5, flek_hitam: 1.2 } }
+];
+const BAHAN = {
+  jerawat: ["Salicylic Acid","Centella","Witch Hazel","Niacinamide"],
+  flek_hitam: ["Niacinamide","Alpha-Arbutin","Tranexamic Acid","Glutathione"],
+  kemerahan: ["Panthenol","Allantoin","Centella","Chamomile"],
+  pori_besar: ["Niacinamide","Salicylic Acid","Witch Hazel","Green Tea"],
+  kerutan: ["DNA Salmon","Vitamin C","Cysteamine"]
+};
+const NAMA = { jerawat:"jerawat", flek_hitam:"flek hitam", kemerahan:"kemerahan", pori_besar:"pori besar", kerutan:"kerutan" };
+
+function recommend(tipe, masalah) {
+  return PRODUK.map(p => {
+    let skor = p.tipe.includes(tipe) ? .5 : 0; const alasan = [];
+    for (const [m, prob] of Object.entries(masalah)) {
+      if (!p.target.includes(m)) continue;
+      skor += prob * (p.bobot[m] ?? 1);
+      const ada = BAHAN[m].filter(b => p.bahan.includes(b.toLowerCase().replace(" acid", "")));
+      alasan.push(ada.length ? `${NAMA[m]} (${ada.join(", ")})` : NAMA[m]);
     }
+    return { ...p, skor, alasan };
+  }).sort((a, b) => b.skor - a.skor);
+}
 
-    // Produk S'luv Knowledge Base (Matriks Rekomendasi Sesuai ml/recommend.py)
-    const PRODUK = [
-      {
-        nama: "S'Luv Perfect Sunscreen All-in-One", kat: "Sunscreen", spf: "SPF 50 PA++++", harga: 85000,
-        tipe: ["normal", "berminyak", "kering", "kombinasi"], target: ["flek_hitam", "pori_besar", "jerawat", "kemerahan"],
-        bahan: "niacinamide alpha-arbutin tranexamic salicylic panthenol allantoin ceramide",
-        bobot: { flek_hitam: 1.2, kemerahan: 1.1, jerawat: 1.05, pori_besar: 1.05, kerutan: .4 }
-      },
-      {
-        nama: "S'Luv Brightening Calming Essence with DNA Salmon", kat: "Essence / Serum", spf: "", harga: 95000,
-        tipe: ["normal", "berminyak", "kering", "kombinasi"], target: ["flek_hitam", "kerutan", "kemerahan", "pori_besar", "jerawat"],
-        bahan: "dna salmon niacinamide tranexamic alpha-arbutin glutathione cysteamine vitamin c panthenol allantoin centella chamomile green tea witch hazel",
-        bobot: { kerutan: 1.5, flek_hitam: 1.2 }
+// ---------- UI helpers ----------
+const RING_LEN = 2 * Math.PI * Math.sqrt((96 * 96 + 126 * 126) / 2);
+const setProgress = p => $("prog").setAttribute("stroke-dasharray", `${Math.max(0, Math.min(1, p)) * RING_LEN} 2000`);
+function setStatus(t, type = "") { $("statusText").textContent = t; $("statusDot").className = "status-dot " + type; }
+function setHint(t, err = false) { $("hint").textContent = t; $("hint").classList.toggle("error", err); }
+function showAlert(msg) { const a = $("rejectAlert"); a.textContent = msg; a.style.display = "block"; }
+function hideAlert() { $("rejectAlert").style.display = "none"; }
+function setChallenge(t) { const c = $("challenge"); c.style.display = t ? "block" : "none"; c.textContent = t || ""; }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+// ---------- State ----------
+let spec = null, session = null, landmarker = null, stream = null, rafId = null;
+let run = null; // state satu sesi scan
+
+async function initModels() {
+  try {
+    setStatus("Memuat model ONNX & labels...");
+    const [rl, ro] = await Promise.all([fetch("./labels.json"), fetch("./skin_model.onnx")]);
+    if (!rl.ok) throw new Error("labels.json HTTP " + rl.status);
+    if (!ro.ok) throw new Error("skin_model.onnx HTTP " + ro.status);
+    spec = await rl.json();
+    ort.env.wasm.numThreads = 1;
+    session = await ort.InferenceSession.create(await ro.arrayBuffer(), { executionProviders: ["wasm"] });
+
+    setStatus("Memuat model deteksi wajah...");
+    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+    landmarker = await FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: LANDMARKER_URL },
+      runningMode: "VIDEO", numFaces: 2,
+      outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
+    });
+    setStatus("Model AI siap", "ok");
+    setHint('Tekan "Mulai Scan"');
+  } catch (e) {
+    console.error(e);
+    setStatus("Gagal memuat AI: " + e.message, "err");
+    setHint("Gagal memuat model. Periksa koneksi dan file model.", true);
+  }
+}
+
+// ---------- Kamera ----------
+async function startScan() {
+  if (!session || !landmarker) { setHint("Model masih dimuat, tunggu sebentar...", true); return; }
+  hideAlert(); setProgress(0); setChallenge("");
+  $("result").innerHTML = '<div class="empty"><div style="font-size:32px">🪞</div>Menunggu verifikasi wajah...</div>';
+  if (!navigator.mediaDevices?.getUserMedia) { setStatus("Browser tidak mendukung kamera", "err"); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+  } catch (e) {
+    setStatus("Izin kamera ditolak atau tidak tersedia", "err"); setHint("Izin kamera diperlukan untuk scan.", true); return;
+  }
+  const label = stream.getVideoTracks()[0]?.label || "";
+  if (BLOCKED_CAMERA.test(label)) {
+    stopCamera(); showAlert("❌ Kamera virtual terdeteksi (" + label + "). Gunakan kamera asli perangkat.");
+    setStatus("Kamera virtual ditolak", "err"); $("btnStart").style.display = "none"; $("btnRetry").style.display = "inline-flex"; return;
+  }
+  video.srcObject = stream; await video.play().catch(() => {});
+  video.style.display = "block"; snap.style.display = "none";
+  $("btnStart").style.display = "none"; $("btnRetry").style.display = "none";
+  $("ring").setAttribute("class", "ring");
+
+  const pool = [...CHALLENGES].sort(() => Math.random() - .5).slice(0, 2);
+  run = { phase: "align", holdStart: 0, queue: pool, idx: 0, chStart: 0, eyeClosed: false, lastTime: -1 };
+  setStatus("Kamera aktif. Posisikan wajah di oval", "ok");
+  setHint("Posisikan satu wajah di dalam oval");
+  rafId = requestAnimationFrame(loop);
+}
+
+function stopCamera() {
+  if (rafId) cancelAnimationFrame(rafId); rafId = null;
+  stream?.getTracks().forEach(t => t.stop()); stream = null;
+  setProgress(0); setChallenge("");
+}
+
+function fail(msg) {
+  stopCamera(); run = null;
+  $("ring").setAttribute("class", "ring warn");
+  showAlert("❌ " + msg); setHint(msg, true); setStatus("Verifikasi gagal", "err");
+  $("btnRetry").style.display = "inline-flex";
+}
+
+// ---------- Analisis frame ----------
+function yawDeg(m) { return Math.atan2(-m[2], m[10]) * 180 / Math.PI * YAW_SIGN; }
+function bs(res, name) { return res.faceBlendshapes?.[0]?.categories.find(c => c.categoryName === name)?.score ?? 0; }
+
+const gc = document.createElement("canvas"); gc.width = gc.height = 64;
+const gctx = gc.getContext("2d", { willReadFrequently: true });
+function hasScreenGlare() {
+  gctx.drawImage(video, 0, 0, 64, 64);
+  const d = gctx.getImageData(0, 0, 64, 64).data; let g = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245) g++;
+  return g / 4096 > .06;
+}
+
+function loop(now) {
+  if (!run) return;
+  rafId = requestAnimationFrame(loop);
+  if (video.readyState < 2 || video.currentTime === run.lastTime) return;
+  run.lastTime = video.currentTime;
+
+  const res = landmarker.detectForVideo(video, performance.now());
+  const n = res.faceLandmarks?.length || 0;
+  const ring = $("ring");
+
+  if (n === 0) { run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring"); if (run.phase === "align") setHint("Wajah tidak terdeteksi"); else restartCheck("Wajah hilang dari kamera. Ulangi scan."); return; }
+  if (n > 1) { fail("Terdeteksi lebih dari satu wajah. Pastikan hanya Anda di kamera."); return; }
+
+  const lm = res.faceLandmarks[0];
+  let minx = 1, maxx = 0, miny = 1, maxy = 0;
+  for (const p of lm) { if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x; if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y; }
+  const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, fh = maxy - miny;
+  const centered = Math.abs(cx - .5) < .12 && Math.abs(cy - .5) < .12 && fh > .4 && fh < .85;
+  const yaw = yawDeg(res.facialTransformationMatrixes[0].data);
+
+  if (run.phase === "align" || run.phase === "front") {
+    const frontal = run.phase === "align" || Math.abs(yaw) < 12;
+    if (centered && frontal) {
+      ring.setAttribute("class", "ring ok");
+      if (!run.holdStart) run.holdStart = now;
+      const p = (now - run.holdStart) / HOLD_MS; setProgress(p);
+      setHint(run.phase === "align" ? "Tahan posisi..." : "Hadap lurus ke kamera...");
+      if (p >= 1) {
+        run.holdStart = 0; setProgress(0);
+        if (run.phase === "align") { run.phase = "challenge"; run.chStart = now; run.eyeClosed = false; }
+        else { capture(lm, { minx, maxx, miny, maxy }); }
       }
-    ];
-
-    const BAHAN = {
-      jerawat: ["Salicylic Acid", "Centella", "Witch Hazel", "Niacinamide"],
-      flek_hitam: ["Niacinamide", "Alpha-Arbutin", "Tranexamic Acid", "Glutathione"],
-      kemerahan: ["Panthenol", "Allantoin", "Centella", "Chamomile"],
-      pori_besar: ["Niacinamide", "Salicylic Acid", "Witch Hazel", "Green Tea"],
-      kerutan: ["DNA Salmon", "Vitamin C", "Cysteamine"]
-    };
-
-    const NAMA = { jerawat: "jerawat", flek_hitam: "flek hitam", kemerahan: "kemerahan", pori_besar: "pori besar", kerutan: "kerutan" };
-
-    function recommend(tipe, masalah) {
-      return PRODUK.map(p => {
-        let skor = p.tipe.includes(tipe) ? .5 : 0; const alasan = [];
-        for (const [m, prob] of Object.entries(masalah)) {
-          if (!p.target.includes(m)) continue;
-          skor += prob * (p.bobot[m] ?? 1);
-          const ada = BAHAN[m].filter(b => p.bahan.includes(b.toLowerCase().replace(" acid", "")));
-          alasan.push(ada.length ? `${NAMA[m]} (${ada.join(", ")})` : NAMA[m]);
-        }
-        return { ...p, skor, alasan };
-      }).sort((a, b) => b.skor - a.skor);
+    } else {
+      run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring");
+      setHint(!centered ? (fh <= .4 ? "Dekatkan wajah ke kamera" : fh >= .85 ? "Jauhkan sedikit wajah" : "Posisikan wajah di tengah oval") : "Hadap lurus ke kamera");
     }
-
-    let spec = null, session = null, stream = null;
-    let currentMode = "camera"; // "camera" | "upload"
-    let currentResultData = null, dokterValidation = null;
-
-    // State Auto-Scan
-    let scanState = "idle"; // "idle" | "ready" | "holding" | "scanning" | "done"
-    let holdStartTime = 0;
-    const REQUIRED_HOLD_TIME = 1000; // 1 detik posisi pas & verified
-    let animFrameId = null;
-
-    // Riwayat frame untuk Liveness Detection
-    let previousLumaFrame = null;
-    let motionHistory = [];
-
-    function setStatus(text, type = "normal") {
-      $("statusText").textContent = text;
-      const dot = $("statusDot");
-      dot.className = "status-dot";
-      if (type === "ok") dot.classList.add("ok");
-      if (type === "err") dot.classList.add("err");
-    }
-
-    function setHint(text, isError = false) {
-      hint.textContent = text;
-      hint.classList.toggle("error", isError);
-    }
-
-    function hideAlert() {
-      rejectAlert.style.display = "none";
-    }
-
-    function showAlert(title, message) {
-      rejectTitle.textContent = title;
-      rejectMsg.textContent = message;
-      rejectAlert.style.display = "block";
-    }
-
-    // =========================================================================
-    // DETEKTOR REAL-TIME: ANTI-LAYAR HP (BEZEL & RECTANGLE) + LIVENESS + FILTER
-    // =========================================================================
-    const valCanvas = document.createElement("canvas");
-    valCanvas.width = 96;
-    valCanvas.height = 96;
-    const valCtx = valCanvas.getContext("2d", { willReadFrequently: true });
-
-    function analyzeCurrentFrame(sourceElement) {
-      const sw = sourceElement.videoWidth || sourceElement.width || sourceElement.naturalWidth;
-      const sh = sourceElement.videoHeight || sourceElement.height || sourceElement.naturalHeight;
-      if (!sw || !sh) return { ok: false, reason: "Menunggu video feed...", code: "NO_FEED" };
-
-      // Sample seluruh frame untuk mendeteksi bezel HP & area tengah oval wajah
-      valCtx.drawImage(sourceElement, 0, 0, 96, 96);
-      const fullImg = valCtx.getImageData(0, 0, 96, 96).data;
-
-      // 1. DETEKSI BINGKAI LAYAR HP (Phone Bezel / Device Edge Detection)
-      // Layar HP selalu menampilkan kontras tajam persegi panjang (garis lurus gelap bezel vs layar menyala)
-      let borderHighContrastEdges = 0;
-      for (let y = 8; y < 88; y += 4) {
-        for (let x = 8; x < 88; x += 4) {
-          // Hanya cek di sekeliling tepi luar (sekitar 15-25% dari tepi)
-          if (x < 24 || x > 72 || y < 24 || y > 72) {
-            const idx = (y * 96 + x) * 4;
-            const luma1 = 0.299 * fullImg[idx] + 0.587 * fullImg[idx + 1] + 0.114 * fullImg[idx + 2];
-            const nextIdx = (y * 96 + (x + 2)) * 4;
-            const luma2 = 0.299 * fullImg[nextIdx] + 0.587 * fullImg[nextIdx + 1] + 0.114 * fullImg[nextIdx + 2];
-            if (Math.abs(luma1 - luma2) > 65) {
-              borderHighContrastEdges++;
-            }
-          }
-        }
-      }
-
-      // 2. SAMPLE AREA OVAL WAJAH (Tengah Frame)
-      const centerSide = Math.min(sw, sh) * 0.55;
-      const csx = (sw - centerSide) / 2;
-      const csy = (sh - centerSide) / 2;
-      valCtx.drawImage(sourceElement, csx, csy, centerSide, centerSide, 0, 0, 64, 64);
-      const faceImg = valCtx.getImageData(0, 0, 64, 64).data;
-      const totalPixels = 64 * 64;
-
-      let skinPixels = 0;
-      let screenGlarePixels = 0;
-      let totalL = 0;
-      let totalL2 = 0;
-      let gradDiff = 0;
-      const currentLuma = new Float32Array(totalPixels);
-
-      for (let y = 0; y < 64; y++) {
-        for (let x = 0; x < 64; x++) {
-          const idx = (y * 64 + x) * 4;
-          const r = faceImg[idx], g = faceImg[idx + 1], b = faceImg[idx + 2];
-          const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-          currentLuma[y * 64 + x] = luma;
-
-          totalL += luma;
-          totalL2 += luma * luma;
-
-          // Backlight layar digital tajam
-          if (r > 240 && g > 240 && b > 240) {
-            screenGlarePixels++;
-          }
-
-          // Rona kulit manusia alami
-          if (r > 40 && g > 25 && b > 15 && r > g && g >= b && (r - b) > 10) {
-            skinPixels++;
-          }
-
-          if (x < 63) {
-            const nextIdx = (y * 64 + (x + 1)) * 4;
-            const nextL = 0.299 * faceImg[nextIdx] + 0.587 * faceImg[nextIdx + 1] + 0.114 * faceImg[nextIdx + 2];
-            gradDiff += Math.abs(luma - nextL);
-          }
-        }
-      }
-
-      const meanL = totalL / totalPixels;
-      const variance = Math.max(0, (totalL2 / totalPixels) - (meanL * meanL));
-      const stdDev = Math.sqrt(variance);
-      const avgGrad = gradDiff / (64 * 63);
-      const skinRatio = skinPixels / totalPixels;
-      const glareRatio = screenGlarePixels / totalPixels;
-
-      // 3. Liveness Motion Tracking
-      let motionScore = 0;
-      if (previousLumaFrame) {
-        let diffSum = 0;
-        for (let i = 0; i < totalPixels; i++) {
-          diffSum += Math.abs(currentLuma[i] - previousLumaFrame[i]);
-        }
-        motionScore = diffSum / totalPixels;
-      }
-      previousLumaFrame = currentLuma;
-
-      motionHistory.push(motionScore);
-      if (motionHistory.length > 8) motionHistory.shift();
-      const avgMotion = motionHistory.reduce((a, b) => a + b, 0) / (motionHistory.length || 1);
-
-      // --- EVALUASI PENOLAKAN ANTI-SPOOFING & ANTI-FILTER ---
-
-      // A. Deteksi Bezel Layar HP / Kotak Layar Perangkat Lain
-      if (borderHighContrastEdges > 28) {
-        return {
-          ok: false,
-          reason: "❌ Ditolak: Terdeteksi bingkai layar HP / perangkat lain",
-          code: "SCREEN_SPOOF"
-        };
-      }
-
-      // B. Wajah belum pas di oval
-      if (skinRatio < 0.20) {
-        return { ok: false, reason: "Arahkan wajah pas ke dalam bingkai oval", code: "POSITION" };
-      }
-
-      // C. Pencahayaan
-      if (meanL < 30) {
-        return { ok: false, reason: "Pencahayaan kurang, cari tempat lebih terang", code: "DARK" };
-      }
-
-      // D. Silau Backlight Layar Gawai
-      if (glareRatio > 0.04 || (glareRatio > 0.015 && stdDev < 16)) {
-        return {
-          ok: false,
-          reason: "❌ Ditolak: Terdeteksi pantulan cahaya layar HP",
-          code: "SCREEN_SPOOF"
-        };
-      }
-
-      // E. Permukaan Foto 2D Datar
-      if (stdDev < 12) {
-        return {
-          ok: false,
-          reason: "❌ Ditolak: Terdeteksi foto 2D / gambar datar",
-          code: "FLAT_PHOTO"
-        };
-      }
-
-      // F. Filter Kecantikan / Beauty Smoothing
-      if (avgGrad < 1.35 && stdDev < 17) {
-        return {
-          ok: false,
-          reason: "⚠️ Ditolak: Terdeteksi filter efek wajah / smoothing",
-          code: "BEAUTY_FILTER"
-        };
-      }
-
-      // G. Gambar Diam / Layar HP Beku
-      if (motionHistory.length >= 6 && avgMotion < 0.20) {
-        return {
-          ok: false,
-          reason: "⚠️ Wajah tidak bergerak. Kedipkan mata di depan kamera",
-          code: "STILL_SPOOF"
-        };
-      }
-
-      // Wajah asli manusia hidup terkonfirmasi!
-      return { ok: true, reason: "Wajah asli terverifikasi! Tahan sebentar...", code: "VALID" };
-    }
-
-    // Load Model ONNX & Labels
-    async function initModel() {
-      try {
-        setStatus("Memuat model ONNX & labels...", "normal");
-        const [respLabel, onnxResp] = await Promise.all([
-          fetch("./labels.json"),
-          fetch("./skin_model.onnx")
-        ]);
-
-        if (!respLabel.ok) throw new Error("Gagal mengunduh labels.json (HTTP " + respLabel.status + ")");
-        if (!onnxResp.ok) throw new Error("Gagal mengunduh skin_model.onnx (HTTP " + onnxResp.status + ")");
-
-        const [labelData, onnxBuffer] = await Promise.all([
-          respLabel.json(),
-          onnxResp.arrayBuffer()
-        ]);
-
-        spec = labelData;
-        ort.env.wasm.numThreads = 1;
-        session = await ort.InferenceSession.create(onnxBuffer, { executionProviders: ["wasm"] });
-
-        setStatus("Model AI Siap Digunakan", "ok");
-        setHint("Tekan 'Buka Kamera & Mulai Auto-Scan' di bawah");
-      } catch (err) {
-        console.error("Gagal load model:", err);
-        setStatus("Gagal memuat AI: " + err.message, "err");
-        setHint("Gagal memuat model. Periksa koneksi internet Anda.", true);
-      }
-    }
-
-    // Switch Tab Mode
-    $("tabCam").onclick = () => switchMode("camera");
-    $("tabUpload").onclick = () => switchMode("upload");
-
-    function switchMode(mode) {
-      currentMode = mode;
-      hideAlert();
-      setProgress(0);
-      if (mode === "camera") {
-        $("tabCam").classList.add("active");
-        $("tabUpload").classList.remove("active");
-        $("uploadZone").style.display = "none";
-        $("guideSvg").style.display = "block";
-        $("camActions").style.display = "flex";
-        $("uploadActions").style.display = "none";
-        setHint(stream ? "Posisikan wajah asli di oval untuk auto-scan" : "Tekan 'Buka Kamera & Mulai Auto-Scan'");
-      } else {
-        stopCamera();
-        $("tabCam").classList.remove("active");
-        $("tabUpload").classList.add("active");
-        $("uploadZone").style.display = "flex";
-        $("guideSvg").style.display = "none";
-        $("camActions").style.display = "none";
-        $("uploadActions").style.display = "flex";
-        video.style.display = "none";
-        snap.style.display = "none";
-        setHint("Pilih foto wajah asli (tanpa filter efek) dari perangkat Anda");
-      }
-    }
-
-    // Camera Handlers & Auto-Scan Loop
-    async function startCamera() {
-      if (!session) {
-        alert("Model AI sedang dimuat, harap tunggu beberapa detik...");
-        return;
-      }
-      hideAlert();
-      setProgress(0);
-      setStatus("Meminta izin kamera...");
-      setHint("Menghubungkan ke kamera...");
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setStatus("Browser tidak mendukung kamera WebRTC", "err");
-        alert("Browser Anda tidak mengizinkan akses kamera langsung. Silakan gunakan tab 'Unggah Foto Galeri'.");
-        return;
-      }
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
-        });
-      } catch (e1) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        } catch (e2) {
-          setStatus("Izin kamera ditolak atau tidak tersedia", "err");
-          setHint("Izin kamera ditolak. Silakan beralih ke tab 'Unggah Foto Galeri'.", true);
-          return;
-        }
-      }
-
-      video.srcObject = stream;
-      video.setAttribute("playsinline", "true");
-      video.setAttribute("webkit-playsinline", "true");
-      try {
-        await video.play();
-      } catch (err) {
-        console.warn("Autoplay ditolak:", err);
-      }
-
-      video.style.display = "block";
-      snap.style.display = "none";
-      $("btnStart").style.display = "none";
-      $("btnRetry").style.display = "none";
-      $("ring").className = "ring";
-
-      scanState = "ready";
-      holdStartTime = 0;
-      previousLumaFrame = null;
-      motionHistory = [];
-
-      setStatus("Kamera Aktif — Posisikan wajah asli di oval", "ok");
-      setHint("Posisikan wajah asli di dalam bingkai oval");
-
-      // Mulai loop Auto-Scan Real-Time!
-      if (animFrameId) cancelAnimationFrame(animFrameId);
-      animFrameId = requestAnimationFrame(autoScanLoop);
-    }
-
-    function stopCamera() {
-      if (animFrameId) {
-        cancelAnimationFrame(animFrameId);
-        animFrameId = null;
-      }
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-      $("ring").className = "ring";
-      setProgress(0);
-      $("btnStart").style.display = "inline-flex";
-    }
-
-    // =========================================================================
-    // LOOP AUTO-SCAN: OTOMATIS PINDAI SAAT WAJAH ASLI TERVERIFIKASI
-    // =========================================================================
-    function autoScanLoop(now) {
-      if (scanState === "done" || scanState === "idle" || currentMode !== "camera") return;
-
-      if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
-        animFrameId = requestAnimationFrame(autoScanLoop);
-        return;
-      }
-
-      const res = analyzeCurrentFrame(video);
-
-      if (res.ok) {
-        // Wajah asli live terkonfirmasi!
-        $("ring").className = "ring ok";
-        hideAlert();
-
-        if (!holdStartTime) holdStartTime = now;
-        const elapsed = now - holdStartTime;
-        const progressPct = Math.min(1, elapsed / REQUIRED_HOLD_TIME);
-        setProgress(progressPct);
-
-        setHint(`Wajah terverifikasi! Tahan sebentar (${Math.round(progressPct * 100)}%)...`);
-        setStatus("Memverifikasi Keaslian Wajah...", "ok");
-
-        // Jika posisi bertahan selama 1 detik penuh -> AUTO SCAN TRIGGER!
-        if (progressPct >= 1) {
-          scanState = "scanning";
-          executeAutoCapture();
-          return;
-        }
-      } else {
-        // Gagal kriteria (layar HP, filter, atau posisi salah)
-        holdStartTime = 0;
-        setProgress(0);
-
-        if (res.code === "SCREEN_SPOOF" || res.code === "BEAUTY_FILTER" || res.code === "FLAT_PHOTO") {
-          $("ring").className = "ring warn";
-          showAlert("❌ Pindaian Ditolak", res.reason);
-          setHint(res.reason, true);
-          setStatus(res.reason, "err");
-        } else {
-          $("ring").className = "ring";
-          setHint(res.reason, false);
-          setStatus(res.reason, "normal");
-        }
-      }
-
-      animFrameId = requestAnimationFrame(autoScanLoop);
-    }
-
-    async function executeAutoCapture() {
-      stage.classList.add("scanning");
-      setHint("⚡ Memindai Wajah & Menjalankan Inferensi Deep Learning...");
-      setStatus("Menjalankan Inferensi AI ONNX...", "normal");
-
-      // Ambil frame snapshot
-      drawSnapshot(video);
-      stopCamera();
-      video.style.display = "none";
-      snap.style.display = "block";
-
-      try {
-        const probs = await inferFromCanvas(snap);
-        stage.classList.remove("scanning");
-        setHint("✅ Pemindaian Selesai!");
-        setStatus("Analisis Kulit Berhasil Dilakukan", "ok");
-        showResults(probs.type, probs.concern);
-        scanState = "done";
-        $("btnRetry").style.display = "inline-flex";
-      } catch (err) {
-        console.error(err);
-        stage.classList.remove("scanning");
-        setStatus("Gagal inferensi: " + err.message, "err");
-        setHint("Terjadi kesalahan saat memproses gambar.", true);
-        $("btnRetry").style.display = "inline-flex";
-      }
-    }
-
-    $("btnStart").onclick = startCamera;
-
-    $("btnRetry").onclick = () => {
-      hideAlert();
-      setProgress(0);
-      $("result").innerHTML = `
-        <div class="empty">
-          <b>🪞</b>
-          Belum ada hasil analisis.<br>
-          Arahkan wajah asli ke dalam bingkai oval untuk auto-scan langsung.
-        </div>`;
-      $("btnRetry").style.display = "none";
-      startCamera();
-    };
-
-    // File Upload Handlers (Tetap divalidasi anti-filter & anti-layar)
-    $("btnPickFile").onclick = () => $("fileInput").click();
-    $("uploadZone").onclick = () => $("fileInput").click();
-
-    $("uploadZone").ondragover = (e) => {
-      e.preventDefault();
-      $("uploadZone").classList.add("dragover");
-    };
-    $("uploadZone").ondragleave = () => $("uploadZone").classList.remove("dragover");
-    $("uploadZone").ondrop = (e) => {
-      e.preventDefault();
-      $("uploadZone").classList.remove("dragover");
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handleFile(e.dataTransfer.files[0]);
-      }
-    };
-
-    $("fileInput").onchange = (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleFile(e.target.files[0]);
-      }
-    };
-
-    $("btnResetUpload").onclick = () => {
-      hideAlert();
-      $("fileInput").value = "";
-      snap.style.display = "none";
-      $("uploadZone").style.display = "flex";
-      $("btnResetUpload").style.display = "none";
-      $("btnPickFile").style.display = "inline-flex";
-      $("result").innerHTML = `
-        <div class="empty">
-          <b>🪞</b>
-          Belum ada hasil analisis.<br>
-          Buka kamera dan arahkan wajah asli ke oval untuk auto-scan langsung.
-        </div>`;
-      setStatus("Model AI Siap Digunakan", "ok");
-      setHint("Pilih foto wajah asli (tanpa filter efek) dari perangkat Anda");
-    };
-
-    async function handleFile(file) {
-      if (!file.type.startsWith("image/")) {
-        alert("Harap pilih file gambar (JPG, PNG, atau WEBP)");
-        return;
-      }
-      hideAlert();
-      setStatus("Membaca foto yang diunggah...");
-      setHint("Memuat gambar...");
-
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const img = new Image();
-        img.onload = async () => {
-          snap.width = img.naturalWidth;
-          snap.height = img.naturalHeight;
-          const ctx = snap.getContext("2d");
-          ctx.drawImage(img, 0, 0);
-
-          // Validasi Keaslian Wajah & Filter pada Foto yang Diunggah
-          const res = analyzeCurrentFrame(snap);
-          if (!res.ok) {
-            showAlert("❌ Foto Ditolak", res.reason);
-            setStatus(res.reason, "err");
-            setHint("Foto ditolak. " + res.reason, true);
-            $("btnPickFile").style.display = "inline-flex";
-            $("btnResetUpload").style.display = "none";
-            return;
-          }
-
-          snap.style.transform = "none";
-          snap.style.display = "block";
-          $("uploadZone").style.display = "none";
-          $("btnPickFile").style.display = "none";
-          $("btnResetUpload").style.display = "inline-flex";
-
-          stage.classList.add("scanning");
-          setHint("Foto asli terverifikasi. Menganalisis dengan Deep Learning ONNX...");
-          setStatus("Memproses inferensi citra...", "normal");
-
-          try {
-            const probs = await inferFromCanvas(snap);
-            stage.classList.remove("scanning");
-            setHint("Analisis Selesai!");
-            setStatus("Foto Berhasil Dianalisis", "ok");
-            showResults(probs.type, probs.concern);
-          } catch (err) {
-            console.error(err);
-            stage.classList.remove("scanning");
-            setStatus("Gagal inferensi: " + err.message, "err");
-            setHint("Gagal menganalisis citra.", true);
-          }
-        };
-        img.src = evt.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // Snapshot drawing
-    function drawSnapshot(src) {
-      const vw = src.videoWidth, vh = src.videoHeight;
-      snap.width = vw;
-      snap.height = vh;
-      const ctx = snap.getContext("2d");
-      ctx.drawImage(src, 0, 0);
-      snap.style.transform = "scaleX(-1)";
-    }
-
-    // ONNX Model Inference on 224x224 Center/Face Crop
-    const work = document.createElement("canvas");
-    work.width = work.height = 224;
-
-    async function inferFromCanvas(sourceCanvas) {
-      const w = sourceCanvas.width, h = sourceCanvas.height;
-      const side = Math.min(w, h);
-      const sx = (w - side) / 2;
-      const sy = (h - side) / 2;
-
-      const ctx = work.getContext("2d", { willReadFrequently: true });
-      ctx.drawImage(sourceCanvas, sx, sy, side, side, 0, 0, 224, 224);
-
-      const imgData = ctx.getImageData(0, 0, 224, 224).data;
-      const n = 224 * 224;
-      const tensorData = new Float32Array(3 * n);
-
-      // Normalisasi mean & std sesuai spesifikasi labels.json
-      for (let i = 0; i < n; i++) {
-        for (let k = 0; k < 3; k++) {
-          tensorData[k * n + i] = (imgData[i * 4 + k] / 255 - spec.mean[k]) / spec.std[k];
-        }
-      }
-
-      const inputTensor = new ort.Tensor("float32", tensorData, [1, 3, 224, 224]);
-      const output = await session.run({ input: inputTensor });
-
-      return {
-        type: Array.from(output.type_probs.data),
-        concern: Array.from(output.concern_probs.data)
-      };
-    }
-
-    // Display Results & Skincare Recommendations
-    function showResults(tp, cp) {
-      const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
-      const order = tp.map((p, i) => i).sort((a, b) => tp[b] - tp[a]);
-      const topP = tp[order[0]];
-      const tipeAI = T[order[0]];
-
-      const found = C.map((c, j) => ({ c, p: cp[j], t: spec.concern_thresholds[c] }))
-        .filter(x => x.p >= x.t).sort((a, b) => b.p - a.p);
-      const mp = Object.fromEntries(found.map(x => [x.c, x.p]));
-
-      currentResultData = { tp, cp, order, topP, tipeAI, found, mp };
-
-      let html = "";
-
-      // Kartu Validasi Dokter Spesialis Kulit
-      if (dokterValidation) {
-        html += `
-        <div class="val-card">
-          <div class="val-card-header">
-            <span class="val-badge verified">🩺 Terverifikasi Dokter Spesialis Kulit (100% Akurat)</span>
-            <span style="font-size:11px; color:var(--ok); font-weight:600;">STATUS: VALID</span>
-          </div>
-          <div class="val-meta">
-            <b>Pakar Validator:</b> ${dokterValidation.dokter} (${dokterValidation.sip})<br>
-            <b>Instansi:</b> ${dokterValidation.klinik}<br>
-            <b>Diagnosis Pakar:</b> Kulit <b>${D[dokterValidation.tipePakar]}</b> · Kesesuaian: <span style="color:var(--ok); font-weight:bold;">${dokterValidation.kesesuaian}</span><br>
-            <b>Masalah Terkonfirmasi:</b> ${dokterValidation.masalah.join(", ") || "Tidak ada"}<br>
-            <b>Catatan Efikasi Klinis:</b> <i>"${dokterValidation.catatan}"</i>
-          </div>
-        </div>`;
-      } else {
-        html += `
-        <div class="val-card pending">
-          <div class="val-card-header">
-            <span class="val-badge waiting">⏳ Menunggu Validasi Klinis Dermatolog</span>
-            <button class="btn btn-main" id="btnBukaValidasi" style="padding:6px 14px; font-size:12px; border-radius:10px;">Validasi Dokter Sekarang</button>
-          </div>
-          <div class="val-meta">
-            Hasil di bawah merupakan prediksi komputasi Deep Learning CNN. Untuk memastikan <b>keabsahan 100%</b> standar medis penelitian, klik tombol di atas untuk mengisi lembar validasi dokter spesialis kulit.
-          </div>
-        </div>`;
-      }
-
-      // Progress bar tipe kulit
-      html += `<div class="sec">Tipe Kulit (Probabilitas CNN)</div>`;
-      order.forEach((i, rank) => {
-        html += `
-          <div class="bar ${rank === 0 ? "top" : ""}">
-            <div class="l"><span>${D[T[i]]}</span><span>${(tp[i] * 100).toFixed(0)}%</span></div>
-            <div class="t"><div class="f" data-w="${tp[i] * 100}"></div></div>
-          </div>`;
-      });
-
-      // Tags masalah kulit
-      html += `<div class="sec">Masalah Kulit Terdeteksi</div><div class="tags">`;
-      html += found.length
-        ? found.map(x => `<span class="tag">${D[x.c]} · ${(x.p * 100).toFixed(0)}%</span>`).join("")
-        : `<span class="tag good">Kondisi kulit bersih / tidak ada masalah menonjol</span>`;
-      html += `</div>`;
-
-      // Rekomendasi Produk S'luv
-      const activeTipe = dokterValidation ? dokterValidation.tipePakar : tipeAI;
-      html += `<div class="sec">Rekomendasi Produk S'luv (${dokterValidation ? "Divalidasi Pakar" : "Berdasarkan AI"})</div>`;
-      html += recommend(activeTipe, mp).map((r, i) => `
-        <div class="rec" style="animation-delay:${i * .12}s">
-          <div class="n"><span>${r.nama}</span><em>${i === 0 ? "Paling cocok" : "Pelengkap"}</em></div>
-          <p>${r.kat}${r.spf ? " · " + r.spf : ""} · Rp ${r.harga.toLocaleString("id-ID")}</p>
-          <p>${r.alasan.length ? "Formula aktif untuk: <b>" + r.alasan.join("</b>; <b>") + "</b>" : "Perawatan esensial harian untuk jenis kulit " + D[activeTipe].toLowerCase()}</p>
-        </div>
-      `).join("");
-
-      if (topP < spec.min_confidence) {
-        html += `<div class="note warn">Keyakinan model pada tipe kulit berada di level ${(topP * 100).toFixed(0)}%. Validasi dokter dianjurkan untuk konfirmasi diagnosis.</div>`;
-      }
-
-      html += `<div class="note"><b>Catatan Medis & Keamanan:</b> Pemindaian diproteksi auto-scan liveness detection. Rekomendasi didasarkan pada formulasi bahan aktif klinis S'luv yang dapat diselaraskan dengan telaah dokter spesialis kulit.</div>`;
-
-      $("result").innerHTML = html;
-      requestAnimationFrame(() => {
-        document.querySelectorAll(".f").forEach(el => el.style.width = el.dataset.w + "%");
-      });
-
-      // Button Validasi Dokter
-      const btnVal = $("btnBukaValidasi");
-      if (btnVal) {
-        btnVal.onclick = () => {
-          $("modalDermatolog").classList.add("active");
-          $("valTipeKulitPakar").value = tipeAI;
-        };
-      }
-    }
-
-    // Modal Handlers
-    $("btnCloseModal").onclick = () => $("modalDermatolog").classList.remove("active");
-    $("btnCancelVal").onclick = () => $("modalDermatolog").classList.remove("active");
-
-    $("formValidasiDokter").onsubmit = (evt) => {
-      evt.preventDefault();
-      const terpilihMasalah = [];
-      if ($("chkValJerawat").checked) terpilihMasalah.push("Jerawat (Acne Vulgaris)");
-      if ($("chkValFlek").checked) terpilihMasalah.push("Flek Hitam (Melasma)");
-      if ($("chkValKemerahan").checked) terpilihMasalah.push("Kemerahan (Eritema)");
-      if ($("chkValPori").checked) terpilihMasalah.push("Pori-pori Besar");
-      if ($("chkValKerutan").checked) terpilihMasalah.push("Kerutan / Fine Lines");
-
-      dokterValidation = {
-        dokter: $("valDokterNama").value,
-        sip: $("valDokterSIP").value,
-        klinik: $("valDokterKlinik").value,
-        tipePakar: $("valTipeKulitPakar").value,
-        kesesuaian: $("valKesesuaian").value,
-        masalah: terpilihMasalah,
-        catatan: $("valCatatanDokter").value,
-        tgl: new Date().toLocaleDateString("id-ID", { year: "numeric", month: "long", day: "numeric" })
-      };
-
-      $("modalDermatolog").classList.remove("active");
-      if (currentResultData) {
-        showResults(currentResultData.tp, currentResultData.cp);
-      }
-    };
-
-    // Jalankan inisialisasi model saat web dibuka
-    initModel();
-  </script>
+    return;
+  }
+
+  // phase: challenge
+  const ch = run.queue[run.idx];
+  const elapsed = now - run.chStart;
+  setChallenge(`${run.idx + 1}/${run.queue.length}  ${ch.text}`);
+  setHint("Lakukan perintah di atas");
+  setProgress(1 - elapsed / CHALLENGE_TIMEOUT);
+  if (elapsed > CHALLENGE_TIMEOUT) { fail("Waktu habis. Perintah liveness tidak dipenuhi."); return; }
+
+  let done = false;
+  if (ch.id === "blink") {
+    const b = Math.min(bs(res, "eyeBlinkLeft"), bs(res, "eyeBlinkRight"));
+    if (b > .5) run.eyeClosed = true;
+    else if (run.eyeClosed && b < .25) done = true;
+  } else if (ch.id === "mouth") done = bs(res, "jawOpen") > .5;
+  else if (ch.id === "left") done = yaw < -YAW_DEG;
+  else if (ch.id === "right") done = yaw > YAW_DEG;
+
+  if (done) {
+    run.idx++; run.chStart = now; run.eyeClosed = false;
+    if (run.idx >= run.queue.length) { run.phase = "front"; run.holdStart = 0; setChallenge(""); setProgress(0); setHint("Bagus! Hadap lurus ke kamera"); }
+  }
+}
+
+function restartCheck(msg) { fail(msg); }
+
+// ---------- Capture & inferensi ----------
+async function capture(lm, box) {
+  if (hasScreenGlare()) { fail("Terdeteksi pantulan layar perangkat lain. Scan ditolak."); return; }
+  const vw = video.videoWidth, vh = video.videoHeight;
+  snap.width = vw; snap.height = vh; snap.getContext("2d").drawImage(video, 0, 0);
+  // crop persegi berpusat di wajah (koordinat video asli, tidak mirror)
+  const side = Math.min(Math.max((box.maxx - box.minx) * vw, (box.maxy - box.miny) * vh) * 1.25, vw, vh);
+  const sx = Math.max(0, Math.min(vw - side, ((box.minx + box.maxx) / 2) * vw - side / 2));
+  const sy = Math.max(0, Math.min(vh - side, ((box.miny + box.maxy) / 2) * vh - side / 2));
+  const crop = { sx, sy, side };
+
+  run = null; stopCamera();
+  video.style.display = "none"; snap.style.display = "block";
+  stage.classList.add("scanning");
+  $("ring").setAttribute("class", "ring ok");
+  setHint("⚡ Wajah asli terverifikasi. Menjalankan analisis..."); setStatus("Menjalankan inferensi ONNX...");
+  try {
+    const probs = await infer(crop);
+    stage.classList.remove("scanning");
+    setHint("✅ Pemindaian selesai"); setStatus("Analisis berhasil", "ok");
+    showResults(probs.type, probs.concern);
+  } catch (e) {
+    console.error(e); stage.classList.remove("scanning");
+    setStatus("Gagal inferensi: " + e.message, "err"); setHint("Terjadi kesalahan saat memproses gambar.", true);
+  }
+  $("btnRetry").style.display = "inline-flex";
+}
+
+const work = document.createElement("canvas"); work.width = work.height = 224;
+async function infer({ sx, sy, side }) {
+  const ctx = work.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(snap, sx, sy, side, side, 0, 0, 224, 224);
+  const px = ctx.getImageData(0, 0, 224, 224).data, n = 224 * 224, t = new Float32Array(3 * n);
+  for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) t[k * n + i] = (px[i * 4 + k] / 255 - spec.mean[k]) / spec.std[k];
+  const out = await session.run({ input: new ort.Tensor("float32", t, [1, 3, 224, 224]) });
+  return { type: Array.from(out.type_probs.data), concern: Array.from(out.concern_probs.data) };
+}
+
+// ---------- Hasil ----------
+function showResults(tp, cp) {
+  const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
+  const order = tp.map((_, i) => i).sort((a, b) => tp[b] - tp[a]);
+  const topP = tp[order[0]], tipeAI = T[order[0]];
+  const found = C.map((c, j) => ({ c, p: cp[j], t: spec.concern_thresholds[c] })).filter(x => x.p >= x.t).sort((a, b) => b.p - a.p);
+  const mp = Object.fromEntries(found.map(x => [x.c, x.p]));
+
+  let html = '<div class="sec">Tipe Kulit (Prediksi AI)</div>';
+  order.forEach((i, r) => {
+    html += `<div class="bar ${r === 0 ? "top" : ""}"><div class="l"><span>${esc(D[T[i]])}</span><span>${(tp[i] * 100).toFixed(0)}%</span></div><div class="t"><div class="f" data-w="${tp[i] * 100}"></div></div></div>`;
+  });
+  html += '<div class="sec">Masalah Kulit Terdeteksi</div><div class="tags">';
+  html += found.length ? found.map(x => `<span class="tag">${esc(D[x.c])} · ${(x.p * 100).toFixed(0)}%</span>`).join("") : '<span class="tag good">Tidak ada masalah menonjol</span>';
+  html += "</div>";
+
+  html += '<div class="sec">Rekomendasi Produk S\'luv</div>';
+  html += recommend(tipeAI, mp).map((r, i) => `
+    <div class="rec"><div class="n"><span>${esc(r.nama)}</span><em>${i === 0 ? "Paling cocok" : "Pelengkap"}</em></div>
+    <p>${esc(r.kat)}${r.spf ? " · " + esc(r.spf) : ""} · Rp ${r.harga.toLocaleString("id-ID")}</p>
+    <p>${r.alasan.length ? "Formula aktif untuk: <b>" + r.alasan.map(esc).join("</b>; <b>") + "</b>" : "Perawatan harian untuk kulit " + esc(D[tipeAI].toLowerCase())}</p></div>`).join("");
+
+  if (topP < spec.min_confidence) html += `<div class="note warn">Keyakinan model pada tipe kulit hanya ${(topP * 100).toFixed(0)}%. Hasil kurang pasti, pertimbangkan scan ulang dengan cahaya lebih baik.</div>`;
+  html += '<div class="note"><b>Penting:</b> Ini prediksi AI untuk referensi perawatan kulit kosmetik dan bukan diagnosis medis. Untuk masalah kulit yang mengganggu atau berlanjut, konsultasikan dengan dokter kulit.</div>';
+
+  $("result").innerHTML = html;
+  requestAnimationFrame(() => document.querySelectorAll(".f").forEach(el => el.style.width = el.dataset.w + "%"));
+}
+
+$("btnStart").onclick = startScan;
+$("btnRetry").onclick = () => { $("btnRetry").style.display = "none"; startScan(); };
+initModels();
+</script>
 </body>
-
 </html>
