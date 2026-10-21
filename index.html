@@ -836,7 +836,7 @@
         </div>
         <div class="row">
           <button id="btnStart">Mulai Kamera</button>
-          
+          <button id="btnManualCap" class="btn" style="display:none; background:linear-gradient(135deg, #38bdf8, #818cf8);">📸 Ambil Foto Langsung</button>
           <button id="btnRetry" class="ghost" style="display:none">Scan Ulang</button>
         </div>
         <div id="status" style="word-break: break-all;"></div>
@@ -1090,7 +1090,7 @@
 
       $("btnStart").style.display = "none";
       $("btnRetry").style.display = "none";
-      // $("btnManualCap").style.display = "inline-block";
+      $("btnManualCap").style.display = "inline-block";
       snap.style.display = "none";
       video.style.display = "block";
       state = "ready";
@@ -1132,11 +1132,12 @@
     }
 
     function evalFace(box, keypoints) {
-      const vw = video.videoWidth, vh = video.videoHeight;
+      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
       const cx = (box.originX + box.width / 2) / vw, cy = (box.originY + box.height / 2) / vh;
       const ratio = box.width / vw;
-      const pos = Math.abs(cx - 0.5) < 0.10 && Math.abs(cy - 0.47) < 0.12;
-      const dist = ratio > 0.30 && ratio < 0.62;
+      // Toleransi posisi dan jarak yang ramah pengguna
+      const pos = Math.abs(cx - 0.5) < 0.16 && Math.abs(cy - 0.48) < 0.18;
+      const dist = ratio > 0.25 && ratio < 0.75;
 
       // Kecerahan di area wajah
       const c = document.createElement("canvas"); c.width = c.height = 32;
@@ -1144,52 +1145,22 @@
       x.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 32, 32);
       const d = x.getImageData(0, 0, 32, 32).data; let s = 0;
       for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      const lum = s / 1024, light = lum > 70 && lum < 215;
+      const lum = s / 1024, light = lum > 50 && lum < 235;
 
       let still = false;
-      if (lastBox) still = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY) < 0.03 * vw
-        && Math.abs(box.width - lastBox.width) < 0.04 * vw;
+      if (lastBox) still = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY) < 0.06 * vw
+        && Math.abs(box.width - lastBox.width) < 0.08 * vw;
+      else still = true;
 
-      // Anti-Spoofing: Uji Keaktifan (Liveness) & Tekstur Alami
-      const textureOk = checkLiveTexture(box);
-
-      // Deteksi Kedip & Gerakan Kepala Kecil Alami (Micro-nodding)
-      if (keypoints && keypoints.length >= 4) {
-        const leftEye = keypoints[0];
-        const rightEye = keypoints[1];
-        const nose = keypoints[2];
-        const eyeDist = Math.hypot((leftEye.x - rightEye.x) * vw, (leftEye.y - rightEye.y) * vh);
-        const curY = nose.y * vh;
-
-        if (!baselineEyeDist) baselineEyeDist = eyeDist;
-        if (!baselineY) baselineY = curY;
-
-        // Kedip mata alami / perubahan bukaan mata atau sedikit angguk
-        const yDiff = Math.abs(curY - baselineY);
-        if (yDiff > 2.5 && yDiff < 25) nodDetected = true;
-        if (Math.abs(eyeDist - baselineEyeDist) > 3.0) blinkDetected = true;
-      } else {
-        // Fallback jika detektor tidak mengekspor keypoint detail: gunakan fluktuasi mikroskopis wajah hidup
-        if (lastBox) {
-          const jitter = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY);
-          if (jitter > 0.5 && jitter < 0.04 * vw) nodDetected = true;
-        }
-      }
-
-      if (blinkDetected || nodDetected) {
-        livenessPassed = true;
-      }
-
-      return { pos, dist, light, still, ratio, cx, cy, lum, textureOk, livenessPassed };
+      return { pos, dist, light, still, ratio, cx, cy, lum };
     }
 
     function guideText(e) {
-      if (!e.dist) return e.ratio <= 0.30 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
-      if (!e.pos) return "Pusatkan wajah di bingkai";
-      if (!e.light) return e.lum <= 70 ? "Terlalu gelap, cari cahaya" : "Terlalu terang, kurangi cahaya";
-      if (!e.livenessPassed) return "Kedipkan mata atau anggukkan kepala sejenak (Uji Wajah Asli)";
-      if (!e.textureOk) return "Pastikan bukan foto/layar; hadapkan wajah asli";
-      return "Tahan sebentar...";
+      if (!e.dist) return e.ratio <= 0.25 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
+      if (!e.pos) return "Pusatkan wajah di dalam oval";
+      if (!e.light) return e.lum <= 50 ? "Terlalu gelap, cari pencahayaan" : "Terlalu terang, kurangi cahaya";
+      if (!e.still) return "Tahan posisi sejenak...";
+      return "Wajah terdeteksi. Tahan sebentar...";
     }
 
     function loop(ts) {
@@ -1242,21 +1213,20 @@
       setChk("c-still", e.still);
 
       lastBox = { ...box };
-      const liveOk = e.livenessPassed && e.textureOk;
-      const good = e.pos && e.dist && e.light && e.still && liveOk;
-      $("ring").classList.toggle("ok", e.pos && e.dist && e.light && liveOk);
+      const good = e.pos && e.dist && e.light && e.still;
+      $("ring").classList.toggle("ok", e.pos && e.dist && e.light);
 
       if (good) {
         if (!holdStart) holdStart = performance.now();
         const p = Math.min(1, (performance.now() - holdStart) / HOLD_MS);
         setProg(p);
-        setHint("Wajah asli terverifikasi. Tahan sebentar...");
+        setHint("Tahan sebentar...");
         if (p >= 1) {
           state = "capturing";
           frames = [];
           lastCap = 0;
           stage.classList.add("scanning");
-          setHint("Memindai kondisi kulit...");
+          setHint("Memindai...");
           setProg(1);
         }
       } else {
@@ -1323,7 +1293,7 @@
       setHint("Selesai"); setProg(0); $("ring").classList.add("ok");
       show(average(frames, "type"), average(frames, "concern"));
       $("btnRetry").style.display = "inline-block";
-      // $("btnManualCap").style.display = "none";
+      $("btnManualCap").style.display = "none";
     }
 
     function show(tp, cp) {
@@ -1438,7 +1408,7 @@
     };
 
     $("btnStart").onclick = startCamera;
-    // $("btnManualCap").onclick = async () => {
+    $("btnManualCap").onclick = async () => {
       if (state === "done") return;
       setHint("Mengambil foto...");
       const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
