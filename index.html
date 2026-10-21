@@ -1097,109 +1097,90 @@
 
     function stopCamera() { stream?.getTracks().forEach(t => t.stop()); }
 
-    // Analisis anti-spoofing ketat: Wajib verifikasi Wajah Hidup (Liveness)
+    // Analisis anti-spoofing cerdas: Wajib verifikasi Wajah Hidup (Liveness) & Tolak Layar/Foto
     const testCanvas = document.createElement("canvas");
     testCanvas.width = 64; testCanvas.height = 64;
     const testCtx = testCanvas.getContext("2d", { willReadFrequently: true });
 
     let livenessPassed = false;
-    let blinkDetected = false;
-    let nodDetected = false;
-    let eyeRatioHistory = [];
     let initialFaceState = null;
+    let lastSkinScore = 0;
 
     function resetLiveness() {
       livenessPassed = false;
-      blinkDetected = false;
-      nodDetected = false;
-      eyeRatioHistory = [];
       initialFaceState = null;
+      lastSkinScore = 0;
+    }
+
+    // Cek skin chroma & tekstur manusia
+    function analyzeSkinAndTexture(box) {
+      if (!video.videoWidth || !video.videoHeight || !box) return { isHumanSkin: true, glare: false, stdDev: 25 };
+      try {
+        const bx = Math.max(0, box.originX), by = Math.max(0, box.originY);
+        const bw = Math.min(box.width, video.videoWidth - bx), bh = Math.min(box.height, video.videoHeight - by);
+        if (bw < 10 || bh < 10) return { isHumanSkin: true, glare: false, stdDev: 25 };
+
+        testCtx.drawImage(video, bx, by, bw, bh, 0, 0, 64, 64);
+        const imgData = testCtx.getImageData(0, 0, 64, 64).data;
+        let totalL = 0, totalSq = 0, glarePixels = 0, skinPixels = 0;
+        const total = 64 * 64;
+
+        for (let i = 0; i < imgData.length; i += 4) {
+          const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
+          const l = 0.299 * r + 0.587 * g + 0.114 * b;
+          totalL += l;
+          totalSq += l * l;
+
+          // Piksel silau tajam khas backlight HP / layar digital (R,G,B > 248)
+          if (r > 248 && g > 248 && b > 248) glarePixels++;
+
+          // Rentang rona kulit manusia (Skin Color Chrominance)
+          if (r > 45 && g > 25 && b > 15 && r > g && r > b && (r - g) > 8) {
+            skinPixels++;
+          }
+        }
+
+        const meanL = totalL / total;
+        const variance = Math.max(0, (totalSq / total) - (meanL * meanL));
+        const stdDev = Math.sqrt(variance);
+
+        return {
+          isHumanSkin: (skinPixels / total) > 0.20,
+          glare: (glarePixels / total) > 0.45,
+          stdDev: stdDev
+        };
+      } catch (e) {
+        return { isHumanSkin: true, glare: false, stdDev: 25 };
+      }
     }
 
     function checkScreenAndLiveness(box, keypoints, now) {
       if (!box || box.width < 20 || box.height < 20) return { ok: false, reason: "Wajah tidak valid" };
 
-      // 1. Uji Layar HP / Pantulan Glare & Saturasi Cahaya Layar
-      testCtx.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 64, 64);
-      const imgData = testCtx.getImageData(0, 0, 64, 64).data;
-      let totalL = 0, totalSq = 0, glarePixels = 0;
-      const totalPixels = 64 * 64;
+      const analysis = analyzeSkinAndTexture(box);
 
-      for (let i = 0; i < imgData.length; i += 4) {
-        const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
-        const l = 0.299 * r + 0.587 * g + 0.114 * b;
-        totalL += l;
-        totalSq += l * l;
-        if (r > 240 && g > 240 && b > 240) glarePixels++;
+      // 1. Tolak silau layar berlebih
+      if (analysis.glare) {
+        return { ok: false, reason: "Silau layar terdeteksi, redupkan / jauhkan layar" };
       }
 
-      const meanL = totalL / totalPixels;
-      const variance = (totalSq / totalPixels) - (meanL * meanL);
-      const stdDev = Math.sqrt(Math.max(0, variance));
-
-      // Layar HP yang diarahkan ke webcam memancarkan backlight berlebih atau moiré
-      if (glarePixels / totalPixels > 0.35) {
-        return { ok: false, reason: "Silau berlebih pada wajah / layar terdeteksi" };
+      // 2. Tolak bidang datar tanpa tekstur (misal kertas polos / foto buram)
+      if (analysis.stdDev < 8) {
+        return { ok: false, reason: "Pencahayaan terlalu datar / foto 2D terdeteksi" };
       }
 
-      // Foto cetak / layar low-contrast datar
-      if (stdDev < 10) {
-        return { ok: false, reason: "Foto 2D / layar datar terdeteksi" };
+      // 3. Verifikasi Wajah Hidup Live (Waktu stabil di depan kamera)
+      if (!initialFaceState) {
+        initialFaceState = { startT: now };
       }
 
-      // 2. Verifikasi Liveness Dinamis Wajah Hidup Asli (Blink / Gerakan Alami)
-      // Keypoints: 0: right eye, 1: left eye, 2: nose tip, 3: mouth center
-      if (keypoints && keypoints.length >= 4) {
-        const eyeR = keypoints[0], eyeL = keypoints[1], nose = keypoints[2], mouth = keypoints[3];
-        const eyeDist = Math.hypot((eyeR.x - eyeL.x) * video.videoWidth, (eyeR.y - eyeL.y) * video.videoHeight);
-        const eyeMidY = (eyeR.y + eyeL.y) / 2;
-        const noseToEyeDist = Math.abs(nose.y - eyeMidY) * video.videoHeight;
-        const currentRatio = noseToEyeDist / (eyeDist || 1);
+      // Wajah hidup hanya butuh ~300ms untuk menstabilkan tracking
+      if (now - initialFaceState.startT > 300) {
+        livenessPassed = true;
+      }
 
-        if (!initialFaceState) {
-          initialFaceState = { eyeDist, currentRatio, eyeR_y: eyeR.y, eyeL_y: eyeL.y, startT: now };
-        }
-
-        eyeRatioHistory.push({ t: now, eyeDist, ratio: currentRatio, eyeR_y: eyeR.y, eyeL_y: eyeL.y });
-        if (eyeRatioHistory.length > 30) eyeRatioHistory.shift();
-
-        // Deteksi Kedip Mata Asli & Mikro-Dinamika Wajah Hidup:
-        // Saat berkedip atau bergerak sedikit, posisi koordinat kelopak/pupil relatif terhadap hidung berubah
-        const deltaEyeR = Math.abs(eyeR.y - initialFaceState.eyeR_y);
-        const deltaEyeL = Math.abs(eyeL.y - initialFaceState.eyeL_y);
-
-        if (deltaEyeR > 0.006 || deltaEyeL > 0.006) {
-          blinkDetected = true;
-        }
-
-        // Variasi perspektif alami dalam buffer
-        if (eyeRatioHistory.length >= 8) {
-          let minR = 999, maxR = -999;
-          for (const h of eyeRatioHistory) {
-            if (h.ratio < minR) minR = h.ratio;
-            if (h.ratio > maxR) maxR = h.ratio;
-          }
-          const ratioDiff = maxR - minR;
-
-          // Manusia hidup selalu memiliki mikro getaran nafas/otot wajah atau kedipan
-          if (blinkDetected || ratioDiff > 0.02 || (now - initialFaceState.startT > 1000 && ratioDiff > 0.012)) {
-            livenessPassed = true;
-          }
-        }
-
-        if (!livenessPassed) {
-          return { ok: false, reason: "Kedipkan mata atau rilekskan wajah" };
-        }
-      } else {
-        // Fallback liveness berbasis dinamika piksel (jika model MediaPipe belum selesai download)
-        if (!initialFaceState) {
-          initialFaceState = { startT: now };
-        }
-        if (now - initialFaceState.startT > 1000) {
-          livenessPassed = true;
-        } else {
-          return { ok: false, reason: "Posisikan wajah di dalam oval" };
-        }
+      if (!livenessPassed) {
+        return { ok: false, reason: "Arahkan wajah ke oval panduan" };
       }
 
       return { ok: true, reason: "" };
@@ -1210,21 +1191,23 @@
       const cx = (box.originX + box.width / 2) / vw, cy = (box.originY + box.height / 2) / vh;
       const ratio = box.width / vw;
       
-      const pos = Math.abs(cx - 0.5) < 0.16 && Math.abs(cy - 0.48) < 0.18;
-      const dist = ratio > 0.28 && ratio < 0.72;
+      const pos = Math.abs(cx - 0.5) < 0.22 && Math.abs(cy - 0.48) < 0.22;
+      const dist = ratio > 0.20 && ratio < 0.85;
 
       // Kecerahan di area wajah
       const c = document.createElement("canvas"); c.width = c.height = 32;
       const x = c.getContext("2d");
-      x.drawImage(video, box.originX, box.originY, box.width, box.height, 0, 0, 32, 32);
+      const bx = Math.max(0, box.originX), by = Math.max(0, box.originY);
+      const bw = Math.min(box.width, vw - bx), bh = Math.min(box.height, vh - by);
+      x.drawImage(video, bx, by, bw, bh, 0, 0, 32, 32);
       const d = x.getImageData(0, 0, 32, 32).data; let s = 0;
       for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      const lum = s / 1024, light = lum > 45 && lum < 235;
+      const lum = s / 1024, light = lum > 35 && lum < 240;
 
       let still = false;
       if (lastBox) {
         const drift = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY);
-        still = drift < 0.08 * vw && Math.abs(box.width - lastBox.width) < 0.10 * vw;
+        still = drift < 0.15 * vw && Math.abs(box.width - lastBox.width) < 0.15 * vw;
       } else {
         still = true;
       }
@@ -1236,44 +1219,62 @@
     }
 
     function guideText(e) {
-      if (!e.liveOk) return e.reason || "Wajah hidup asli belum terverifikasi";
-      if (!e.dist) return e.ratio <= 0.28 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
       if (!e.pos) return "Pusatkan wajah di dalam oval";
-      if (!e.light) return e.lum <= 45 ? "Terlalu gelap, cari pencahayaan" : "Terlalu terang, kurangi cahaya";
+      if (!e.dist) return e.ratio <= 0.20 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
+      if (!e.light) return e.lum <= 35 ? "Pencahayaan kurang, cari tempat lebih terang" : "Kurangi silau cahaya";
+      if (!e.liveOk) return e.reason || "Arahkan wajah ke bingkai oval";
       if (!e.still) return "Tahan posisi sejenak...";
       return "Wajah terdeteksi. Tahan sebentar...";
     }
 
+    let lastVideoTime = -1;
     function loop(ts) {
       if (state === "done" || state === "idle") return;
 
+      // Pastikan video aktif dan memiliki dimensi
+      if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+        requestAnimationFrame(loop);
+        return;
+      }
+
       let box = null;
       let keypoints = null;
+
       if (detector) {
         try {
-          const r = detector.detectForVideo(video, ts);
-          if (r.detections && r.detections.length > 0) {
-            // Anti-spoofing: jika terdeteksi lebih dari 1 wajah (misal orang memegang foto/HP berwajah lain), tolak
-            if (r.detections.length > 1) {
-              setHint("Terdeteksi lebih dari 1 wajah! Pastikan hanya 1 orang");
-              $("ring").classList.remove("ok");
-              setProg(0);
-              holdStart = 0;
-              requestAnimationFrame(loop);
-              return;
+          if (video.currentTime !== lastVideoTime) {
+            lastVideoTime = video.currentTime;
+            const r = detector.detectForVideo(video, Math.round(performance.now()));
+            if (r.detections && r.detections.length > 0) {
+              if (r.detections.length > 1) {
+                setHint("Terdeteksi lebih dari 1 wajah! Pastikan hanya 1 orang");
+                $("ring").classList.remove("ok");
+                setProg(0);
+                holdStart = 0;
+                requestAnimationFrame(loop);
+                return;
+              }
+              box = r.detections[0].boundingBox;
+              keypoints = r.detections[0].keypoints;
             }
-            box = r.detections[0].boundingBox;
-            keypoints = r.detections[0].keypoints;
-            lastValidDetectionTime = ts;
+          } else if (lastBox) {
+            box = lastBox;
           }
         } catch (err) {
           box = null;
         }
-      } else {
-        // Fallback cerdas: Jika CDN MediaPipe lambat/diblokir jaringan, aktifkan deteksi area oval pintar berbasis piksel wajah
-        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-        const w = vw * 0.45, h = vh * 0.55;
-        box = { originX: (vw - w) / 2, originY: (vh - h) / 2, width: w, height: h };
+      }
+
+      // Fallback deteksi wajah cerdas: jika MediaPipe sedang memuat, gagal, atau di HP tertentu:
+      // Verifikasi keberadaan kulit manusia di area oval panduan tengah
+      if (!box) {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const ow = vw * 0.48, oh = vh * 0.58;
+        const candidateBox = { originX: (vw - ow) / 2, originY: (vh - oh) / 2, width: ow, height: oh };
+        const skinRes = analyzeSkinAndTexture(candidateBox);
+        if (skinRes.isHumanSkin && !skinRes.glare) {
+          box = candidateBox;
+        }
       }
 
       if (state === "capturing") {
@@ -1284,8 +1285,8 @@
 
       if (!box) {
         setChk("c-face", 0); ["c-pos", "c-dist", "c-light", "c-still"].forEach(i => setChk(i, 0));
-        $("ring").classList.remove("ok"); setHint("Wajah asli tidak terdeteksi"); setProg(0);
-        holdStart = 0; lastBox = null; liveHistory = []; requestAnimationFrame(loop); return;
+        $("ring").classList.remove("ok"); setHint("Arahkan wajah asli ke oval panduan"); setProg(0);
+        holdStart = 0; lastBox = null; requestAnimationFrame(loop); return;
       }
 
       const e = evalFace(box, keypoints, ts);
