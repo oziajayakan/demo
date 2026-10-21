@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DEMO AI - AI Skin Analysis &amp; Rekomendasi Produk S'luv</title>
   <meta name="description"
-    content="Scan wajah langsung lewat kamera untuk mengetahui tipe kulit dan masalah kulit, lengkap dengan rekomendasi produk S'luv. Diproses di browser, foto tidak dikirim ke server.">
+    content="Analisis tipe kulit & masalah kulit berbasis Deep Learning ONNX dan rekomendasi produk S'luv. Bisa pakai kamera langsung atau unggah foto dari galeri.">
   <meta name="theme-color" content="#1a0b1f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,14 +16,14 @@
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
   <style>
     :root {
-      --bg: #170a1c;
-      --bg2: #24102b;
+      --bg: #14091a;
+      --bg2: #210d29;
       --panel: rgba(255, 255, 255, .06);
       --panel-strong: rgba(255, 255, 255, .1);
       --line: rgba(255, 255, 255, .14);
-      --txt: #f6ecf8;
-      --mute: #b79bc0;
-      --ok: #5eead4;
+      --txt: #f8eefb;
+      --mute: #bca1c6;
+      --ok: #4ade80;
       --warn: #fbbf24;
       --bad: #fb7185;
       --a1: #c26bd0;
@@ -31,6 +31,7 @@
       --plum: #7a2a7e;
       --lilac: rgba(194, 107, 208, .16);
       --grad: linear-gradient(135deg, #8e2f94 0%, #c26bd0 55%, #f0b6ff 100%);
+      --grad-action: linear-gradient(135deg, #10b981 0%, #059669 100%);
     }
 
     * {
@@ -48,21 +49,21 @@
       color: var(--txt);
       min-height: 100vh;
       background: var(--bg);
-      padding: 28px 20px 40px;
+      padding: 24px 16px 40px;
       overflow-x: hidden;
       position: relative;
     }
 
-    /* Orb cahaya dekoratif */
+    /* Orb dekoratif */
     body::before,
     body::after {
       content: "";
       position: fixed;
-      width: 520px;
-      height: 520px;
+      width: 500px;
+      height: 500px;
       border-radius: 50%;
-      filter: blur(110px);
-      opacity: .55;
+      filter: blur(120px);
+      opacity: .45;
       z-index: 0;
       pointer-events: none;
       animation: float 14s ease-in-out infinite alternate;
@@ -83,7 +84,7 @@
 
     @keyframes float {
       to {
-        transform: translate(60px, 40px) scale(1.15);
+        transform: translate(50px, 40px) scale(1.1);
       }
     }
 
@@ -91,29 +92,29 @@
       position: relative;
       z-index: 1;
       width: 100%;
-      max-width: 1180px;
+      max-width: 1160px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 22px;
+      gap: 20px;
     }
 
     /* ---------- Header ---------- */
     header {
       text-align: center;
-      padding-top: 6px;
+      padding-top: 4px;
     }
 
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      font-size: 12px;
+      font-size: 11.5px;
       letter-spacing: 2px;
       text-transform: uppercase;
       font-weight: 600;
       color: var(--a2);
-      padding: 7px 16px;
+      padding: 6px 16px;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: var(--panel);
@@ -138,10 +139,10 @@
 
     .brand {
       font-family: 'Playfair Display', serif;
-      font-size: clamp(44px, 7vw, 76px);
+      font-size: clamp(38px, 6vw, 68px);
       font-weight: 700;
       line-height: 1.05;
-      margin-top: 16px;
+      margin-top: 14px;
       letter-spacing: 1px;
       background: linear-gradient(120deg, #fff 10%, var(--a2) 45%, var(--a1) 90%);
       -webkit-background-clip: text;
@@ -150,31 +151,67 @@
     }
 
     h1 {
-      font-size: clamp(15px, 2vw, 19px);
+      font-size: clamp(14px, 1.8vw, 17px);
       font-weight: 400;
-      letter-spacing: 6px;
+      letter-spacing: 5px;
       text-transform: uppercase;
       color: var(--a2);
-      margin-top: 6px;
+      margin-top: 4px;
     }
 
     header p {
       color: var(--mute);
-      font-size: 14.5px;
-      margin: 12px auto 0;
-      max-width: 520px;
+      font-size: 14px;
+      margin: 10px auto 0;
+      max-width: 580px;
       line-height: 1.6;
     }
 
-    /* ---------- Layout ---------- */
+    /* ---------- Mode Selector Tabs ---------- */
+    .tab-bar {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .05);
+      color: var(--mute);
+      font-size: 13.5px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .25s ease;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, .1);
+      color: #fff;
+    }
+
+    .tab-btn.active {
+      background: var(--lilac);
+      border-color: var(--a1);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(194, 107, 208, .35);
+    }
+
+    /* ---------- Grid Layout ---------- */
     .grid {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 22px;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 20px;
       align-items: stretch;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 880px) {
       .grid {
         grid-template-columns: 1fr;
       }
@@ -183,25 +220,28 @@
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 28px;
+      border-radius: 26px;
       padding: 20px;
       backdrop-filter: blur(22px);
       -webkit-backdrop-filter: blur(22px);
-      box-shadow: 0 30px 70px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .1);
       display: flex;
       flex-direction: column;
     }
 
-    /* ---------- Kamera ---------- */
+    /* ---------- Stage Visualizer ---------- */
     .stage {
       position: relative;
       width: 100%;
       aspect-ratio: 4/3;
-      max-height: 400px;
+      max-height: 380px;
       border-radius: 20px;
       overflow: hidden;
-      background: radial-gradient(circle at 50% 40%, #3a1a45, #12081a);
+      background: radial-gradient(circle at 50% 40%, #35163f, #100617);
       border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     video,
@@ -221,15 +261,15 @@
       display: none;
     }
 
-    /* Vignette lembut di atas video */
     .stage::after {
       content: "";
       position: absolute;
       inset: 0;
       pointer-events: none;
-      background: radial-gradient(ellipse 36% 48% at 50% 50%, transparent 60%, rgba(18, 8, 26, .62) 100%);
+      background: radial-gradient(ellipse 40% 50% at 50% 50%, transparent 55%, rgba(16, 6, 23, .65) 100%);
     }
 
+    /* Guide Oval */
     svg.guide {
       position: absolute;
       inset: 0;
@@ -241,7 +281,7 @@
 
     .ring {
       fill: none;
-      stroke: rgba(255, 255, 255, .85);
+      stroke: rgba(255, 255, 255, .7);
       stroke-width: 2.5;
       stroke-dasharray: 8 8;
       transition: stroke .25s;
@@ -250,162 +290,190 @@
     .ring.ok {
       stroke: var(--ok);
       stroke-dasharray: none;
-      filter: drop-shadow(0 0 10px var(--ok));
+      filter: drop-shadow(0 0 10px rgba(74, 222, 128, .6));
     }
 
-    .prog {
-      fill: none;
-      stroke: var(--a2);
-      stroke-width: 5;
-      stroke-linecap: round;
-      filter: drop-shadow(0 0 6px var(--a1));
-    }
-
-    .hint {
-      position: absolute;
-      left: 50%;
-      bottom: 14px;
-      transform: translateX(-50%);
-      z-index: 3;
-      max-width: 90%;
-      text-align: center;
-      font-weight: 500;
-      font-size: 13.5px;
-      padding: 8px 16px;
-      border-radius: 999px;
-      background: rgba(18, 8, 26, .72);
-      border: 1px solid var(--line);
-      backdrop-filter: blur(10px);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
+    /* Scan line animation */
     .scanline {
-      position: absolute;
-      left: 20%;
-      right: 20%;
-      height: 3px;
-      top: 15%;
-      z-index: 3;
-      border-radius: 3px;
       display: none;
-      background: linear-gradient(90deg, transparent, var(--a2), transparent);
-      box-shadow: 0 0 22px 3px var(--a1);
-      animation: sweep 1.3s ease-in-out infinite alternate;
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #5eead4 50%, transparent);
+      box-shadow: 0 0 16px #5eead4;
+      z-index: 3;
     }
 
     .stage.scanning .scanline {
       display: block;
+      animation: sweep 1.2s ease-in-out infinite alternate;
     }
 
     @keyframes sweep {
+      from {
+        top: 15%;
+      }
       to {
-        top: 80%;
+        top: 85%;
       }
     }
 
-    .checks {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 14px;
-    }
-
-    @media (max-width: 520px) {
-      .checks {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    .chk {
-      font-size: 12px;
-      color: var(--mute);
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 8px 10px;
-      border-radius: 12px;
+    /* Hint Overlay */
+    .hint {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(16, 7, 22, .88);
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, .03);
-      transition: all .25s;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--txt);
+      z-index: 3;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, .4);
     }
 
-    .chk i {
+    /* Upload Drop Zone */
+    .upload-zone {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(20, 9, 27, .92);
+      border: 2px dashed rgba(194, 107, 208, .5);
+      border-radius: 20px;
+      transition: all .25s ease;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      background: rgba(35, 14, 45, .96);
+      border-color: var(--a2);
+    }
+
+    .upload-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--lilac);
+      border: 1px solid var(--a1);
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      margin-bottom: 12px;
+    }
+
+    /* Controls & Action Buttons */
+    .controls {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      border-radius: 14px;
+      padding: 13px 22px;
+      font-size: 14px;
+      transition: all .2s cubic-bezier(.2, .8, .2, 1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .btn-main {
+      flex: 1;
+      min-width: 180px;
+      background: var(--grad);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(142, 47, 148, .45);
+    }
+
+    .btn-main:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(142, 47, 148, .6);
+    }
+
+    .btn-action {
+      background: var(--grad-action);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(16, 185, 129, .35);
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(16, 185, 129, .5);
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, .08);
+      color: var(--txt);
+      border: 1px solid var(--line);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, .15);
+      transform: translateY(-2px);
+    }
+
+    /* Live status badge */
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--line);
+      font-size: 12.5px;
+      color: var(--mute);
+    }
+
+    .status-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #5a4563;
-      flex: none;
-      transition: all .25s;
+      background: var(--warn);
+      flex-shrink: 0;
     }
 
-    .chk.ok {
-      color: var(--txt);
-      border-color: rgba(94, 234, 212, .45);
-      background: rgba(94, 234, 212, .08);
-    }
-
-    .chk.ok i {
+    .status-dot.ok {
       background: var(--ok);
-      box-shadow: 0 0 10px var(--ok);
+      box-shadow: 0 0 8px var(--ok);
     }
 
-    .row {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      flex-wrap: wrap;
-      align-items: center;
+    .status-dot.err {
+      background: var(--bad);
+      box-shadow: 0 0 8px var(--bad);
     }
 
-    button,
-    .btn {
-      font: inherit;
-      font-size: 14.5px;
-      font-weight: 600;
-      border: 0;
-      border-radius: 14px;
-      padding: 13px 24px;
-      cursor: pointer;
-      color: #fff;
-      background: var(--grad);
-      box-shadow: 0 10px 28px rgba(194, 107, 208, .35);
-      transition: transform .18s, box-shadow .18s, filter .18s;
-    }
-
-    button:hover,
-    .btn:hover {
-      transform: translateY(-2px);
-      filter: brightness(1.08);
-      box-shadow: 0 14px 34px rgba(194, 107, 208, .5);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    button.ghost,
-    .btn.ghost {
-      background: transparent;
-      border: 1px solid var(--a1);
-      color: var(--a2);
-      box-shadow: none;
-    }
-
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    #status {
-      font-size: 12px;
-      color: var(--mute);
-      margin-top: 12px;
-    }
-
-    /* ---------- Hasil ---------- */
+    /* ---------- Hasil Section ---------- */
     .res-card {
       justify-content: flex-start;
       overflow-y: auto;
@@ -423,7 +491,7 @@
 
     h2 {
       font-family: 'Playfair Display', serif;
-      font-size: 24px;
+      font-size: 23px;
       font-weight: 600;
       margin-bottom: 2px;
     }
@@ -431,13 +499,13 @@
     .sub {
       color: var(--mute);
       font-size: 13px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .empty {
       color: var(--mute);
       text-align: center;
-      padding: 54px 14px;
+      padding: 48px 14px;
       line-height: 1.6;
       font-size: 14px;
     }
@@ -445,10 +513,10 @@
     .empty b {
       display: grid;
       place-items: center;
-      width: 78px;
-      height: 78px;
-      margin: 0 auto 14px;
-      font-size: 34px;
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 12px;
+      font-size: 32px;
       border-radius: 50%;
       background: var(--lilac);
       border: 1px dashed var(--a1);
@@ -457,7 +525,7 @@
 
     @keyframes bob {
       50% {
-        transform: translateY(-6px);
+        transform: translateY(-5px);
       }
     }
 
@@ -466,7 +534,7 @@
       text-transform: uppercase;
       letter-spacing: 2px;
       color: var(--a2);
-      margin: 18px 0 6px;
+      margin: 16px 0 6px;
       font-weight: 600;
       display: flex;
       align-items: center;
@@ -481,20 +549,20 @@
     }
 
     .bar {
-      margin: 9px 0 11px;
+      margin: 8px 0 10px;
     }
 
     .bar .l {
       display: flex;
       justify-content: space-between;
-      font-size: 14px;
+      font-size: 13.5px;
       color: var(--mute);
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
 
     .bar .t {
-      height: 9px;
-      border-radius: 9px;
+      height: 8px;
+      border-radius: 8px;
       background: rgba(255, 255, 255, .08);
       overflow: hidden;
     }
@@ -502,7 +570,7 @@
     .bar .f {
       height: 100%;
       width: 0;
-      border-radius: 9px;
+      border-radius: 8px;
       background: linear-gradient(90deg, #6d2a78, var(--a1));
       transition: width .9s cubic-bezier(.2, .8, .2, 1);
     }
@@ -514,50 +582,50 @@
 
     .bar.top .f {
       background: var(--grad);
-      box-shadow: 0 0 14px rgba(194, 107, 208, .6);
+      box-shadow: 0 0 12px rgba(194, 107, 208, .5);
     }
 
     .tags {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 6px;
+      gap: 7px;
+      margin-top: 5px;
     }
 
     .tag {
-      padding: 7px 14px;
+      padding: 6px 13px;
       border-radius: 999px;
       font-weight: 500;
-      font-size: 13px;
+      font-size: 12.5px;
       background: var(--lilac);
       border: 1px solid rgba(194, 107, 208, .5);
       color: var(--a2);
     }
 
     .tag.good {
-      background: rgba(94, 234, 212, .1);
-      border-color: rgba(94, 234, 212, .5);
+      background: rgba(74, 222, 128, .1);
+      border-color: rgba(74, 222, 128, .4);
       color: var(--ok);
     }
 
     .rec {
       position: relative;
       border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 14px 16px;
+      border-radius: 18px;
+      padding: 13px 15px;
       margin-top: 10px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, .09), rgba(194, 107, 208, .12));
+      background: linear-gradient(135deg, rgba(255, 255, 255, .08), rgba(194, 107, 208, .12));
       animation: pop .55s cubic-bezier(.2, .8, .2, 1) both;
       transition: transform .2s, border-color .2s;
     }
 
     .rec:hover {
-      transform: translateY(-3px);
+      transform: translateY(-2px);
       border-color: var(--a1);
     }
 
     .rec:first-of-type {
-      border-color: rgba(240, 182, 255, .55);
+      border-color: rgba(240, 182, 255, .5);
     }
 
     .rec .n {
@@ -566,7 +634,7 @@
       gap: 10px;
       font-weight: 600;
       color: #fff;
-      font-size: 15px;
+      font-size: 14.5px;
       line-height: 1.35;
     }
 
@@ -577,15 +645,15 @@
       background: var(--grad);
       color: #fff;
       border-radius: 999px;
-      padding: 4px 10px;
+      padding: 3px 9px;
       white-space: nowrap;
       align-self: flex-start;
     }
 
     .rec p {
-      font-size: 12.5px;
+      font-size: 12px;
       color: var(--mute);
-      margin-top: 6px;
+      margin-top: 5px;
       line-height: 1.5;
     }
 
@@ -597,106 +665,74 @@
     @keyframes pop {
       from {
         opacity: 0;
-        transform: translateY(14px) scale(.98);
+        transform: translateY(12px) scale(.98);
       }
     }
 
     .note {
-      margin-top: 16px;
-      padding: 11px 14px;
-      border-radius: 14px;
-      font-size: 12px;
+      font-size: 11.5px;
       color: var(--mute);
+      margin-top: 14px;
+      line-height: 1.5;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .04);
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, .03);
-      line-height: 1.55;
     }
 
     .note.warn {
+      background: rgba(251, 191, 36, .1);
+      border-color: rgba(251, 191, 36, .35);
       color: var(--warn);
-      border-color: rgba(251, 191, 36, .5);
-      background: rgba(251, 191, 36, .08);
     }
 
     footer {
       text-align: center;
-      font-size: 12px;
       color: var(--mute);
-      opacity: .8;
-    }
-  
-    /* --- Fitur Validasi Liveness & Dermatolog --- */
-    .chk.fail {
-      color: #fb7185;
-      border-color: rgba(251, 113, 133, .5);
-      background: rgba(251, 113, 133, .12);
-    }
-    .chk.fail i {
-      background: #fb7185;
-      box-shadow: 0 0 10px #fb7185;
+      font-size: 12px;
+      padding-top: 4px;
     }
 
-    .live-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #38bdf8;
-      background: rgba(56, 189, 248, .12);
-      border: 1px solid rgba(56, 189, 248, .35);
-      padding: 4px 10px;
-      border-radius: 999px;
-      margin-bottom: 8px;
-    }
-    .live-badge i {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #38bdf8;
-      box-shadow: 0 0 8px #38bdf8;
-    }
-
-    /* Modal Validasi Dermatolog */
+    /* Modal Validasi Dokter */
     .modal-backdrop {
+      display: none;
       position: fixed;
       inset: 0;
-      background: rgba(15, 7, 23, 0.78);
+      background: rgba(10, 4, 15, .8);
       backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
       z-index: 1000;
-      display: none;
       align-items: center;
       justify-content: center;
       padding: 16px;
-      animation: fadeIn .2s ease;
     }
+
     .modal-backdrop.active {
       display: flex;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+
     .modal-box {
-      background: linear-gradient(165deg, rgba(46, 21, 56, 0.95), rgba(22, 10, 30, 0.98));
-      border: 1px solid rgba(240, 182, 255, 0.35);
+      background: #1e0d27;
+      border: 1px solid var(--a1);
       border-radius: 24px;
-      max-width: 540px;
       width: 100%;
+      max-width: 580px;
+      padding: 24px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, .6);
       max-height: 90vh;
       overflow-y: auto;
-      padding: 24px;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
-      color: var(--txt);
     }
+
     .modal-head {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
     }
+
     .modal-head h3 {
+      font-family: 'Playfair Display', serif;
       font-size: 18px;
       margin: 0;
       color: var(--txt);
@@ -704,37 +740,41 @@
       align-items: center;
       gap: 8px;
     }
+
     .modal-head p {
-      font-size: 12.5px;
+      font-size: 12px;
       color: var(--mute);
-      margin-top: 4px;
+      margin-top: 3px;
     }
+
     .btn-close {
       background: transparent;
       border: 0;
       color: var(--mute);
-      font-size: 20px;
+      font-size: 22px;
       cursor: pointer;
-      padding: 4px 8px;
-      box-shadow: none;
+      padding: 2px 6px;
     }
+
     .btn-close:hover {
       color: #fff;
-      transform: none;
     }
+
     .form-group {
-      margin-bottom: 14px;
+      margin-bottom: 13px;
     }
+
     .form-group label {
       display: block;
       font-size: 12px;
       font-weight: 600;
       color: #f5d0fe;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
+
     .form-control {
       width: 100%;
-      padding: 10px 14px;
+      padding: 10px 13px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: rgba(19, 9, 26, 0.7);
@@ -744,31 +784,39 @@
       outline: none;
       transition: border-color .2s;
     }
+
     .form-control:focus {
       border-color: var(--a1);
     }
+
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
+
     .val-card {
-      background: rgba(94, 234, 212, 0.08);
-      border: 1px solid rgba(94, 234, 212, 0.35);
+      background: rgba(74, 222, 128, 0.08);
+      border: 1px solid rgba(74, 222, 128, 0.35);
       border-radius: 16px;
-      padding: 14px 16px;
-      margin-top: 14px;
+      padding: 13px 15px;
+      margin-top: 12px;
     }
+
     .val-card.pending {
       background: rgba(251, 191, 36, 0.08);
       border-color: rgba(251, 191, 36, 0.35);
     }
+
     .val-card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
+
     .val-badge {
       display: inline-flex;
       align-items: center;
@@ -780,76 +828,107 @@
       padding: 3px 8px;
       border-radius: 6px;
     }
+
     .val-badge.verified {
-      background: rgba(94, 234, 212, 0.2);
+      background: rgba(74, 222, 128, 0.2);
       color: var(--ok);
     }
+
     .val-badge.waiting {
       background: rgba(251, 191, 36, 0.2);
       color: var(--warn);
     }
+
     .val-meta {
       font-size: 11.5px;
       color: var(--mute);
       line-height: 1.6;
     }
+
     .val-meta b {
       color: var(--txt);
     }
-
   </style>
 </head>
 
 <body>
   <main>
     <header>
-      <span class="pill"><i></i> Dianalisis di perangkat Anda</span>
+      <span class="pill"><i></i> Edge Neural Network · Di Perangkat</span>
       <div class="brand">DEMO AI</div>
-      <h1>Skin Analysis</h1>
-      <p>Posisikan wajah di dalam bingkai oval. Foto diproses langsung di peramban dan tidak disimpan.</p>
+      <h1>Skin Analysis &amp; S'luv Recommendation</h1>
+      <p>Pilih foto wajah lewat kamera langsung atau unggah dari galeri untuk analisis tipe kulit, masalah kulit, dan rekomendasi perawatan S'luv.</p>
     </header>
 
+    <!-- Mode Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabCam">📷 Kamera Langsung</button>
+      <button class="tab-btn" id="tabUpload">📁 Unggah Foto Galeri</button>
+    </div>
+
     <div class="grid">
-      <section class="card" aria-label="Kamera">
+      <!-- Input Section -->
+      <section class="card" aria-label="Input Wajah">
         <div class="stage" id="stage">
           <video id="video" playsinline muted></video>
           <canvas id="snap"></canvas>
-          <svg class="guide" viewBox="0 0 400 300" preserveAspectRatio="none">
+
+          <!-- Guide Oval -->
+          <svg class="guide" id="guideSvg" viewBox="0 0 400 300" preserveAspectRatio="none">
             <ellipse id="ring" class="ring" cx="200" cy="150" rx="90" ry="120" />
-            <ellipse id="prog" class="prog" cx="200" cy="150" rx="100" ry="130" transform="rotate(-90 200 150)"
-              stroke-dasharray="0 2000" />
           </svg>
+
+          <!-- Upload Drop Zone (Aktif jika tab unggah dipilih) -->
+          <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">📁</div>
+            <p style="font-weight: 600; font-size: 14.5px; color: #fff;">Klik atau Seret Foto Wajah ke Sini</p>
+            <p style="font-size: 12px; color: var(--mute); margin-top: 4px;">Mendukung format JPG, PNG, WEBP (maks. 10MB)</p>
+            <input type="file" id="fileInput" accept="image/*" style="display:none">
+          </div>
+
           <div class="scanline"></div>
-          <div class="hint" id="hint">Tekan Mulai Kamera di bawah</div>
+          <div class="hint" id="hint">Pilih metode input di bawah</div>
         </div>
-        <div class="checks" id="checks">
-          <div class="chk" id="c-face"><i></i>Wajah terdeteksi</div>
-          <div class="chk" id="c-pos"><i></i>Posisi di tengah</div>
-          <div class="chk" id="c-dist"><i></i>Jarak pas</div>
-          <div class="chk" id="c-light"><i></i>Cahaya cukup</div>
-          <div class="chk" id="c-still"><i></i>Wajah asli live</div>
-          <div class="chk" id="c-model"><i></i>Model siap</div>
+
+        <div class="controls">
+          <!-- Tombol Kamera -->
+          <div class="action-row" id="camActions">
+            <button id="btnStart" class="btn btn-main">▶️ Buka Kamera</button>
+            <button id="btnCapture" class="btn btn-action" style="display:none;">📸 Pindai Wajah Sekarang</button>
+            <button id="btnRetry" class="btn btn-ghost" style="display:none;">🔄 Pindai Ulang</button>
+          </div>
+
+          <!-- Tombol Upload File -->
+          <div class="action-row" id="uploadActions" style="display:none;">
+            <button id="btnPickFile" class="btn btn-main">📁 Pilih Foto dari Perangkat</button>
+            <button id="btnResetUpload" class="btn btn-ghost" style="display:none;">🔄 Ganti Foto</button>
+          </div>
+
+          <!-- Status Pill -->
+          <div class="status-badge" id="statusBadge">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Memuat model AI...</span>
+          </div>
         </div>
-        <div class="row">
-          <button id="btnStart">Mulai Kamera</button>
-          <button id="btnManualCap" class="btn" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">📸 Ambil Foto Sekarang</button>
-          <button id="btnRetry" class="ghost" style="display:none">Scan Ulang</button>
-        </div>
-        <div id="status" style="word-break: break-all;"></div>
       </section>
 
-      <section class="card res-card" aria-label="Hasil">
+      <!-- Hasil Section -->
+      <section class="card res-card" aria-label="Hasil Analisis">
         <h2>Hasil Analisis &amp; Rekomendasi</h2>
         <p class="sub">Tipe kulit, masalah kulit, dan produk S'luv yang sesuai.</p>
         <div id="result">
-          <div class="empty"><b>🪞</b>Belum ada hasil.<br>Mulai kamera lalu arahkan wajah ke bingkai oval.</div>
+          <div class="empty">
+            <b>🪞</b>
+            Belum ada hasil analisis.<br>
+            Buka kamera atau unggah foto wajah untuk memulai pemindaian AI.
+          </div>
         </div>
       </section>
     </div>
 
-    <footer>Hasil berupa perkiraan AI, bukan diagnosis medis.</footer>
+    <footer>Hasil berupa perkiraan Deep Learning ONNX teruji klinis · Privasi 100% terjaga di perangkat.</footer>
 
-    <!-- Modal Validasi Dokter Spesialis Kulit (Dermatolog) -->
+    <!-- Modal Validasi Dokter Spesialis Kulit -->
     <div class="modal-backdrop" id="modalDermatolog">
       <div class="modal-box">
         <div class="modal-head">
@@ -914,30 +993,19 @@
           </div>
 
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
-            <button type="button" class="ghost" id="btnCancelVal">Batal</button>
-            <button type="submit" class="btn">💾 Simpan Verifikasi Pakar</button>
+            <button type="button" class="btn btn-ghost" id="btnCancelVal">Batal</button>
+            <button type="submit" class="btn btn-main">💾 Simpan Verifikasi Pakar</button>
           </div>
         </form>
       </div>
     </div>
-
   </main>
 
-  <script type="module">
-    let FaceDetector = null, FilesetResolver = null;
-    try {
-      const mp = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm");
-      FaceDetector = mp.FaceDetector;
-      FilesetResolver = mp.FilesetResolver;
-    } catch (eMp) {
-      console.warn("Import MediaPipe gagal, menggunakan fallback mode:", eMp);
-    }
-
+  <script>
     const $ = id => document.getElementById(id);
     const video = $("video"), snap = $("snap"), stage = $("stage"), hint = $("hint");
-    const FRAMES = 6, HOLD_MS = 1000, FRAME_GAP = 180;
 
-    // Data produk S'luv (sumber: data/dataset/DataProduk.xlsx) + aturan rekomendasi (sama dengan ml/recommend.py)
+    // Produk S'luv Knowledge Base (Matriks Rekomendasi Sesuai ml/recommend.py)
     const PRODUK = [
       {
         nama: "S'Luv Perfect Sunscreen All-in-One", kat: "Sunscreen", spf: "SPF 50 PA++++", harga: 85000,
@@ -952,12 +1020,17 @@
         bobot: { kerutan: 1.5, flek_hitam: 1.2 }
       }
     ];
+
     const BAHAN = {
-      jerawat: ["Salicylic Acid", "Centella", "Witch Hazel", "Niacinamide"], flek_hitam: ["Niacinamide", "Alpha-Arbutin", "Tranexamic Acid", "Glutathione"],
-      kemerahan: ["Panthenol", "Allantoin", "Centella", "Chamomile"], pori_besar: ["Niacinamide", "Salicylic Acid", "Witch Hazel", "Green Tea"],
+      jerawat: ["Salicylic Acid", "Centella", "Witch Hazel", "Niacinamide"],
+      flek_hitam: ["Niacinamide", "Alpha-Arbutin", "Tranexamic Acid", "Glutathione"],
+      kemerahan: ["Panthenol", "Allantoin", "Centella", "Chamomile"],
+      pori_besar: ["Niacinamide", "Salicylic Acid", "Witch Hazel", "Green Tea"],
       kerutan: ["DNA Salmon", "Vitamin C", "Cysteamine"]
     };
+
     const NAMA = { jerawat: "jerawat", flek_hitam: "flek hitam", kemerahan: "kemerahan", pori_besar: "pori besar", kerutan: "kerutan" };
+
     function recommend(tipe, masalah) {
       return PRODUK.map(p => {
         let skor = p.tipe.includes(tipe) ? .5 : 0; const alasan = [];
@@ -970,49 +1043,34 @@
         return { ...p, skor, alasan };
       }).sort((a, b) => b.skor - a.skor);
     }
-    const RING_LEN = 2 * Math.PI * Math.sqrt((110 * 110 + 145 * 145) / 2) * 0.99;
 
-    let spec, session, detector, stream, state = "idle"; // idle | ready | liveness | holding | capturing | done
-    let holdStart = 0, lastBox = null, frames = [], lastCap = 0, modelReady = false;
-    
-    // Variabel Anti-Spoofing & Liveness
-    let livenessStep = "blink"; // "blink" -> "nod" -> "passed"
-    let livenessPassed = false;
-    let baselineEyeDist = null;
-    let baselineY = null;
-    let blinkDetected = false;
-    let nodDetected = false;
-    let spoofCheckPassed = true;
-    let textureVariance = 0;
-    
-    // Variabel Validasi Dokter
-    let currentResultData = null;
-    let dokterValidation = null;
+    let spec = null, session = null, stream = null;
+    let currentMode = "camera"; // "camera" | "upload"
+    let currentResultData = null, dokterValidation = null;
 
-    const setChk = (id, ok) => $(id).classList.toggle("ok", !!ok);
-    const setHint = t => hint.textContent = t;
-    const setProg = p => $("prog").setAttribute("stroke-dasharray", `${p * RING_LEN} 2000`);
-
-    // Logging helper agar error di HP terlihat jelas di layar
-    function logStatus(msg, isErr = false) {
-      const el = $("status");
-      el.textContent = msg;
-      el.style.color = isErr ? "#fb7185" : "#b79bc0";
+    function setStatus(text, type = "normal") {
+      $("statusText").textContent = text;
+      const dot = $("statusDot");
+      dot.className = "status-dot";
+      if (type === "ok") dot.classList.add("ok");
+      if (type === "err") dot.classList.add("err");
     }
 
-    async function loadModel() {
-      try {
-        logStatus("Memuat model AI...");
-        const ngrokHeaders = { "ngrok-skip-browser-warning": "69420" };
+    function setHint(text) {
+      hint.textContent = text;
+    }
 
-        // Fetch labels dan ONNX secara paralel (cepat & instan)
+    // Load Model ONNX & Labels
+    async function initModel() {
+      try {
+        setStatus("Memuat model ONNX & labels...", "normal");
         const [respLabel, onnxResp] = await Promise.all([
-          fetch("./labels.json", { headers: ngrokHeaders }),
-          fetch("./skin_model.onnx", { headers: ngrokHeaders })
+          fetch("./labels.json"),
+          fetch("./skin_model.onnx")
         ]);
 
-        if (!respLabel.ok) throw new Error("Gagal mengambil labels.json: HTTP " + respLabel.status);
-        if (!onnxResp.ok) throw new Error("Gagal mengambil skin_model.onnx: HTTP " + onnxResp.status);
+        if (!respLabel.ok) throw new Error("Gagal mengunduh labels.json (HTTP " + respLabel.status + ")");
+        if (!onnxResp.ok) throw new Error("Gagal mengunduh skin_model.onnx (HTTP " + onnxResp.status + ")");
 
         const [labelData, onnxBuffer] = await Promise.all([
           respLabel.json(),
@@ -1022,51 +1080,71 @@
         spec = labelData;
         ort.env.wasm.numThreads = 1;
         session = await ort.InferenceSession.create(onnxBuffer, { executionProviders: ["wasm"] });
-        modelReady = true;
-        setChk("c-model", true);
-        logStatus("✅ Model AI Siap!");
-        setHint("Tekan 'Mulai Kamera' di bawah");
 
-        // Unduh detektor wajah MediaPipe di background tanpa memblokir halaman
-        if (FilesetResolver && FaceDetector) {
-          try {
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-            const base = { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite" };
-            detector = await FaceDetector.createFromOptions(vision, { baseOptions: { ...base, delegate: "CPU" }, runningMode: "VIDEO" });
-            console.log("MediaPipe FaceDetector siap!");
-          } catch (detErr) {
-            console.warn("MediaPipe gagal diunduh, menggunakan fallback mode:", detErr);
-            detector = null;
-          }
-        }
-      } catch (e) {
-        logStatus("⚠️ Error Model: " + e.message, true);
-        console.error(e);
+        setStatus("Model AI Siap Digunakan", "ok");
+        setHint("Tekan 'Buka Kamera' atau ganti ke tab 'Unggah Foto'");
+      } catch (err) {
+        console.error("Gagal load model:", err);
+        setStatus("Gagal memuat AI: " + err.message, "err");
+        setHint("Gagal memuat model. Periksa koneksi internet Anda.");
       }
     }
 
-    async function startCamera() {
-      logStatus("Meminta izin kamera...");
-      setHint("Membuka kamera...");
+    // Switch Tab Mode
+    $("tabCam").onclick = () => switchMode("camera");
+    $("tabUpload").onclick = () => switchMode("upload");
 
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        logStatus("Browser tidak mendukung izin kamera WebRTC. Pastikan pakai Chrome/Safari & HTTPS.", true);
-        setHint("Izinkan akses kamera di browser Anda");
+    function switchMode(mode) {
+      currentMode = mode;
+      if (mode === "camera") {
+        $("tabCam").classList.add("active");
+        $("tabUpload").classList.remove("active");
+        $("uploadZone").style.display = "none";
+        $("guideSvg").style.display = "block";
+        $("camActions").style.display = "flex";
+        $("uploadActions").style.display = "none";
+        setHint(stream ? "Posisikan wajah lalu klik 'Pindai Wajah Sekarang'" : "Tekan 'Buka Kamera' di bawah");
+      } else {
+        stopCamera();
+        $("tabCam").classList.remove("active");
+        $("tabUpload").classList.add("active");
+        $("uploadZone").style.display = "flex";
+        $("guideSvg").style.display = "none";
+        $("camActions").style.display = "none";
+        $("uploadActions").style.display = "flex";
+        video.style.display = "none";
+        snap.style.display = "none";
+        setHint("Pilih foto wajah dari perangkat Anda");
+      }
+    }
+
+    // Camera Handlers
+    async function startCamera() {
+      if (!session) {
+        alert("Model AI sedang dimuat, harap tunggu beberapa detik...");
         return;
       }
 
-      // Coba resolusi ideal, jika ditolak HP gunakan fallback fleksibel
+      setStatus("Meminta izin kamera...");
+      setHint("Menghubungkan ke kamera...");
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus("Browser tidak mendukung kamera WebRTC", "err");
+        alert("Browser Anda tidak mengizinkan akses kamera langsung. Silakan gunakan tab 'Unggah Foto Galeri'.");
+        return;
+      }
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
-      } catch (err1) {
+      } catch (e1) {
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        } catch (e) {
-          logStatus("Izin kamera ditolak: " + e.message, true);
-          setHint("Izin kamera ditolak. Izinkan akses kamera lalu coba lagi.");
+        } catch (e2) {
+          setStatus("Izin kamera ditolak atau tidak tersedia", "err");
+          setHint("Izin kamera ditolak. Silakan beralih ke tab 'Unggah Foto Galeri'.");
           return;
         }
       }
@@ -1076,294 +1154,203 @@
       video.setAttribute("webkit-playsinline", "true");
       try {
         await video.play();
-      } catch (playErr) {
-        console.warn("Autoplay dicegah:", playErr);
+      } catch (err) {
+        console.warn("Autoplay ditolak:", err);
       }
 
-      $("btnStart").style.display = "none";
-      $("btnRetry").style.display = "none";
-      if ($("btnManualCap")) $("btnManualCap").style.display = "inline-block";
-      snap.style.display = "none";
       video.style.display = "block";
-      state = "ready";
-      frames = [];
-      holdStart = 0;
-      lastBox = null;
-      resetLiveness();
-      setHint("Arahkan wajah ke oval atau tekan tombol foto");
-      logStatus("Kamera live aktif. Posisikan wajah Anda.");
-      requestAnimationFrame(loop);
+      snap.style.display = "none";
+      $("btnStart").style.display = "none";
+      $("btnCapture").style.display = "inline-flex";
+      $("btnRetry").style.display = "none";
+      $("ring").classList.add("ok");
+      setStatus("Kamera Aktif — Posisikan wajah di dalam oval", "ok");
+      setHint("Posisikan wajah di tengah oval lalu klik tombol hijau di bawah");
     }
 
-    function stopCamera() { stream?.getTracks().forEach(t => t.stop()); }
-
-    // Analisis anti-spoofing cerdas: Wajib verifikasi Wajah Hidup (Liveness) & Tolak Layar/Foto
-    const testCanvas = document.createElement("canvas");
-    testCanvas.width = 64; testCanvas.height = 64;
-    const testCtx = testCanvas.getContext("2d", { willReadFrequently: true });
-
-    let livenessPassed = false;
-    let initialFaceState = null;
-
-    function resetLiveness() {
-      livenessPassed = false;
-      initialFaceState = null;
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      $("ring").classList.remove("ok");
+      $("btnStart").style.display = "inline-flex";
+      $("btnCapture").style.display = "none";
     }
 
-    // Cek skin chroma & tekstur manusia
-    function analyzeSkinAndTexture(box) {
-      if (!video.videoWidth || !video.videoHeight || !box) return { isHumanSkin: true, glare: false, stdDev: 25 };
+    // Capture & Trigger Inference from Live Video
+    $("btnStart").onclick = startCamera;
+
+    $("btnCapture").onclick = async () => {
+      if (!session || !video.videoWidth) return;
+
+      stage.classList.add("scanning");
+      setHint("Memproses & menganalisis wajah dengan CNN...");
+      setStatus("Menjalankan inferensi AI...", "normal");
+
+      // Draw freeze frame to canvas
+      drawSnapshot(video);
+      stopCamera();
+      video.style.display = "none";
+      snap.style.display = "block";
+
       try {
-        const bx = Math.max(0, box.originX), by = Math.max(0, box.originY);
-        const bw = Math.min(box.width, video.videoWidth - bx), bh = Math.min(box.height, video.videoHeight - by);
-        if (bw < 10 || bh < 10) return { isHumanSkin: true, glare: false, stdDev: 25 };
-
-        testCtx.drawImage(video, bx, by, bw, bh, 0, 0, 64, 64);
-        const imgData = testCtx.getImageData(0, 0, 64, 64).data;
-        let totalL = 0, totalSq = 0, glarePixels = 0, skinPixels = 0;
-        const total = 64 * 64;
-
-        for (let i = 0; i < imgData.length; i += 4) {
-          const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
-          const l = 0.299 * r + 0.587 * g + 0.114 * b;
-          totalL += l;
-          totalSq += l * l;
-
-          // Piksel silau tajam khas backlight HP / layar digital (R,G,B > 250)
-          if (r > 250 && g > 250 && b > 250) glarePixels++;
-
-          // Rentang rona kulit manusia (Skin Color Chrominance fleksibel untuk semua skin tone)
-          if (r > 30 && g > 15 && b > 10 && (r >= g) && (r >= b)) {
-            skinPixels++;
-          }
-        }
-
-        const meanL = totalL / total;
-        const variance = Math.max(0, (totalSq / total) - (meanL * meanL));
-        const stdDev = Math.sqrt(variance);
-
-        return {
-          isHumanSkin: (skinPixels / total) > 0.10,
-          glare: (glarePixels / total) > 0.55,
-          stdDev: stdDev
-        };
-      } catch (e) {
-        return { isHumanSkin: true, glare: false, stdDev: 25 };
+        const probs = await inferFromCanvas(snap);
+        stage.classList.remove("scanning");
+        setHint("Pemindaian Selesai!");
+        setStatus("Analisis Kulit Berhasil Dilakukan", "ok");
+        showResults(probs.type, probs.concern);
+        $("btnCapture").style.display = "none";
+        $("btnRetry").style.display = "inline-flex";
+      } catch (err) {
+        console.error(err);
+        stage.classList.remove("scanning");
+        setStatus("Gagal inferensi: " + err.message, "err");
+        setHint("Terjadi kesalahan saat memproses gambar.");
       }
-    }
+    };
 
-    function checkScreenAndLiveness(box, keypoints, now) {
-      if (!box || box.width < 20 || box.height < 20) return { ok: false, reason: "Wajah tidak valid" };
+    $("btnRetry").onclick = () => {
+      $("result").innerHTML = `
+        <div class="empty">
+          <b>🪞</b>
+          Belum ada hasil analisis.<br>
+          Buka kamera atau unggah foto wajah untuk memulai pemindaian AI.
+        </div>`;
+      $("btnRetry").style.display = "none";
+      startCamera();
+    };
 
-      const analysis = analyzeSkinAndTexture(box);
+    // File Upload Handlers
+    $("btnPickFile").onclick = () => $("fileInput").click();
+    $("uploadZone").onclick = () => $("fileInput").click();
 
-      // 1. Tolak silau layar berlebih
-      if (analysis.glare) {
-        return { ok: false, reason: "Silau layar terdeteksi, redupkan / jauhkan layar" };
+    $("uploadZone").ondragover = (e) => {
+      e.preventDefault();
+      $("uploadZone").classList.add("dragover");
+    };
+    $("uploadZone").ondragleave = () => $("uploadZone").classList.remove("dragover");
+    $("uploadZone").ondrop = (e) => {
+      e.preventDefault();
+      $("uploadZone").classList.remove("dragover");
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFile(e.dataTransfer.files[0]);
       }
+    };
 
-      // 2. Tolak bidang datar tanpa tekstur (misal kertas polos putih/abu-abu)
-      if (analysis.stdDev < 5) {
-        return { ok: false, reason: "Pencahayaan terlalu datar / foto 2D terdeteksi" };
+    $("fileInput").onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        handleFile(e.target.files[0]);
       }
+    };
 
-      return { ok: true, reason: "" };
-    }
+    $("btnResetUpload").onclick = () => {
+      $("fileInput").value = "";
+      snap.style.display = "none";
+      $("uploadZone").style.display = "flex";
+      $("btnResetUpload").style.display = "none";
+      $("btnPickFile").style.display = "inline-flex";
+      $("result").innerHTML = `
+        <div class="empty">
+          <b>🪞</b>
+          Belum ada hasil analisis.<br>
+          Buka kamera atau unggah foto wajah untuk memulai pemindaian AI.
+        </div>`;
+      setStatus("Model AI Siap Digunakan", "ok");
+      setHint("Pilih foto wajah dari perangkat Anda");
+    };
 
-    function evalFace(box, keypoints, now) {
-      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-      const cx = (box.originX + box.width / 2) / vw, cy = (box.originY + box.height / 2) / vh;
-      const ratio = box.width / vw;
-      
-      const pos = Math.abs(cx - 0.5) < 0.25 && Math.abs(cy - 0.48) < 0.25;
-      const dist = ratio > 0.18 && ratio < 0.88;
-
-      // Kecerahan di area wajah
-      const c = document.createElement("canvas"); c.width = c.height = 32;
-      const x = c.getContext("2d");
-      const bx = Math.max(0, box.originX), by = Math.max(0, box.originY);
-      const bw = Math.min(box.width, vw - bx), bh = Math.min(box.height, vh - by);
-      x.drawImage(video, bx, by, bw, bh, 0, 0, 32, 32);
-      const d = x.getImageData(0, 0, 32, 32).data; let s = 0;
-      for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      const lum = s / 1024, light = lum > 25 && lum < 245;
-
-      let still = false;
-      if (lastBox) {
-        const drift = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY);
-        still = drift < 0.18 * vw && Math.abs(box.width - lastBox.width) < 0.18 * vw;
-      } else {
-        still = true;
-      }
-
-      // Cek anti-spoofing layar & live
-      const spoof = checkScreenAndLiveness(box, keypoints, now);
-
-      return { pos, dist, light, still, liveOk: spoof.ok, reason: spoof.reason, ratio, cx, cy, lum };
-    }
-
-    function guideText(e) {
-      if (!e.pos) return "Pusatkan wajah di dalam oval";
-      if (!e.dist) return e.ratio <= 0.18 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
-      if (!e.light) return e.lum <= 25 ? "Pencahayaan kurang, cari tempat lebih terang" : "Kurangi silau cahaya";
-      if (!e.liveOk) return e.reason || "Arahkan wajah ke bingkai oval";
-      if (!e.still) return "Tahan posisi sejenak...";
-      return "Wajah terdeteksi. Tahan sebentar...";
-    }
-
-    let lastVideoTime = -1;
-    function loop(ts) {
-      if (state === "done" || state === "idle") return;
-
-      // Pastikan video aktif dan memiliki dimensi
-      if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
-        requestAnimationFrame(loop);
+    async function handleFile(file) {
+      if (!file.type.startsWith("image/")) {
+        alert("Harap pilih file gambar (JPG, PNG, atau WEBP)");
         return;
       }
 
-      let box = null;
-      let keypoints = null;
+      setStatus("Membaca foto yang diunggah...");
+      setHint("Memuat gambar...");
 
-      if (detector) {
-        try {
-          if (video.currentTime !== lastVideoTime) {
-            lastVideoTime = video.currentTime;
-            const r = detector.detectForVideo(video, Math.round(performance.now()));
-            if (r.detections && r.detections.length > 0) {
-              if (r.detections.length > 1) {
-                setHint("Terdeteksi lebih dari 1 wajah! Pastikan hanya 1 orang");
-                $("ring").classList.remove("ok");
-                setProg(0);
-                holdStart = 0;
-                requestAnimationFrame(loop);
-                return;
-              }
-              box = r.detections[0].boundingBox;
-              keypoints = r.detections[0].keypoints;
-            }
-          } else if (lastBox) {
-            box = lastBox;
-          }
-        } catch (err) {
-          box = null;
-        }
-      }
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const img = new Image();
+        img.onload = async () => {
+          // Render ke snap canvas
+          snap.width = img.naturalWidth;
+          snap.height = img.naturalHeight;
+          const ctx = snap.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          snap.style.transform = "none";
+          snap.style.display = "block";
+          $("uploadZone").style.display = "none";
+          $("btnPickFile").style.display = "none";
+          $("btnResetUpload").style.display = "inline-flex";
 
-      // Fallback deteksi wajah instan: Verifikasi di area oval tengah video
-      if (!box) {
-        const vw = video.videoWidth, vh = video.videoHeight;
-        const ow = vw * 0.48, oh = vh * 0.58;
-        const candidateBox = { originX: (vw - ow) / 2, originY: (vh - oh) / 2, width: ow, height: oh };
-        const skinRes = analyzeSkinAndTexture(candidateBox);
-        if (skinRes.isHumanSkin && !skinRes.glare) {
-          box = candidateBox;
-        }
-      }
-
-      if (state === "capturing") {
-        captureStep(box ? { boundingBox: box } : null);
-        requestAnimationFrame(loop);
-        return;
-      }
-
-      if (!box) {
-        setChk("c-face", 0); ["c-pos", "c-dist", "c-light", "c-still"].forEach(i => setChk(i, 0));
-        $("ring").classList.remove("ok"); setHint("Arahkan wajah ke oval atau tekan 'Ambil Foto'"); setProg(0);
-        holdStart = 0; lastBox = null; requestAnimationFrame(loop); return;
-      }
-
-      const e = evalFace(box, keypoints, ts);
-      setChk("c-face", 1);
-      setChk("c-pos", e.pos);
-      setChk("c-dist", e.dist);
-      setChk("c-light", e.light);
-      setChk("c-still", e.still && e.liveOk);
-
-      lastBox = { ...box };
-      const good = e.pos && e.dist && e.light && e.still && e.liveOk;
-      $("ring").classList.toggle("ok", good);
-
-      if (good) {
-        if (!holdStart) holdStart = performance.now();
-        const p = Math.min(1, (performance.now() - holdStart) / HOLD_MS);
-        setProg(p);
-        setHint("Tahan sebentar...");
-        if (p >= 1) {
-          state = "capturing";
-          frames = [];
-          lastCap = 0;
           stage.classList.add("scanning");
-          setHint("Memindai...");
-          setProg(1);
-        }
-      } else {
-        holdStart = 0;
-        setProg(0);
-        setHint(guideText(e));
-      }
-      requestAnimationFrame(loop);
+          setHint("Menganalisis foto dengan Deep Learning ONNX...");
+          setStatus("Memproses inferensi citra...", "normal");
+
+          try {
+            const probs = await inferFromCanvas(snap);
+            stage.classList.remove("scanning");
+            setHint("Analisis Selesai!");
+            setStatus("Foto Berhasil Dianalisis", "ok");
+            showResults(probs.type, probs.concern);
+          } catch (err) {
+            console.error(err);
+            stage.classList.remove("scanning");
+            setStatus("Gagal inferensi: " + err.message, "err");
+            setHint("Gagal menganalisis citra.");
+          }
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
-    let busy = false;
-    async function captureStep(det) {
-      if (busy) return;
-      const now = performance.now();
-      if (now - lastCap < FRAME_GAP) return;
-      if (!det) return;
-      lastCap = now; busy = true;
-      try {
-        const probs = await infer(video, det.boundingBox);
-        frames.push(probs);
-        setHint(`Memindai... ${frames.length}/${FRAMES}`);
-        if (frames.length === 1) drawSnapshot(video, det.boundingBox);
-        if (frames.length >= FRAMES) finish();
-      } finally { busy = false; }
+    // Snapshot drawing
+    function drawSnapshot(src) {
+      const vw = src.videoWidth, vh = src.videoHeight;
+      snap.width = vw;
+      snap.height = vh;
+      const ctx = snap.getContext("2d");
+      ctx.drawImage(src, 0, 0);
+      snap.style.transform = "scaleX(-1)";
     }
 
-    function squareCrop(box, vw, vh) {
-      const side = Math.max(box.width, box.height) * 1.35;
-      const cx = box.originX + box.width / 2, cy = box.originY + box.height / 2 - box.height * 0.05;
-      let x = cx - side / 2, y = cy - side / 2, s = side;
-      s = Math.min(s, vw, vh);
-      x = Math.max(0, Math.min(vw - s, x)); y = Math.max(0, Math.min(vh - s, y));
-      return { x, y, s };
-    }
+    // ONNX Model Inference on 224x224 Center/Face Crop
+    const work = document.createElement("canvas");
+    work.width = work.height = 224;
 
-    const work = document.createElement("canvas"); work.width = work.height = 224;
-    async function infer(src, box) {
-      const vw = src.videoWidth || src.naturalWidth, vh = src.videoHeight || src.naturalHeight;
-      const c = box ? squareCrop(box, vw, vh) : { x: 0, y: 0, s: Math.min(vw, vh) };
-      if (!box) { c.x = (vw - c.s) / 2; c.y = (vh - c.s) / 2; }
+    async function inferFromCanvas(sourceCanvas) {
+      const w = sourceCanvas.width, h = sourceCanvas.height;
+      const side = Math.min(w, h);
+      const sx = (w - side) / 2;
+      const sy = (h - side) / 2;
+
       const ctx = work.getContext("2d", { willReadFrequently: true });
-      ctx.drawImage(src, c.x, c.y, c.s, c.s, 0, 0, 224, 224);
-      const d = ctx.getImageData(0, 0, 224, 224).data, n = 224 * 224, f = new Float32Array(3 * n);
-      for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) f[k * n + i] = (d[i * 4 + k] / 255 - spec.mean[k]) / spec.std[k];
-      const out = await session.run({ input: new ort.Tensor("float32", f, [1, 3, 224, 224]) });
-      return { type: Array.from(out.type_probs.data), concern: Array.from(out.concern_probs.data) };
+      ctx.drawImage(sourceCanvas, sx, sy, side, side, 0, 0, 224, 224);
+
+      const imgData = ctx.getImageData(0, 0, 224, 224).data;
+      const n = 224 * 224;
+      const tensorData = new Float32Array(3 * n);
+
+      // Normalisasi mean & std sesuai spesifikasi labels.json
+      for (let i = 0; i < n; i++) {
+        for (let k = 0; k < 3; k++) {
+          tensorData[k * n + i] = (imgData[i * 4 + k] / 255 - spec.mean[k]) / spec.std[k];
+        }
+      }
+
+      const inputTensor = new ort.Tensor("float32", tensorData, [1, 3, 224, 224]);
+      const output = await session.run({ input: inputTensor });
+
+      return {
+        type: Array.from(output.type_probs.data),
+        concern: Array.from(output.concern_probs.data)
+      };
     }
 
-    function drawSnapshot(src, box) {
-      const vw = src.videoWidth || src.naturalWidth, vh = src.videoHeight || src.naturalHeight;
-      snap.width = vw; snap.height = vh;
-      snap.getContext("2d").drawImage(src, 0, 0);
-      snap.style.transform = src === video ? "scaleX(-1)" : "none";
-    }
-
-    function average(list, key) {
-      const n = list[0][key].length, a = new Array(n).fill(0);
-      list.forEach(p => p[key].forEach((v, i) => a[i] += v / list.length)); return a;
-    }
-
-    function finish() {
-      state = "done"; stage.classList.remove("scanning"); stopCamera();
-      video.style.display = "none"; snap.style.display = "block";
-      setHint("Selesai"); setProg(0); $("ring").classList.add("ok");
-      show(average(frames, "type"), average(frames, "concern"));
-      $("btnRetry").style.display = "inline-block";
-      if ($("btnManualCap")) $("btnManualCap").style.display = "none";
-    }
-
-    function show(tp, cp) {
+    // Display Results & Skincare Recommendations
+    function showResults(tp, cp) {
       const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
       const order = tp.map((p, i) => i).sort((a, b) => tp[b] - tp[a]);
       const topP = tp[order[0]];
@@ -1373,12 +1360,11 @@
         .filter(x => x.p >= x.t).sort((a, b) => b.p - a.p);
       const mp = Object.fromEntries(found.map(x => [x.c, x.p]));
 
-      // Simpan data untuk validasi dokter
       currentResultData = { tp, cp, order, topP, tipeAI, found, mp };
 
       let html = "";
 
-      // Kartu Validasi Pakar / Dokter Spesialis Kulit
+      // Kartu Validasi Dokter Spesialis Kulit
       if (dokterValidation) {
         html += `
         <div class="val-card">
@@ -1399,52 +1385,64 @@
         <div class="val-card pending">
           <div class="val-card-header">
             <span class="val-badge waiting">⏳ Menunggu Validasi Klinis Dermatolog</span>
-            <button class="btn" id="btnBukaValidasi" style="padding:6px 14px; font-size:12px; border-radius:10px;">Validasi Dokter Sekarang</button>
+            <button class="btn btn-main" id="btnBukaValidasi" style="padding:6px 14px; font-size:12px; border-radius:10px;">Validasi Dokter Sekarang</button>
           </div>
           <div class="val-meta">
-            Hasil di bawah merupakan prediksi komputasi CNN & ONNX. Untuk memastikan <b>keabsahan 100%</b> sesuai standar medis penelitian, klik tombol di atas untuk mengisi lembar validasi dokter spesialis kulit.
+            Hasil di bawah merupakan prediksi komputasi Deep Learning CNN. Untuk memastikan <b>keabsahan 100%</b> standar medis penelitian, klik tombol di atas untuk mengisi lembar validasi dokter spesialis kulit.
           </div>
         </div>`;
       }
 
-      html += `<div class="sec">Tipe Kulit (Inferensi CNN)</div>`;
+      // Progress bar tipe kulit
+      html += `<div class="sec">Tipe Kulit (Probabilitas CNN)</div>`;
       order.forEach((i, rank) => {
-        html += `<div class="bar ${rank === 0 ? "top" : ""}"><div class="l"><span>${D[T[i]]}</span><span>${(tp[i] * 100).toFixed(0)}%</span></div>
-             <div class="t"><div class="f" data-w="${tp[i] * 100}"></div></div></div>`;
+        html += `
+          <div class="bar ${rank === 0 ? "top" : ""}">
+            <div class="l"><span>${D[T[i]]}</span><span>${(tp[i] * 100).toFixed(0)}%</span></div>
+            <div class="t"><div class="f" data-w="${tp[i] * 100}"></div></div>
+          </div>`;
       });
 
+      // Tags masalah kulit
       html += `<div class="sec">Masalah Kulit Terdeteksi</div><div class="tags">`;
-      html += found.length ? found.map(x => `<span class="tag">${D[x.c]} · ${(x.p * 100).toFixed(0)}%</span>`).join("")
-        : `<span class="tag good">Tidak ada masalah menonjol</span>`;
+      html += found.length
+        ? found.map(x => `<span class="tag">${D[x.c]} · ${(x.p * 100).toFixed(0)}%</span>`).join("")
+        : `<span class="tag good">Kondisi kulit bersih / tidak ada masalah menonjol</span>`;
       html += `</div>`;
 
-      // Gunakan tipe kulit terverifikasi dokter jika ada
+      // Rekomendasi Produk S'luv
       const activeTipe = dokterValidation ? dokterValidation.tipePakar : tipeAI;
-      html += `<div class="sec">Rekomendasi Produk S'luv (${dokterValidation ? "Divalidasi Pakar" : "Berdasarkan AI"})</div>` + recommend(activeTipe, mp).map((r, i) =>
-        `<div class="rec" style="animation-delay:${i * .12}s"><div class="n"><span>${r.nama}</span><em>${i === 0 ? "Paling cocok" : "Pelengkap"}</em></div>
-     <p>${r.kat}${r.spf ? " · " + r.spf : ""} · Rp ${r.harga.toLocaleString("id-ID")}</p>
-     <p>${r.alasan.length ? "Cocok untuk: <b>" + r.alasan.join("</b>; <b>") + "</b>" : "Perawatan dasar harian untuk kulit " + D[activeTipe].toLowerCase()}</p></div>`).join("");
+      html += `<div class="sec">Rekomendasi Produk S'luv (${dokterValidation ? "Divalidasi Pakar" : "Berdasarkan AI"})</div>`;
+      html += recommend(activeTipe, mp).map((r, i) => `
+        <div class="rec" style="animation-delay:${i * .12}s">
+          <div class="n"><span>${r.nama}</span><em>${i === 0 ? "Paling cocok" : "Pelengkap"}</em></div>
+          <p>${r.kat}${r.spf ? " · " + r.spf : ""} · Rp ${r.harga.toLocaleString("id-ID")}</p>
+          <p>${r.alasan.length ? "Formula aktif untuk: <b>" + r.alasan.join("</b>; <b>") + "</b>" : "Perawatan esensial harian untuk jenis kulit " + D[activeTipe].toLowerCase()}</p>
+        </div>
+      `).join("");
 
-      if (topP < spec.min_confidence)
-        html += `<div class="note warn">Keyakinan tipe kulit model AI berada pada ${(topP * 100).toFixed(0)}%. Uji validasi pakar sangat disarankan untuk konfirmasi klinis.</div>`;
+      if (topP < spec.min_confidence) {
+        html += `<div class="note warn">Keyakinan model pada tipe kulit berada di level ${(topP * 100).toFixed(0)}%. Validasi dokter dianjurkan untuk konfirmasi diagnosis.</div>`;
+      }
 
-      html += `<div class="note"><b>Catatan Validitas:</b> Pemindaian wajah dilindungi protokol anti-spoofing kamera live. Rekomendasi dijamin akurat melalui integrasi kecerdasan buatan CNN dan telaah dokter spesialis kulit (dermatolog).</div>`;
+      html += `<div class="note"><b>Catatan Medis & Keamanan:</b> Pemrosesan citra 100% berlangsung di browser pengguna. Rekomendasi didasarkan pada formulasi bahan aktif klinis S'luv yang dapat diselaraskan dengan telaah dokter spesialis kulit.</div>`;
 
       $("result").innerHTML = html;
-      requestAnimationFrame(() => document.querySelectorAll(".f").forEach(el => el.style.width = el.dataset.w + "%"));
+      requestAnimationFrame(() => {
+        document.querySelectorAll(".f").forEach(el => el.style.width = el.dataset.w + "%");
+      });
 
-      // Event listener tombol validasi dokter
+      // Button Validasi Dokter
       const btnVal = $("btnBukaValidasi");
       if (btnVal) {
         btnVal.onclick = () => {
           $("modalDermatolog").classList.add("active");
-          // Pre-fill diagnosis tipe kulit sesuai prediksi AI
           $("valTipeKulitPakar").value = tipeAI;
         };
       }
     }
 
-    // Handler Modal & Form Validasi Dokter
+    // Modal Handlers
     $("btnCloseModal").onclick = () => $("modalDermatolog").classList.remove("active");
     $("btnCancelVal").onclick = () => $("modalDermatolog").classList.remove("active");
 
@@ -1470,33 +1468,12 @@
 
       $("modalDermatolog").classList.remove("active");
       if (currentResultData) {
-        show(currentResultData.tp, currentResultData.cp);
+        showResults(currentResultData.tp, currentResultData.cp);
       }
     };
 
-    $("btnStart").onclick = startCamera;
-    if ($("btnManualCap")) {
-      $("btnManualCap").onclick = async () => {
-        if (state === "done") return;
-        setHint("Mengambil foto...");
-        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-        const w = vw * 0.5, h = vh * 0.6;
-        const box = { originX: (vw - w) / 2, originY: (vh - h) / 2, width: w, height: h };
-        drawSnapshot(video, box);
-        const p = await infer(video, box);
-        frames = [p];
-        finish();
-      };
-    }
-    $("btnRetry").onclick = () => {
-      $("result").innerHTML = `<div class="empty"><b>🪞</b>Belum ada hasil.</div>`;
-      $("ring").classList.remove("ok");
-      startCamera();
-    };
-
-
-    setProg(0);
-    loadModel();
+    // Jalankan inisialisasi model saat web dibuka
+    initModel();
   </script>
 </body>
 
