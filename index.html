@@ -1167,18 +1167,17 @@
         eyeRatioHistory.push({ t: now, eyeDist, ratio: currentRatio, eyeR_y: eyeR.y, eyeL_y: eyeL.y });
         if (eyeRatioHistory.length > 30) eyeRatioHistory.shift();
 
-        // Deteksi Kedip Mata Asli (Eye Blink Detection):
-        // Saat manusia berkedip, posisi kelopak mata / keypoint mata bergeser sesaat lalu kembali normal.
-        // Foto di HP tidak pernah berkedip.
-        const dR = Math.abs(eyeR.y - initialFaceState.eyeR_y);
-        const dL = Math.abs(eyeL.y - initialFaceState.eyeL_y);
-        if (dR > 0.012 || dL > 0.012) {
+        // Deteksi Kedip Mata Asli & Mikro-Dinamika Wajah Hidup:
+        // Saat berkedip atau bergerak sedikit, posisi koordinat kelopak/pupil relatif terhadap hidung berubah
+        const deltaEyeR = Math.abs(eyeR.y - initialFaceState.eyeR_y);
+        const deltaEyeL = Math.abs(eyeL.y - initialFaceState.eyeL_y);
+
+        if (deltaEyeR > 0.006 || deltaEyeL > 0.006) {
           blinkDetected = true;
         }
 
-        // Variasi rasio 3D perspektif: foto datar di HP yang digerakkan akan mengubah seluruh bidang sekaligus,
-        // sedangkan kepala manusia hidup memiliki pergeseran kedalaman (depth parallax).
-        if (eyeRatioHistory.length >= 15) {
+        // Variasi perspektif alami dalam buffer
+        if (eyeRatioHistory.length >= 8) {
           let minR = 999, maxR = -999;
           for (const h of eyeRatioHistory) {
             if (h.ratio < minR) minR = h.ratio;
@@ -1186,17 +1185,17 @@
           }
           const ratioDiff = maxR - minR;
 
-          // Hanya lolos jika terbukti ada kedipan mata atau perubahan perspektif wajah hidup yang signifikan
-          if (blinkDetected || ratioDiff > 0.055) {
+          // Manusia hidup selalu memiliki mikro getaran nafas/otot wajah atau kedipan
+          if (blinkDetected || ratioDiff > 0.02 || (now - initialFaceState.startT > 1000 && ratioDiff > 0.012)) {
             livenessPassed = true;
           }
         }
 
         if (!livenessPassed) {
-          return { ok: false, reason: "Kedipkan mata untuk verifikasi wajah asli" };
+          return { ok: false, reason: "Kedipkan mata atau rilekskan wajah" };
         }
       } else {
-        return { ok: false, reason: "Fitur wajah tidak lengkap" };
+        return { ok: false, reason: "Posisikan wajah di tengah oval" };
       }
 
       return { ok: true, reason: "" };
@@ -1221,7 +1220,7 @@
       let still = false;
       if (lastBox) {
         const drift = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY);
-        still = drift < 0.05 * vw && Math.abs(box.width - lastBox.width) < 0.06 * vw;
+        still = drift < 0.08 * vw && Math.abs(box.width - lastBox.width) < 0.10 * vw;
       } else {
         still = true;
       }
