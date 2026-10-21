@@ -806,7 +806,7 @@
       <span class="pill"><i></i> Dianalisis di perangkat Anda</span>
       <div class="brand">DEMO AI</div>
       <h1>Skin Analysis</h1>
-      <p>Deteksi live kamera real-time dengan proteksi anti-spoofing (hanya wajah asli, bukan foto/layar). Hasil diverifikasi bersama dokter spesialis kulit.</p>
+      <p>Posisikan wajah di dalam bingkai oval. Foto diproses langsung di peramban dan tidak disimpan.</p>
     </header>
 
     <div class="grid">
@@ -822,14 +822,14 @@
           <div class="scanline"></div>
           <div class="hint" id="hint">Memuat kamera dan model...</div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
-          <div class="live-badge"><i></i> Live Camera Only (Anti-Spoofing Aktif)</div>
-          <small style="font-size:11px; color:var(--mute);">Foto galeri & layar ditolak</small>
-        </div>
         <div class="checks" id="checks">
-          <div class="chk" id="c-face"><i></i>Wajah asli terdeteksi</div>
-          <div class="chk" id="c-live"><i></i>Uji keaktifan (Live)</div>
-          <div class="chk" id="c-pos"><i></i>Posisi di oval</div>
+          <div class="chk" id="c-face"><i></i>Wajah terdeteksi</div>
+          <div class="chk" id="c-pos"><i></i>Posisi di tengah</div>
+          <div class="chk" id="c-dist"><i></i>Jarak pas</div>
+          <div class="chk" id="c-light"><i></i>Cahaya cukup</div>
+          <div class="chk" id="c-still"><i></i>Diam sejenak</div>
+          <div class="chk" id="c-model"><i></i>Model siap</div>
+        </div>
           <div class="chk" id="c-dist"><i></i>Jarak pas</div>
           <div class="chk" id="c-light"><i></i>Cahaya cukup</div>
           <div class="chk" id="c-still"><i></i>Diam sejenak</div>
@@ -1101,7 +1101,7 @@
       baselineEyeDist = null;
       baselineY = null;
       spoofCheckPassed = false;
-      setChk("c-live", 0);
+      // reset
       setHint("Arahkan wajah asli ke oval panduan");
       logStatus("Kamera live aktif. Sistem memverifikasi wajah asli.");
       requestAnimationFrame(loop);
@@ -1225,14 +1225,14 @@
       }
 
       if (!box) {
-        setChk("c-face", 0); ["c-live", "c-pos", "c-dist", "c-light", "c-still"].forEach(i => setChk(i, 0));
+        setChk("c-face", 0); ["c-pos", "c-dist", "c-light", "c-still"].forEach(i => setChk(i, 0));
         $("ring").classList.remove("ok"); setHint("Wajah tidak terdeteksi"); setProg(0);
         holdStart = 0; lastBox = null; requestAnimationFrame(loop); return;
       }
 
       const e = evalFace(box, keypoints);
       setChk("c-face", 1);
-      setChk("c-live", e.livenessPassed && e.textureOk);
+      // internal liveness check
       setChk("c-pos", e.pos);
       setChk("c-dist", e.dist);
       setChk("c-light", e.light);
