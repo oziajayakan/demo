@@ -832,6 +832,7 @@
         </div>
         <div class="row">
           <button id="btnStart">Mulai Kamera</button>
+          <button id="btnManualCap" class="btn" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">📸 Ambil Foto Sekarang</button>
           <button id="btnRetry" class="ghost" style="display:none">Scan Ulang</button>
         </div>
         <div id="status" style="word-break: break-all;"></div>
@@ -1081,7 +1082,7 @@
 
       $("btnStart").style.display = "none";
       $("btnRetry").style.display = "none";
-      if ($("btnManualCap")) $("btnManualCap").style.display = "none";
+      if ($("btnManualCap")) $("btnManualCap").style.display = "inline-block";
       snap.style.display = "none";
       video.style.display = "block";
       state = "ready";
@@ -1089,9 +1090,8 @@
       holdStart = 0;
       lastBox = null;
       resetLiveness();
-      // reset
-      setHint("Arahkan wajah asli ke oval panduan");
-      logStatus("Kamera live aktif. Sistem memverifikasi wajah asli.");
+      setHint("Arahkan wajah ke oval atau tekan tombol foto");
+      logStatus("Kamera live aktif. Posisikan wajah Anda.");
       requestAnimationFrame(loop);
     }
 
@@ -1104,12 +1104,10 @@
 
     let livenessPassed = false;
     let initialFaceState = null;
-    let lastSkinScore = 0;
 
     function resetLiveness() {
       livenessPassed = false;
       initialFaceState = null;
-      lastSkinScore = 0;
     }
 
     // Cek skin chroma & tekstur manusia
@@ -1131,11 +1129,11 @@
           totalL += l;
           totalSq += l * l;
 
-          // Piksel silau tajam khas backlight HP / layar digital (R,G,B > 248)
-          if (r > 248 && g > 248 && b > 248) glarePixels++;
+          // Piksel silau tajam khas backlight HP / layar digital (R,G,B > 250)
+          if (r > 250 && g > 250 && b > 250) glarePixels++;
 
-          // Rentang rona kulit manusia (Skin Color Chrominance)
-          if (r > 45 && g > 25 && b > 15 && r > g && r > b && (r - g) > 8) {
+          // Rentang rona kulit manusia (Skin Color Chrominance fleksibel untuk semua skin tone)
+          if (r > 30 && g > 15 && b > 10 && (r >= g) && (r >= b)) {
             skinPixels++;
           }
         }
@@ -1145,8 +1143,8 @@
         const stdDev = Math.sqrt(variance);
 
         return {
-          isHumanSkin: (skinPixels / total) > 0.20,
-          glare: (glarePixels / total) > 0.45,
+          isHumanSkin: (skinPixels / total) > 0.10,
+          glare: (glarePixels / total) > 0.55,
           stdDev: stdDev
         };
       } catch (e) {
@@ -1164,23 +1162,9 @@
         return { ok: false, reason: "Silau layar terdeteksi, redupkan / jauhkan layar" };
       }
 
-      // 2. Tolak bidang datar tanpa tekstur (misal kertas polos / foto buram)
-      if (analysis.stdDev < 8) {
+      // 2. Tolak bidang datar tanpa tekstur (misal kertas polos putih/abu-abu)
+      if (analysis.stdDev < 5) {
         return { ok: false, reason: "Pencahayaan terlalu datar / foto 2D terdeteksi" };
-      }
-
-      // 3. Verifikasi Wajah Hidup Live (Waktu stabil di depan kamera)
-      if (!initialFaceState) {
-        initialFaceState = { startT: now };
-      }
-
-      // Wajah hidup hanya butuh ~300ms untuk menstabilkan tracking
-      if (now - initialFaceState.startT > 300) {
-        livenessPassed = true;
-      }
-
-      if (!livenessPassed) {
-        return { ok: false, reason: "Arahkan wajah ke oval panduan" };
       }
 
       return { ok: true, reason: "" };
@@ -1191,8 +1175,8 @@
       const cx = (box.originX + box.width / 2) / vw, cy = (box.originY + box.height / 2) / vh;
       const ratio = box.width / vw;
       
-      const pos = Math.abs(cx - 0.5) < 0.22 && Math.abs(cy - 0.48) < 0.22;
-      const dist = ratio > 0.20 && ratio < 0.85;
+      const pos = Math.abs(cx - 0.5) < 0.25 && Math.abs(cy - 0.48) < 0.25;
+      const dist = ratio > 0.18 && ratio < 0.88;
 
       // Kecerahan di area wajah
       const c = document.createElement("canvas"); c.width = c.height = 32;
@@ -1202,12 +1186,12 @@
       x.drawImage(video, bx, by, bw, bh, 0, 0, 32, 32);
       const d = x.getImageData(0, 0, 32, 32).data; let s = 0;
       for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      const lum = s / 1024, light = lum > 35 && lum < 240;
+      const lum = s / 1024, light = lum > 25 && lum < 245;
 
       let still = false;
       if (lastBox) {
         const drift = Math.hypot(box.originX - lastBox.originX, box.originY - lastBox.originY);
-        still = drift < 0.15 * vw && Math.abs(box.width - lastBox.width) < 0.15 * vw;
+        still = drift < 0.18 * vw && Math.abs(box.width - lastBox.width) < 0.18 * vw;
       } else {
         still = true;
       }
@@ -1220,8 +1204,8 @@
 
     function guideText(e) {
       if (!e.pos) return "Pusatkan wajah di dalam oval";
-      if (!e.dist) return e.ratio <= 0.20 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
-      if (!e.light) return e.lum <= 35 ? "Pencahayaan kurang, cari tempat lebih terang" : "Kurangi silau cahaya";
+      if (!e.dist) return e.ratio <= 0.18 ? "Dekatkan wajah ke kamera" : "Mundur sedikit";
+      if (!e.light) return e.lum <= 25 ? "Pencahayaan kurang, cari tempat lebih terang" : "Kurangi silau cahaya";
       if (!e.liveOk) return e.reason || "Arahkan wajah ke bingkai oval";
       if (!e.still) return "Tahan posisi sejenak...";
       return "Wajah terdeteksi. Tahan sebentar...";
@@ -1265,8 +1249,7 @@
         }
       }
 
-      // Fallback deteksi wajah cerdas: jika MediaPipe sedang memuat, gagal, atau di HP tertentu:
-      // Verifikasi keberadaan kulit manusia di area oval panduan tengah
+      // Fallback deteksi wajah instan: Verifikasi di area oval tengah video
       if (!box) {
         const vw = video.videoWidth, vh = video.videoHeight;
         const ow = vw * 0.48, oh = vh * 0.58;
@@ -1285,7 +1268,7 @@
 
       if (!box) {
         setChk("c-face", 0); ["c-pos", "c-dist", "c-light", "c-still"].forEach(i => setChk(i, 0));
-        $("ring").classList.remove("ok"); setHint("Arahkan wajah asli ke oval panduan"); setProg(0);
+        $("ring").classList.remove("ok"); setHint("Arahkan wajah ke oval atau tekan 'Ambil Foto'"); setProg(0);
         holdStart = 0; lastBox = null; requestAnimationFrame(loop); return;
       }
 
