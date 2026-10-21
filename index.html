@@ -820,7 +820,7 @@
               stroke-dasharray="0 2000" />
           </svg>
           <div class="scanline"></div>
-          <div class="hint" id="hint">Memuat kamera dan model...</div>
+          <div class="hint" id="hint">Tekan Mulai Kamera di bawah</div>
         </div>
         <div class="checks" id="checks">
           <div class="chk" id="c-face"><i></i>Wajah terdeteksi</div>
@@ -1006,43 +1006,46 @@
 
     async function loadModel() {
       try {
-        logStatus("Mengunduh config label...");
+        logStatus("Memuat model AI...");
         const ngrokHeaders = { "ngrok-skip-browser-warning": "69420" };
 
-        const resp = await fetch("./labels.json", { headers: ngrokHeaders });
-        if (!resp.ok) throw new Error("Gagal mengambil labels.json: HTTP " + resp.status);
-        spec = await resp.json();
+        // Fetch labels dan ONNX secara paralel (cepat & instan)
+        const [respLabel, onnxResp] = await Promise.all([
+          fetch("./labels.json", { headers: ngrokHeaders }),
+          fetch("./skin_model.onnx", { headers: ngrokHeaders })
+        ]);
 
-        logStatus("Mengunduh model AI (4.9MB)...");
-        const onnxResp = await fetch("./skin_model.onnx", { headers: ngrokHeaders });
+        if (!respLabel.ok) throw new Error("Gagal mengambil labels.json: HTTP " + respLabel.status);
         if (!onnxResp.ok) throw new Error("Gagal mengambil skin_model.onnx: HTTP " + onnxResp.status);
-        const onnxBuffer = await onnxResp.arrayBuffer();
 
-        logStatus("Menginisialisasi ONNX WebAssembly...");
-        // Konfigurasi wasm ort untuk mobile
+        const [labelData, onnxBuffer] = await Promise.all([
+          respLabel.json(),
+          onnxResp.arrayBuffer()
+        ]);
+
+        spec = labelData;
         ort.env.wasm.numThreads = 1;
         session = await ort.InferenceSession.create(onnxBuffer, { executionProviders: ["wasm"] });
         modelReady = true;
         setChk("c-model", true);
         logStatus("✅ Model AI Siap!");
-        setHint("Tekan Mulai Kamera");
+        setHint("Tekan 'Mulai Kamera' di bawah");
 
-        // Unduh modul MediaPipe jika library berhasil di-import
+        // Unduh detektor wajah MediaPipe di background tanpa memblokir halaman
         if (FilesetResolver && FaceDetector) {
-          try {
-            logStatus("Menyiapkan detektor wajah...");
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-            const base = { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite" };
-            detector = await FaceDetector.createFromOptions(vision, { baseOptions: { ...base, delegate: "CPU" }, runningMode: "VIDEO" });
-            logStatus("✅ Kamera & Detektor Wajah Siap Digunakan!");
-          } catch (eMedia) {
-            console.warn("MediaPipe gagal di HP, fallback aktif:", eMedia);
-            detector = null;
-            logStatus("✅ Model AI Siap (Mode Oval Pintar)");
-          }
-        } else {
-          detector = null;
-          logStatus("✅ Model AI Siap (Mode Oval Pintar)");
+          FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm")
+            .then(vision => {
+              const base = { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite" };
+              return FaceDetector.createFromOptions(vision, { baseOptions: { ...base, delegate: "CPU" }, runningMode: "VIDEO" });
+            })
+            .then(det => {
+              detector = det;
+              console.log("MediaPipe FaceDetector siap!");
+            })
+            .catch(err => {
+              console.warn("MediaPipe offline, mode Oval Pintar aktif:", err);
+              detector = null;
+            });
         }
       } catch (e) {
         logStatus("⚠️ Error Model: " + e.message, true);
@@ -1056,7 +1059,7 @@
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         logStatus("Browser tidak mendukung izin kamera WebRTC. Pastikan pakai Chrome/Safari & HTTPS.", true);
-        setHint("Gunakan tombol Upload Foto");
+        setHint("Izinkan akses kamera di browser Anda");
         return;
       }
 
@@ -1071,7 +1074,7 @@
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         } catch (e) {
           logStatus("Izin kamera ditolak: " + e.message, true);
-          setHint("Izin kamera ditolak. Gunakan 'Upload Foto'.");
+          setHint("Izin kamera ditolak. Izinkan akses kamera lalu coba lagi.");
           return;
         }
       }
