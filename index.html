@@ -204,9 +204,37 @@ function stopCam(){cancelAnimationFrame(raf);stream?.getTracks().forEach(t=>t.st
 const lum=(d,i)=>.299*d[i]+.587*d[i+1]+.114*d[i+2];
 function patch(cx,cy,sz){sx.drawImage(vid,cx-sz/2,cy-sz/2,sz,sz,0,0,32,32);return sx.getImageData(0,0,32,32).data}
 function screenSpoof(l,w,h){
- const d=patch(((l[117].x+l[346].x)/2)*w,((l[117].y+l[346].y)/2)*h,48);let s=0,q=0,g=0;
- for(let i=0;i<1024;i++){const v=lum(d,i*4);s+=v;q+=v*v;if(d[i*4]>245&&d[i*4+1]>245&&d[i*4+2]>245)g++}
- const m=s/1024;if(g/1024>.12)return"Pantulan layar terdeteksi";if(q/1024-m*m<32)return"Tekstur terlalu datar (foto/layar)";return null}
+ if(!l||l.length<400)return"Wajah tidak terdeteksi utuh";
+ // 1. Analisis Tekstur & Glare Layar HP pada Pipi Kiri & Kanan
+ const pts=[{x:l[117].x*w,y:l[117].y*h},{x:l[346].x*w,y:l[346].y*h}];
+ let totalGlare=0,totalVar=0;
+ for(const pt of pts){
+  const d=patch(pt.x,pt.y,48);let s=0,q=0,g=0;
+  for(let i=0;i<1024;i++){
+   const r=d[i*4],gn=d[i*4+1],b=d[i*4+2];
+   const v=.299*r+.587*gn+.114*b;
+   s+=v;q+=v*v;
+   if(r>240&&gn>240&&b>240)g++; // Pantulan kaca LCD/OLED
+  }
+  const m=s/1024;
+  totalVar+=(q/1024-m*m);
+  totalGlare+=g/1024;
+ }
+ const avgVar=totalVar/2;
+ const avgGlare=totalGlare/2;
+
+ // Foto layar HP / cetak: glare kaca tinggi (> 0.08) ATAU tekstur terlalu datar/halus (varians < 45)
+ if(avgGlare>.08)return"Pantulan layar HP/Monitor terdeteksi";
+ if(avgVar<45)return"Foto/layar terdeteksi (tekstur tidak alami)";
+
+ // 2. Periksa variasi mikroskopis kedalaman 3D (Landmark Z-Depth)
+ // Pada foto datar, kedalaman hidung ke telinga relatif seragam/datar
+ const noseZ=l[1].z||0,earLZ=l[234]?.z||0,earRZ=l[454]?.z||0;
+ const zDepth=Math.abs(noseZ-(earLZ+earRZ)/2);
+ if(zDepth<.025)return"Foto 2D terdeteksi (tidak ada kedalaman 3D)";
+
+ return null;
+}
 function occlusion(l){
  const nose=l[1],chin=l[152],fh=l[10],mL=l[61],mR=l[291],eL=l[133],eR=l[362];
  const H=Math.hypot(fh.x-chin.x,fh.y-chin.y);if(H<.2)return null;
@@ -227,15 +255,15 @@ const yawOf=m=>m&&m.length>=16?Math.atan2(m[8],m[0])*180/Math.PI:0;
 function loop(now){
  if(busy)return;raf=requestAnimationFrame(loop);
  if(vid.readyState<2||now-last<50)return;last=now;
- if(preview){previewStep(now);return}
+ if(!lmk){say("Menunggu model 3D…","Sedang memuat MediaPipe");return}
  let r;try{r=lmk.detectForVideo(vid,now)}catch{return}
  const n=r?.faceLandmarks?.length||0;
  if(!n){phase="align";holdT=0;say("Wajah belum terdeteksi","Posisikan wajah di oval");return}
  if(n>1){say("Terdeteksi lebih dari satu wajah","Pastikan hanya kamu di depan kamera","no");return}
  const l=r.faceLandmarks[0],w=vid.videoWidth,h=vid.videoHeight;
- const sp=screenSpoof(l,w,h);if(sp){chk("cScreen","no","Layar?");say(sp,"Hadapkan wajah asli ke kamera","no");holdT=0;return}chk("cScreen","ok");
- const oc=occlusion(l);if(oc){chk("cMask","no","Tertutup");say("Wajah tertutup",oc,"no");holdT=0;return}chk("cMask","ok");
- if(glasses(l,w,h)){chk("cGlass","no","Kacamata");say("Lepas kacamata","Agar tekstur kulit terbaca akurat","no");holdT=0;return}chk("cGlass","ok");
+ const sp=screenSpoof(l,w,h);if(sp){chk("cScreen","no","Layar?");say(sp,"Hadapkan wajah asli fisikmu","no");holdT=0;return}chk("cScreen","ok","Wajah asli");
+ const oc=occlusion(l);if(oc){chk("cMask","no","Tertutup");say("Wajah tertutup",oc,"no");holdT=0;return}chk("cMask","ok","Wajah terbuka");
+ if(glasses(l,w,h)){chk("cGlass","no","Kacamata");say("Lepas kacamata","Agar tekstur kulit terbaca akurat","no");holdT=0;return}chk("cGlass","ok","Tanpa kacamata");
  let a=1,b=0,c=1,d=0;for(const p of l){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y)}
  const fh=d-c,ctr=Math.abs((a+b)/2-.5)<.22&&Math.abs((c+d)/2-.48)<.22&&fh>.28&&fh<.9;
  const yaw=yawOf(r.facialTransformationMatrixes?.[0]?.data);
@@ -246,16 +274,18 @@ function loop(now){
  if(phase==="challenge"){
   const t=((3500-(now-chalT))/1000).toFixed(1);say(chal.h,chal.s+" · "+t+" dtk","ok");chk("cLive","","Menguji…");
   const e=(ear(l,true)+ear(l,false))/2;let pass=false;
-  if(chal.id==="blink"){if(e<.13)eyeClosed=true;else if(eyeClosed&&e>.22)pass=true}
-  else if(chal.id==="left")pass=yaw<-15;else pass=yaw>15;
+  if(chal.id==="blink"){
+   // Kedipan fisik riil: mata harus benar-benar terpejam (< 0.12) lalu terbuka (> 0.23)
+   if(e<.12)eyeClosed=true;
+   else if(eyeClosed&&e>.23)pass=true;
+  }
+  else if(chal.id==="left")pass=yaw<-16;
+  else pass=yaw>16;
+  
   if(pass){chk("cLive","ok","Gerakan asli");analyze(l)}
   else if(now-chalT>3500){chk("cLive","no","Gagal");say("Gerakan tidak terdeteksi","Mengulang tantangan…","no");phase="align";holdT=0;chal=CH[Math.random()*3|0]}
  }
 }
-function previewStep(now){ // tanpa model: simulasi alur
- if(!holdT)holdT=now;const e=now-holdT;
- if(e<1200)say("Posisikan wajah di oval","Mode pratinjau");else if(e<2800){say(chal.h,chal.s,"ok");chk("cScreen","ok");chk("cMask","ok");chk("cGlass","ok")}
- else{chk("cLive","ok","Gerakan asli");analyze(null)}}
 
 /* ---------- ambil gambar + inferensi ---------- */
 async function analyze(l){
