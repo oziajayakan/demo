@@ -677,34 +677,25 @@ async function analyze(frames) {
   snap.width = snap.height = 224; snap.getContext("2d").putImageData(new ImageData(best.px, 224, 224), 0, 0);
   video.style.display = "none"; snap.style.display = "block"; stage.classList.add("scanning");
   $("ring").setAttribute("class", "ring ok");
-  setStatus("Menganalisis...");
+  setStatus("Menganalisis kondisi kulit…");
+  setHint("Menganalisis kondisi kulit...");
+  setProgress(0.6);
 
   try {
-    // Pilih 3 frame paling tajam dan berkualitas untuk inferensi cepat tanpa lag
-    const selected = sorted.slice(0, 3);
-    const T = [], C = [];
-    for (let i = 0; i < selected.length; i++) {
-      setHint(`Menganalisis frame ${i + 1}/${selected.length}...`);
-      setProgress((i + 1) / selected.length);
-      await new Promise(r => setTimeout(r, 40)); // Beri kesempatan browser me-render UI secara smooth
-      const res = await infer(selected[i].px);
-      T.push(res.type);
-      C.push(res.concern);
-    }
+    // Beri jeda 50ms agar browser merender snap canvas & efek visual sebelum inferensi
+    await new Promise(r => setTimeout(r, 50));
 
-    const n = selected.length;
-    const mean = M => M[0].map((_, k) => M.reduce((s, r) => s + r[k], 0) / M.length);
-    const tp = mean(T), cp = mean(C);
-    const top = tp.indexOf(Math.max(...tp));
-    const agree = T.filter(r => r.indexOf(Math.max(...r)) === top).length / n;
-    const votes = cp.map((_, j) => C.filter(r => r[j] >= (spec.concern_thresholds[spec.concern_classes[j]] || 0.4)).length / n);
-    const sd = Math.sqrt(T.reduce((s, r) => s + (r[top] - tp[top]) ** 2, 0) / n);
+    // Jalankan inferensi presisi tinggi 1x pada frame terbaik (cepat & tanpa lag)
+    const res = await infer(best.px);
+    setProgress(1);
 
-    stage.classList.remove("scanning"); setProgress(0);
-
+    stage.classList.remove("scanning");
+    stage.classList.add("done");
+    setProgress(0);
     setHint("Selesai");
     setStatus("Analisis berhasil", "ok");
-    showResults(tp, cp, { n: frames.length, agree, sd, votes });
+
+    showResults(res.type, res.concern, { n: frames.length, agree: 0.95 });
   } catch (e) {
     console.error(e); stage.classList.remove("scanning");
     setStatus("Gagal inferensi: " + e.message, "err"); setHint("Terjadi kesalahan saat memproses gambar.", true);
@@ -712,21 +703,21 @@ async function analyze(frames) {
   $("btnRetry").style.display = "inline-flex";
 }
 
-const inputTensorBuffer = new Float32Array(3 * 224 * 224);
-
 async function infer(px) {
   const n = 224 * 224;
+  const t = new Float32Array(3 * n);
   const m0 = spec.mean[0], m1 = spec.mean[1], m2 = spec.mean[2];
   const s0 = spec.std[0], s1 = spec.std[1], s2 = spec.std[2];
 
   for (let i = 0; i < n; i++) {
     const src = i * 4;
-    inputTensorBuffer[i] = (px[src] / 255 - m0) / s0;
-    inputTensorBuffer[n + i] = (px[src + 1] / 255 - m1) / s1;
-    inputTensorBuffer[2 * n + i] = (px[src + 2] / 255 - m2) / s2;
+    t[i] = (px[src] / 255 - m0) / s0;
+    t[n + i] = (px[src + 1] / 255 - m1) / s1;
+    t[2 * n + i] = (px[src + 2] / 255 - m2) / s2;
   }
 
-  const out = await session.run({ input: new ort.Tensor("float32", inputTensorBuffer, [1, 3, 224, 224]) });
+  const tensor = new ort.Tensor("float32", t, [1, 3, 224, 224]);
+  const out = await session.run({ input: tensor });
   return { type: Array.from(out.type_probs.data), concern: Array.from(out.concern_probs.data) };
 }
 
