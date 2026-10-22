@@ -436,31 +436,82 @@ function hasScreenGlare() {
 }
 
 // ---------- Anti-Manipulasi: Deteksi Kacamata & Masker ----------
+// ---------- Anti-Manipulasi: Deteksi Kacamata & Masker Terkalibrasi ----------
 function checkFaceOcclusion(lm) {
   try {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     if (!lm || lm.length < 400) return null;
 
-    // 1. Cek Masker / Penutup Wajah Bawah
-    const noseTip = lm[1], upperLip = lm[13], lowerLip = lm[14], chin = lm[152];
-    if (!noseTip || !upperLip || !lowerLip || !chin) return "Wajah/mulut tertutup masker atau benda lain.";
-    const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
-    const mouthDist = Math.hypot(upperLip.x - lowerLip.x, upperLip.y - lowerLip.y);
-    if (chinNoseDist < 0.07 || mouthDist < 0.002) {
-      return "Bagian bawah wajah/mulut tertutup masker atau tangan.";
+    // 1. Cek Masker & Penutup Wajah Bawah
+    const noseTip = lm[1], chin = lm[152], forehead = lm[10];
+    const mouthL = lm[61], mouthR = lm[291];
+    const eyeL = lm[133], eyeR = lm[362];
+
+    if (!noseTip || !chin || !forehead || !mouthL || !mouthR || !eyeL || !eyeR) {
+      return "Wajah terhalang atau tidak terdeteksi utuh.";
     }
 
-    // 2. Cek Kacamata (Glasses Detection pada batang hidung)
-    const p133 = { x: lm[133].x * vw, y: lm[133].y * vh };
-    const p362 = { x: lm[362].x * vw, y: lm[362].y * vh };
-    const p168 = { x: lm[168].x * vw, y: lm[168].y * vh };
-    const eyeDist = Math.hypot(p362.x - p133.x, p362.y - p133.y);
+    const faceH = Math.hypot(forehead.x - chin.x, forehead.y - chin.y);
+    const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
+    const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
+    const mouthW = Math.hypot(mouthR.x - mouthL.x, mouthR.y - mouthL.y);
 
-    if (eyeDist > 30) {
-      const bw = Math.max(16, Math.floor(eyeDist * 0.46));
-      const bh = Math.max(16, Math.floor(eyeDist * 0.36));
-      const bx = Math.floor(p168.x - bw / 2);
-      const by = Math.floor(p168.y - bh / 2);
+    // Rasio proporsi dagu-hidung dan lebar mulut terhadap anatomi wajah normal
+    if (faceH > 0.25) {
+      const lowerRatio = chinNoseDist / faceH;
+      if (lowerRatio < 0.20 || lowerRatio > 0.58) {
+        return "Bagian bawah wajah/dagu tertutup masker atau tangan.";
+      }
+      if (eyeDist > 0.05 && (mouthW / eyeDist < 0.40)) {
+        return "Bagian mulut tertutup tangan atau masker.";
+      }
+    }
+
+    // Cek warna kain masker (surgical blue/white/black mask) pada area mulut
+    const pMouth = { x: Math.floor(lm[14].x * vw), y: Math.floor(lm[14].y * vh) };
+    const pForehead = { x: Math.floor(forehead.x * vw), y: Math.floor(forehead.y * vh + (faceH * vh * 0.15)) };
+
+    if (pMouth.x > 10 && pMouth.x < vw - 10 && pMouth.y > 10 && pMouth.y < vh - 10 &&
+        pForehead.x > 10 && pForehead.x < vw - 10 && pForehead.y > 10 && pForehead.y < vh - 10) {
+      gc.width = 16; gc.height = 16;
+      // Sampel dahi (kulit asli)
+      gctx.drawImage(video, pForehead.x - 8, pForehead.y - 8, 16, 16, 0, 0, 16, 16);
+      const foreData = gctx.getImageData(0, 0, 16, 16).data;
+      let fR = 0, fG = 0, fB = 0;
+      for (let i = 0; i < foreData.length; i += 4) { fR += foreData[i]; fG += foreData[i+1]; fB += foreData[i+2]; }
+      fR /= 256; fG /= 256; fB /= 256;
+
+      // Sampel mulut/masker
+      gctx.drawImage(video, pMouth.x - 8, pMouth.y - 8, 16, 16, 0, 0, 16, 16);
+      const mData = gctx.getImageData(0, 0, 16, 16).data;
+      let mR = 0, mG = 0, mB = 0;
+      for (let i = 0; i < mData.length; i += 4) { mR += mData[i]; mG += mData[i+1]; mB += mData[i+2]; }
+      mR /= 256; mG /= 256; mB /= 256;
+
+      // Masker bedah biru: mB jauh lebih dominan daripada mR
+      if (mB - mR > 18) {
+        return "Terdeteksi memakai masker. Mohon lepas masker.";
+      }
+      // Masker putih pekat buatan atau masker kain hitam
+      if (mR > 215 && mG > 215 && mB > 215 && fR < 185) {
+        return "Terdeteksi memakai masker putih. Mohon lepas masker.";
+      }
+      if (mR < 35 && mG < 35 && mB < 35 && fR > 65) {
+        return "Terdeteksi masker hitam menutupi mulut.";
+      }
+    }
+
+    // 2. Cek Kacamata (Glasses Bridge Detection di Nasion lm[6])
+    const pEyeL = { x: eyeL.x * vw, y: eyeL.y * vh };
+    const pEyeR = { x: eyeR.x * vw, y: eyeR.y * vh };
+    const pNasion = { x: lm[6].x * vw, y: lm[6].y * vh };
+    const eyeDistPx = Math.hypot(pEyeR.x - pEyeL.x, pEyeR.y - pEyeL.y);
+
+    if (eyeDistPx > 35) {
+      const bw = Math.max(16, Math.floor(eyeDistPx * 0.38));
+      const bh = Math.max(12, Math.floor(eyeDistPx * 0.22));
+      const bx = Math.floor(pNasion.x - bw / 2);
+      const by = Math.floor(pNasion.y - bh / 2);
 
       if (bx > 0 && bx + bw < vw && by > 0 && by + bh < vh) {
         gc.width = bw; gc.height = bh;
@@ -484,8 +535,8 @@ function checkFaceOcclusion(lm) {
             const dLuma = Math.abs(luma - (0.299 * img[downIdx] + 0.587 * img[downIdx + 1] + 0.114 * img[downIdx + 2]));
             const rLuma = Math.abs(luma - (0.299 * img[rightIdx] + 0.587 * img[rightIdx + 1] + 0.114 * img[rightIdx + 2]));
 
-            if (dLuma > 24 || rLuma > 24) edgeCount++;
-            if (luma < 75) darkCount++;
+            if (dLuma > 28 || rLuma > 28) edgeCount++;
+            if (luma < 65) darkCount++;
           }
         }
 
@@ -493,11 +544,11 @@ function checkFaceOcclusion(lm) {
         const edgeRatio = edgeCount / totalPixels;
         const darkRatio = darkCount / totalPixels;
 
-        const hasGlassesBridge = (edgeRatio > 0.13 && contrastSpan > 55) ||
-                                (darkRatio > 0.07 && contrastSpan > 65) ||
-                                (edgeRatio > 0.20);
+        const hasGlasses = (edgeRatio > 0.18 && contrastSpan > 65) ||
+                          (darkRatio > 0.12 && contrastSpan > 75) ||
+                          (edgeRatio > 0.26);
 
-        if (hasGlassesBridge) {
+        if (hasGlasses) {
           return "Terdeteksi memakai kacamata. Mohon lepas kacamata untuk akurasi analisis kulit.";
         }
       }
