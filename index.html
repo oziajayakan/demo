@@ -70,7 +70,7 @@ footer{text-align:center;color:var(--mute);font-size:12px}
   <span class="pill">Verifikasi Wajah Hidup · Tantangan Acak</span>
   <div class="brand">DEMO AI</div>
   <h1>Skin Analysis &amp; S'luv Recommendation</h1>
-  <p>Arahkan wajah asli ke bingkai oval, lalu ikuti 2 perintah acak (misalnya kedip atau tengok). Foto atau video dari layar perangkat lain tidak dapat menjawab perintah acak sehingga akan ditolak.</p>
+  <p>Arahkan wajah asli ke bingkai oval, lepas kacamata &amp; masker (wajah harus bebas halangan), lalu ikuti 2 perintah acak. Foto, kacamata, masker, atau layar perangkat lain akan otomatis ditolak.</p>
 </header>
 
 <div class="grid">
@@ -885,13 +885,51 @@ function fail(msg) {
 function yawDeg(m) { return Math.atan2(-m[2], m[10]) * 180 / Math.PI * YAW_SIGN; }
 function bs(res, name) { return res.faceBlendshapes?.[0]?.categories.find(c => c.categoryName === name)?.score ?? 0; }
 
-const gc = document.createElement("canvas"); gc.width = gc.height = 64;
-const gctx = gc.getContext("2d", { willReadFrequently: true });
-function hasScreenGlare() {
-  gctx.drawImage(video, 0, 0, 64, 64);
-  const d = gctx.getImageData(0, 0, 64, 64).data; let g = 0;
-  for (let i = 0; i < d.length; i += 4) if (d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245) g++;
-  return g / 4096 > .06;
+// Deteksi benda yang menutupi wajah (kacamata, masker, tangan/benda)
+function checkFaceOcclusion(lm) {
+  const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+  
+  // 1. Cek Masker (landmark mulut vs hidung tertutup/hilang)
+  const noseTip = lm[1], upperLip = lm[13], lowerLip = lm[14], chin = lm[152];
+  if (!noseTip || !upperLip || !lowerLip || !chin) return "Wajah/mulut tertutup masker atau benda lain.";
+  const mouthDist = Math.hypot(upperLip.x - lowerLip.x, upperLip.y - lowerLip.y);
+  const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
+  if (chinNoseDist < 0.05) return "Bagian bawah wajah/mulut tertutup masker.";
+
+  // 2. Cek Kacamata (area pangkal hidung & mata: landmark 168, 6, 197, 195, 5, 4)
+  // Bingkai kacamata memicu tepi/edge kontras tinggi abnormal di area pangkal hidung
+  const nx = Math.floor(lm[168].x * vw), ny = Math.floor(lm[168].y * vh);
+  const eyeL = lm[33], eyeR = lm[263];
+  const eyeDist = Math.hypot((eyeR.x - eyeL.x) * vw, (eyeR.y - eyeL.y) * vh);
+  const sampleRadius = Math.max(12, Math.floor(eyeDist * 0.16));
+
+  if (nx > sampleRadius && nx < vw - sampleRadius && ny > sampleRadius && ny < vh - sampleRadius) {
+    const sw = sampleRadius * 2, sh = sampleRadius * 2;
+    gc.width = sw; gc.height = sh;
+    gctx.drawImage(video, nx - sampleRadius, ny - sampleRadius, sw, sh, 0, 0, sw, sh);
+    const idata = gctx.getImageData(0, 0, sw, sh).data;
+    
+    // Hitung kontras dan tepi (Sobel-like horizontal/vertical) pada jembatan hidung
+    let edgeEnergy = 0, darkPixels = 0, total = sw * sh;
+    for (let y = 1; y < sh - 1; y++) {
+      for (let x = 1; x < sw - 1; x++) {
+        const idx = (y * sw + x) * 4;
+        const luma = 0.299 * idata[idx] + 0.587 * idata[idx + 1] + 0.114 * idata[idx + 2];
+        const rightLuma = 0.299 * idata[idx + 4] + 0.587 * idata[idx + 5] + 0.114 * idata[idx + 6];
+        const downLuma = 0.299 * idata[idx + sw * 4] + 0.587 * idata[idx + sw * 4 + 1] + 0.114 * idata[idx + sw * 4 + 2];
+        const diff = Math.abs(luma - rightLuma) + Math.abs(luma - downLuma);
+        if (diff > 45) edgeEnergy++;
+        if (luma < 40) darkPixels++; // bingkai kacamata gelap
+      }
+    }
+    const edgeRatio = edgeEnergy / total;
+    const darkRatio = darkPixels / total;
+    if (edgeRatio > 0.20 || (edgeRatio > 0.12 && darkRatio > 0.10)) {
+      return "Terdeteksi memakai kacamata atau aksesoris wajah. Lepas kacamata sebelum scan.";
+    }
+  }
+
+  return null;
 }
 
 function loop(now) {
@@ -909,6 +947,17 @@ function loop(now) {
   if (n > 1) { fail("Terdeteksi lebih dari satu wajah. Pastikan hanya Anda di kamera."); return; }
 
   const lm = res.faceLandmarks[0];
+
+  // Validasi: Wajah harus bebas kacamata, masker, dan penutup lainnya
+  const occlusionMsg = checkFaceOcclusion(lm);
+  if (occlusionMsg) {
+    run.holdStart = 0;
+    setProgress(0);
+    ring.setAttribute("class", "ring warn");
+    setHint("⚠️ " + occlusionMsg, true);
+    return;
+  }
+
   let minx = 1, maxx = 0, miny = 1, maxy = 0;
   for (const p of lm) { if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x; if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y; }
   const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, fh = maxy - miny;
