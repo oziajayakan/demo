@@ -885,48 +885,64 @@ function fail(msg) {
 function yawDeg(m) { return Math.atan2(-m[2], m[10]) * 180 / Math.PI * YAW_SIGN; }
 function bs(res, name) { return res.faceBlendshapes?.[0]?.categories.find(c => c.categoryName === name)?.score ?? 0; }
 
+const gc = document.createElement("canvas"); gc.width = gc.height = 64;
+const gctx = gc.getContext("2d", { willReadFrequently: true });
+
+function hasScreenGlare() {
+  try {
+    gctx.drawImage(video, 0, 0, 64, 64);
+    const d = gctx.getImageData(0, 0, 64, 64).data; let g = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245) g++;
+    return g / 4096 > .06;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Deteksi benda yang menutupi wajah (kacamata, masker, tangan/benda)
 function checkFaceOcclusion(lm) {
-  const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-  
-  // 1. Cek Masker (landmark mulut vs hidung tertutup/hilang)
-  const noseTip = lm[1], upperLip = lm[13], lowerLip = lm[14], chin = lm[152];
-  if (!noseTip || !upperLip || !lowerLip || !chin) return "Wajah/mulut tertutup masker atau benda lain.";
-  const mouthDist = Math.hypot(upperLip.x - lowerLip.x, upperLip.y - lowerLip.y);
-  const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
-  if (chinNoseDist < 0.05) return "Bagian bawah wajah/mulut tertutup masker.";
+  try {
+    const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+    if (!lm || lm.length < 264) return null;
 
-  // 2. Cek Kacamata (area pangkal hidung & mata: landmark 168, 6, 197, 195, 5, 4)
-  // Bingkai kacamata memicu tepi/edge kontras tinggi abnormal di area pangkal hidung
-  const nx = Math.floor(lm[168].x * vw), ny = Math.floor(lm[168].y * vh);
-  const eyeL = lm[33], eyeR = lm[263];
-  const eyeDist = Math.hypot((eyeR.x - eyeL.x) * vw, (eyeR.y - eyeL.y) * vh);
-  const sampleRadius = Math.max(12, Math.floor(eyeDist * 0.16));
+    // 1. Cek Masker (landmark mulut vs hidung tertutup/hilang)
+    const noseTip = lm[1], upperLip = lm[13], lowerLip = lm[14], chin = lm[152];
+    if (!noseTip || !upperLip || !lowerLip || !chin) return "Wajah/mulut tertutup masker atau benda lain.";
+    const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
+    if (chinNoseDist < 0.05) return "Bagian bawah wajah/mulut tertutup masker.";
 
-  if (nx > sampleRadius && nx < vw - sampleRadius && ny > sampleRadius && ny < vh - sampleRadius) {
-    const sw = sampleRadius * 2, sh = sampleRadius * 2;
-    gc.width = sw; gc.height = sh;
-    gctx.drawImage(video, nx - sampleRadius, ny - sampleRadius, sw, sh, 0, 0, sw, sh);
-    const idata = gctx.getImageData(0, 0, sw, sh).data;
-    
-    // Hitung kontras dan tepi (Sobel-like horizontal/vertical) pada jembatan hidung
-    let edgeEnergy = 0, darkPixels = 0, total = sw * sh;
-    for (let y = 1; y < sh - 1; y++) {
-      for (let x = 1; x < sw - 1; x++) {
-        const idx = (y * sw + x) * 4;
-        const luma = 0.299 * idata[idx] + 0.587 * idata[idx + 1] + 0.114 * idata[idx + 2];
-        const rightLuma = 0.299 * idata[idx + 4] + 0.587 * idata[idx + 5] + 0.114 * idata[idx + 6];
-        const downLuma = 0.299 * idata[idx + sw * 4] + 0.587 * idata[idx + sw * 4 + 1] + 0.114 * idata[idx + sw * 4 + 2];
-        const diff = Math.abs(luma - rightLuma) + Math.abs(luma - downLuma);
-        if (diff > 45) edgeEnergy++;
-        if (luma < 40) darkPixels++; // bingkai kacamata gelap
+    // 2. Cek Kacamata (area pangkal hidung & mata: landmark 168)
+    const nx = Math.floor(lm[168].x * vw), ny = Math.floor(lm[168].y * vh);
+    const eyeL = lm[33], eyeR = lm[263];
+    const eyeDist = Math.hypot((eyeR.x - eyeL.x) * vw, (eyeR.y - eyeL.y) * vh);
+    const sampleRadius = Math.max(12, Math.floor(eyeDist * 0.16));
+
+    if (nx > sampleRadius && nx < vw - sampleRadius && ny > sampleRadius && ny < vh - sampleRadius) {
+      const sw = sampleRadius * 2, sh = sampleRadius * 2;
+      gc.width = sw; gc.height = sh;
+      gctx.drawImage(video, nx - sampleRadius, ny - sampleRadius, sw, sh, 0, 0, sw, sh);
+      const idata = gctx.getImageData(0, 0, sw, sh).data;
+      
+      let edgeEnergy = 0, darkPixels = 0, total = sw * sh;
+      for (let y = 1; y < sh - 1; y++) {
+        for (let x = 1; x < sw - 1; x++) {
+          const idx = (y * sw + x) * 4;
+          const luma = 0.299 * idata[idx] + 0.587 * idata[idx + 1] + 0.114 * idata[idx + 2];
+          const rightLuma = 0.299 * idata[idx + 4] + 0.587 * idata[idx + 5] + 0.114 * idata[idx + 6];
+          const downLuma = 0.299 * idata[idx + sw * 4] + 0.587 * idata[idx + sw * 4 + 1] + 0.114 * idata[idx + sw * 4 + 2];
+          const diff = Math.abs(luma - rightLuma) + Math.abs(luma - downLuma);
+          if (diff > 45) edgeEnergy++;
+          if (luma < 40) darkPixels++;
+        }
+      }
+      const edgeRatio = edgeEnergy / total;
+      const darkRatio = darkPixels / total;
+      if (edgeRatio > 0.20 || (edgeRatio > 0.12 && darkRatio > 0.10)) {
+        return "Terdeteksi memakai kacamata atau aksesoris wajah. Lepas kacamata sebelum scan.";
       }
     }
-    const edgeRatio = edgeEnergy / total;
-    const darkRatio = darkPixels / total;
-    if (edgeRatio > 0.20 || (edgeRatio > 0.12 && darkRatio > 0.10)) {
-      return "Terdeteksi memakai kacamata atau aksesoris wajah. Lepas kacamata sebelum scan.";
-    }
+  } catch (err) {
+    console.warn("Occlusion check error:", err);
   }
 
   return null;
@@ -961,16 +977,17 @@ function loop(now) {
   let minx = 1, maxx = 0, miny = 1, maxy = 0;
   for (const p of lm) { if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x; if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y; }
   const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, fh = maxy - miny;
-  const centered = Math.abs(cx - .5) < .12 && Math.abs(cy - .5) < .12 && fh > .4 && fh < .85;
+  // Toleransi posisi dan jarak wajah yang lebih fleksibel agar tidak gampang macet
+  const centered = Math.abs(cx - .5) < .22 && Math.abs(cy - .48) < .22 && fh > .30 && fh < .92;
   const yaw = yawDeg(res.facialTransformationMatrixes[0].data);
 
   if (run.phase === "align" || run.phase === "front") {
-    const frontal = run.phase === "align" || Math.abs(yaw) < 12;
+    const frontal = run.phase === "align" || Math.abs(yaw) < 18;
     if (centered && frontal) {
       ring.setAttribute("class", "ring ok");
       if (!run.holdStart) run.holdStart = now;
       const p = (now - run.holdStart) / HOLD_MS; setProgress(p);
-      setHint(run.phase === "align" ? "Tahan posisi..." : "Hadap lurus ke kamera...");
+      setHint(run.phase === "align" ? "Posisi pas! Tahan posisi sejenak..." : "Bagus! Hadap lurus...");
       if (p >= 1) {
         run.holdStart = 0; setProgress(0);
         if (run.phase === "align") { run.phase = "challenge"; run.chStart = now; run.eyeClosed = false; }
@@ -978,7 +995,10 @@ function loop(now) {
       }
     } else {
       run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring");
-      setHint(!centered ? (fh <= .4 ? "Dekatkan wajah ke kamera" : fh >= .85 ? "Jauhkan sedikit wajah" : "Posisikan wajah di tengah oval") : "Hadap lurus ke kamera");
+      if (fh <= .30) setHint("Dekatkan wajah sedikit ke kamera");
+      else if (fh >= .92) setHint("Jauhkan sedikit wajah dari kamera");
+      else if (Math.abs(cx - .5) >= .22 || Math.abs(cy - .48) >= .22) setHint("Arahkan wajah ke tengah oval");
+      else setHint("Hadap lurus ke kamera");
     }
     return;
   }
