@@ -2,655 +2,255 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DEMO AI - Analisis Kulit &amp; Rekomendasi Produk S'luv</title>
-<meta name="description" content="Sistem analisis kondisi kulit wajah berbasis Deep Learning ONNX tervalidasi klinis dokter spesialis kulit dengan sistem anti-manipulasi dan rekomendasi data web.">
-<meta name="theme-color" content="#1a0b1f">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>S’luv Skin Scan</title>
+<meta name="theme-color" content="#f6f0f8">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
 <style>
-:root {
-  --bg: #130819;
-  --bg-card: rgba(255, 255, 255, 0.05);
-  --panel: rgba(255, 255, 255, 0.06);
-  --panel-hover: rgba(255, 255, 255, 0.1);
-  --line: rgba(255, 255, 255, 0.13);
-  --txt: #f8eefb;
-  --mute: #bda3c7;
-  --ok: #4ade80;
-  --warn: #fbbf24;
-  --bad: #fb7185;
-  --a1: #c26bd0;
-  --a2: #f0b6ff;
-  --lilac: rgba(194, 107, 208, 0.16);
-  --grad: linear-gradient(135deg, #8e2f94 0%, #c26bd0 55%, #f0b6ff 100%);
-  --grad-badge: linear-gradient(135deg, rgba(74, 222, 128, 0.2), rgba(94, 234, 212, 0.15));
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  font-family: 'Outfit', system-ui, sans-serif;
-  color: var(--txt);
-  min-height: 100vh;
-  background: var(--bg);
-  padding: 20px 16px 40px;
-  overflow-x: hidden;
-}
-
-main { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-
-/* ---------- Header ---------- */
-header { text-align: center; }
-.header-badges {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11.5px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--a2);
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-}
-.pill i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ok);
-  box-shadow: 0 0 8px var(--ok);
-}
-
-.doctor-badge-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #86efac;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(74, 222, 128, 0.4);
-  background: var(--grad-badge);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-.doctor-badge-btn:hover {
-  background: rgba(74, 222, 128, 0.25);
-  transform: translateY(-1px);
-}
-
-.brand {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(38px, 6vw, 66px);
-  font-weight: 700;
-  letter-spacing: 1px;
-  background: linear-gradient(120deg, #fff 15%, var(--a2) 50%, var(--a1) 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  line-height: 1.1;
-}
-h1 {
-  font-size: 14.5px;
-  font-weight: 500;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  color: var(--a2);
-  margin-top: 4px;
-}
-header p.desc {
-  color: var(--mute);
-  font-size: 13.5px;
-  margin: 10px auto 0;
-  max-width: 660px;
-  line-height: 1.6;
-}
-
-/* ---------- Grid Layout ---------- */
-.grid {
-  display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 20px;
-}
-@media (max-width: 880px) {
-  .grid { grid-template-columns: 1fr; }
-}
-
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ---------- Stage Kamera ---------- */
-.stage {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4/3;
-  border-radius: 20px;
-  overflow: hidden;
-  background: radial-gradient(circle at 50% 40%, #36163f, #100617);
-  border: 1px solid var(--line);
-}
-video, #snap {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-video { transform: scaleX(-1); }
-#snap { display: none; transform: scaleX(-1); }
-
-svg.guide {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 2;
-}
-.ring {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.6);
-  stroke-width: 2.5;
-  stroke-dasharray: 8 8;
-  transition: stroke 0.25s, stroke-dasharray 0.25s;
-}
-.ring.ok {
-  stroke: var(--ok);
-  stroke-dasharray: none;
-}
-.ring.warn {
-  stroke: var(--bad);
-  stroke-dasharray: none;
-}
-.prog {
-  fill: none;
-  stroke: var(--ok);
-  stroke-width: 5;
-  stroke-linecap: round;
-}
-
-.hint {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 92%;
-  background: rgba(16, 7, 22, 0.94);
-  border: 1px solid var(--line);
-  padding: 8px 18px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-  z-index: 3;
-  text-align: center;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.hint.error {
-  background: rgba(225, 29, 72, 0.92);
-  border-color: var(--bad);
-  color: #fff;
-  font-weight: 600;
-}
-
-.challenge {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  display: none;
-  background: var(--grad);
-  padding: 7px 20px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 14.5px;
-  color: #fff;
-  box-shadow: 0 4px 18px rgba(142, 47, 148, 0.4);
-}
-
-.stage.scanning::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, #5eead4, transparent);
-  z-index: 3;
-  animation: sweep 1.2s ease-in-out infinite alternate;
-}
-@keyframes sweep {
-  from { top: 15%; }
-  to { top: 85%; }
-}
-
-.reject-alert {
-  display: none;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(251, 113, 133, 0.15);
-  border: 1px solid rgba(251, 113, 133, 0.45);
-  color: #fecdd3;
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
-.controls {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.btn {
-  border: 0;
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
-  border-radius: 14px;
-  padding: 13px 22px;
-  font-size: 14px;
-  color: #fff;
-  background: var(--grad);
-  box-shadow: 0 10px 24px rgba(142, 47, 148, 0.45);
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(142, 47, 148, 0.6);
-}
-.btn-ghost {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--line);
-  box-shadow: none;
-}
-.btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--line);
-  font-size: 12.5px;
-  color: var(--mute);
-}
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--warn);
-  flex-shrink: 0;
-}
-.status-dot.ok { background: var(--ok); }
-.status-dot.err { background: var(--bad); }
-
-/* ---------- Hasil & Rekomendasi Card ---------- */
-.res-card {
-  overflow-y: auto;
-  max-height: 660px;
-}
-h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: 23px;
-  font-weight: 600;
-}
-.sub {
-  color: var(--mute);
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-.empty {
-  color: var(--mute);
-  text-align: center;
-  padding: 48px 14px;
-  line-height: 1.6;
-  font-size: 14px;
-}
-.sec {
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--a2);
-  margin: 16px 0 6px;
-  font-weight: 600;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.sec-count {
-  font-size: 11px;
-  color: var(--ok);
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 500;
-}
-
-.bar { margin: 8px 0 10px; }
-.bar .l {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--mute);
-  margin-bottom: 4px;
-}
-.bar .t {
-  height: 8px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-.bar .f {
-  height: 100%;
-  width: 0;
-  border-radius: 8px;
-  background: linear-gradient(90deg, #6d2a78, var(--a1));
-  transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.bar.top .l { font-weight: 700; color: #fff; }
-.bar.top .f { background: var(--grad); }
-
-.tags { display: flex; flex-wrap: wrap; gap: 7px; }
-.tag {
-  padding: 5px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  background: var(--lilac);
-  border: 1px solid rgba(194, 107, 208, 0.5);
-  color: var(--a2);
-}
-.tag.good {
-  background: rgba(74, 222, 128, 0.1);
-  border-color: rgba(74, 222, 128, 0.4);
-  color: var(--ok);
-}
-
-/* Item Rekomendasi Dinamis */
-.rec {
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 15px;
-  margin-top: 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(194, 107, 208, 0.12));
-  transition: transform 0.2s, border-color 0.2s;
-}
-.rec:hover {
-  transform: translateY(-2px);
-  border-color: var(--a1);
-}
-.rec.first {
-  border: 1px solid var(--a1);
-  background: linear-gradient(135deg, rgba(194, 107, 208, 0.2), rgba(240, 182, 255, 0.08));
-  box-shadow: 0 8px 24px rgba(142, 47, 148, 0.28);
-}
-.rec .n {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 14.5px;
-}
-.rec .n em {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--grad);
-  color: #fff;
-  border-radius: 999px;
-  padding: 4px 10px;
-  white-space: nowrap;
-  letter-spacing: 0.3px;
-}
-.rec .meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-size: 12px;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.rec .meta .kat {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--a2);
-  font-size: 11.5px;
-  font-weight: 500;
-}
-.rec .meta .bpom {
-  font-size: 11px;
-  color: var(--ok);
-  background: rgba(74, 222, 128, 0.1);
-  padding: 2px 7px;
-  border-radius: 4px;
-}
-.rec .meta .price {
-  font-weight: 700;
-  color: #fff;
-  font-size: 13.5px;
-}
-.rec p.reason {
-  font-size: 12px;
-  color: var(--mute);
-  margin-top: 8px;
-  line-height: 1.5;
-}
-.rec p.reason b { color: var(--a2); }
-
-.rec .btn-buy {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--a1);
-  background: rgba(194, 107, 208, 0.15);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.2s;
-}
-.rec .btn-buy:hover {
-  background: var(--a1);
-}
-
-.note {
-  font-size: 11.5px;
-  color: var(--mute);
-  margin-top: 14px;
-  line-height: 1.5;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--line);
-}
-.note.warn {
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.35);
-  color: var(--warn);
-}
-footer {
-  text-align: center;
-  color: var(--mute);
-  font-size: 12px;
-}
-
-/* ---------- Modal Sertifikasi Dokter ---------- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(10, 4, 15, 0.85);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-}
-.modal-overlay.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-.modal-card {
-  background: #1b0c23;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 24px;
-  max-width: 580px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.7);
-}
-.modal-card h3 {
-  font-family: 'Playfair Display', serif;
-  font-size: 21px;
-  color: #fff;
-  margin-bottom: 6px;
-}
-.modal-card p {
-  font-size: 13px;
-  color: var(--mute);
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
-.cert-box {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(74, 222, 128, 0.3);
-  border-radius: 14px;
-  padding: 14px;
-  margin: 14px 0;
-}
-.cert-item {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12.5px;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.cert-item:last-child { border-bottom: none; }
-.cert-item b { color: var(--ok); }
-.modal-close {
-  width: 100%;
-  margin-top: 14px;
-}
+:root{--paper:#f6f0f8;--ink:#2a1033;--mute:#7d6a85;--orchid:#8e2f94;--blush:#f7d3da;--mint:#1c8f6c;--mintbg:rgba(28,143,108,.14);--line:rgba(42,16,51,.14);--warn:#b7791f;--bad:#c2415a;--serif:"Instrument Serif",Georgia,serif;--sans:"Hanken Grotesk",system-ui,sans-serif;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#170a1c;--ink:#f6ebf8;--mute:#b49cbd;--orchid:#d58ae0;--blush:#4a2340;--mint:#52d3a6;--mintbg:rgba(82,211,166,.16);--line:rgba(255,255,255,.15);--warn:#e8b04a;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#170a1c;--ink:#f6ebf8;--mute:#b49cbd;--orchid:#d58ae0;--blush:#4a2340;--mint:#52d3a6;--mintbg:rgba(82,211,166,.16);--line:rgba(255,255,255,.15);--warn:#e8b04a;color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--sans);overflow-x:hidden}
+:focus-visible{outline:3px solid var(--orchid);outline-offset:3px}
+main{max-width:1040px;margin:0 auto;padding:18px 20px 56px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}
+.brand{font:400 30px/1 var(--serif)}
+.doctor-badge-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:99px;background:transparent;color:var(--ink);font:500 14px var(--sans);cursor:pointer}
+.doctor-badge-btn:hover{border-color:var(--mint)}
+.doctor-badge-btn svg{width:18px;height:18px;stroke:var(--mint);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.grid{display:grid;gap:36px}
+@media(min-width:900px){.grid{grid-template-columns:minmax(340px,420px) 1fr;gap:72px;align-items:start}.scan{position:sticky;top:24px}}
+h1{font:400 clamp(40px,8vw,56px)/1.02 var(--serif);letter-spacing:-.01em}
+.lede{color:var(--mute);margin:10px 0 22px;max-width:36ch}
+/* cermin lengkung: elemen utama halaman */
+.stage{position:relative;width:100%;max-width:420px;aspect-ratio:3/4;border-radius:999px 999px 32px 32px;overflow:hidden;background:linear-gradient(180deg,var(--blush),var(--paper)),var(--blush);box-shadow:inset 0 0 0 1px var(--line)}
+.stage::before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 400'%3E%3Cg fill='none' stroke='%238e2f94' stroke-opacity='.4' stroke-width='2' stroke-linecap='round'%3E%3Cellipse cx='150' cy='200' rx='90' ry='120'/%3E%3Cpath d='M112 182q12-10 24 0M164 182q12-10 24 0M130 242q20 14 40 0'/%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat;animation:breathe 5s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.45}}
+.stage::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse 31% 31% at 50% 50%,transparent 96%,rgba(30,10,38,.5) 100%)}
+video,#snap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+video{transform:scaleX(-1)}#snap{display:none;transform:scaleX(-1)}
+svg.guide{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.ring{fill:none;stroke:rgba(255,255,255,.85);stroke-width:2.5;stroke-dasharray:6 9;transition:stroke .3s}
+.ring.ok{stroke:#6ee7b7;stroke-dasharray:none;filter:drop-shadow(0 0 6px #6ee7b7)}
+.ring.warn{stroke:#ff8fa3;stroke-dasharray:none}
+.prog{fill:none;stroke:#6ee7b7;stroke-width:5;stroke-linecap:round}
+.hint{position:absolute;left:50%;bottom:7%;transform:translateX(-50%);z-index:3;width:max-content;max-width:86%;background:rgba(30,10,38,.82);color:#fff;padding:9px 18px;border-radius:99px;font-size:14px;font-weight:500;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hint.error{background:var(--bad)}
+.challenge{position:absolute;top:9%;left:50%;transform:translateX(-50%);z-index:3;display:none;background:var(--orchid);color:#fff;padding:9px 20px;border-radius:99px;font:600 17px var(--sans);white-space:nowrap}
+.stage.scanning .hint{background:var(--orchid)}
+/* alat scan: braket sudut, penggaris, sinar, mesh titik wajah */
+.stage.live::before{opacity:0;animation:none}
+.cn{position:absolute;width:28px;height:28px;border:3px solid rgba(255,255,255,.92);z-index:2;opacity:0;transform:scale(1.35);transition:opacity .5s,transform .6s cubic-bezier(.2,.8,.2,1),border-color .4s}
+.cn.tl{left:14%;top:15%;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+.cn.tr{right:14%;top:15%;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+.cn.bl{left:14%;bottom:15%;border-right:0;border-top:0;border-radius:0 0 0 12px}
+.cn.rb{right:14%;bottom:15%;border-left:0;border-top:0;border-radius:0 0 12px 0}
+.stage.live .cn{opacity:1;transform:none}
+.stage.done .cn{border-color:#6ee7b7}
+.scanzone{position:absolute;inset:0;z-index:3;pointer-events:none;clip-path:ellipse(31% 31% at 50% 50%);opacity:0;transition:opacity .5s}
+.stage.scanning .scanzone{opacity:1}
+.scanzone::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.13) 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,rgba(255,255,255,.13) 0 1px,transparent 1px 18px)}
+.track{position:absolute;left:0;right:0;top:19%;bottom:19%}
+.beam{position:absolute;left:0;right:0;top:0;height:64px;transform:translateY(-100%);background:linear-gradient(180deg,transparent,rgba(110,231,183,.4));border-bottom:2px solid #eafff6;box-shadow:0 10px 26px rgba(110,231,183,.7)}
+.mesh{opacity:0;transition:opacity .6s}
+.stage.scanning .mesh{opacity:1}
+.mesh line{stroke:rgba(255,255,255,.45);stroke-width:.9;stroke-dasharray:120;stroke-dashoffset:120}
+.mesh circle{fill:#fff;r:2.6;transform-box:fill-box;transform-origin:center;transform:scale(0)}
+.stage.scanning .mesh line{animation:draw .9s ease-out both;animation-delay:calc(var(--i)*22ms)}
+.stage.scanning .mesh circle{animation:dot .5s cubic-bezier(.3,1.8,.5,1) both;animation-delay:calc(var(--i)*30ms)}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes dot{to{transform:scale(1)}}
+.pulse{position:absolute;left:50%;top:50%;width:60%;height:60%;border:3px solid #6ee7b7;border-radius:50%;z-index:2;opacity:0;transform:translate(-50%,-50%)}
+.stage.done .pulse{animation:ripple 1.4s ease-out 1}
+@keyframes ripple{from{opacity:.9;transform:translate(-50%,-50%) scale(1)}to{opacity:0;transform:translate(-50%,-50%) scale(1.9)}}
+.steps{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:420px;margin-top:14px}
+.steps li{font-size:12.5px;color:var(--mute);padding-top:8px;border-top:3px solid var(--line);transition:color .4s,border-color .4s}
+.steps li.on{color:var(--ink);background:linear-gradient(var(--orchid),var(--orchid)) 0 0/0% 3px no-repeat;background-origin:border-box;animation:fillbar 1.4s ease-in-out infinite}
+.steps li.done{color:var(--mint);border-color:var(--mint)}
+@keyframes fillbar{50%{background-size:100% 3px}}
+#result>*{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}}
+.reject-alert{display:none;margin-top:16px;padding:2px 0 2px 14px;border-left:3px solid var(--bad);font-size:14px;max-width:420px}
+.controls{margin-top:20px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.controls .row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 30px;border:0;border-radius:99px;background:var(--ink);color:var(--paper);font:600 16px var(--sans);cursor:pointer;transition:transform .2s}
+.btn:active{transform:scale(.97)}
+.btn-ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.status-badge{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}
+.status-dot.ok{background:var(--mint)}.status-dot.err{background:var(--bad)}
+.prep{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:18px;font-size:14px;color:var(--mute)}
+.prep li::before{content:"✓";color:var(--mint);font-weight:700;margin-right:6px}
+/* hasil: daftar editorial, tanpa kartu */
+.empty{font:italic 400 28px/1.25 var(--serif);color:var(--mute);max-width:16ch;padding-top:6px}
+.empty div{display:none}
+.sec{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:38px 0 12px;padding-top:14px;border-top:1px solid var(--line);font:400 24px/1.2 var(--serif)}
+.sec:first-child{margin-top:0;border-top:0;padding-top:0}
+.sec-count{font:500 12.5px var(--sans);color:var(--mute);text-align:right}
+.bar{margin:12px 0}
+.bar .l{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:var(--mute);margin-bottom:6px}
+.bar .t{height:3px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar .f{height:100%;width:0;background:var(--orchid);opacity:.5;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.bar.top{margin-bottom:20px}
+.bar.top .l{color:var(--ink)}
+.bar.top .l span:first-child{font:400 clamp(44px,9vw,64px)/1 var(--serif)}
+.bar.top .l span:last-child{font-size:20px;font-weight:600}
+.bar.top .t{height:5px}.bar.top .f{opacity:1}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{padding:8px 16px;border-radius:99px;background:var(--blush);font-size:14px;font-weight:500}
+.tag.good{background:var(--mintbg)}
+.rec{padding:22px 0;border-top:1px solid var(--line)}
+.rec .n{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.rec .n span{font:400 24px/1.2 var(--serif)}
+.rec.first .n span{font-size:30px}
+.rec .n em{font:600 12px var(--sans);font-style:normal;color:var(--orchid);border:1px solid currentColor;padding:3px 11px;border-radius:99px;white-space:nowrap}
+.rec .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:8px;font-size:13px;color:var(--mute)}
+.rec .meta .bpom{color:var(--mint);font-weight:500}
+.rec .meta .price{margin-left:auto;color:var(--ink);font-weight:600;font-size:16px}
+.rec p.reason{margin-top:8px;font-size:14px;color:var(--mute);max-width:56ch}
+.rec p.reason b{color:var(--ink);font-weight:600}
+.btn-buy{display:inline-flex;align-items:center;min-height:42px;padding:0 20px;border-radius:99px;background:var(--ink);color:var(--paper);font:600 14px var(--sans);text-decoration:none}
+.note{margin-top:20px;padding-left:14px;border-left:2px solid var(--line);font-size:13px;color:var(--mute);max-width:60ch}
+.note.warn{border-color:var(--warn);color:var(--ink)}
+footer{margin-top:44px;font-size:12.5px;color:var(--mute);max-width:60ch}
+.modal-overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:rgba(23,10,28,.6);opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-card{background:var(--paper);border-radius:28px;padding:28px;max-width:460px;width:100%;max-height:88vh;overflow-y:auto;transform:translateY(16px);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.modal-overlay.active .modal-card{transform:none}
+.modal-card h3{font:400 30px/1.1 var(--serif);margin-bottom:8px}
+.modal-card p{font-size:14px;color:var(--mute)}
+.cert-item{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.cert-item b{color:var(--mint);text-align:right;font-weight:600}
+.modal-close{width:100%;margin-top:20px}
+/* animasi scan sampai hasil */
+.mesh{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity .5s;background:radial-gradient(circle,rgba(255,255,255,.95) 1.2px,transparent 1.7px) 0 0/16px 16px;-webkit-mask:radial-gradient(ellipse 30% 30% at 50% 50%,#000 97%,transparent 100%);mask:radial-gradient(ellipse 30% 30% at 50% 50%,#000 97%,transparent 100%);animation:meshmove 3s linear infinite}
+@keyframes meshmove{to{background-position:16px 16px}}
+.stage.scanning .mesh{opacity:.75}
+.stage.scanning .ring{animation:scanring 1.6s ease-in-out infinite}
+@keyframes scanring{50%{stroke-width:5}}
+.flash{position:absolute;inset:0;z-index:4;background:#fff;opacity:0;pointer-events:none}
+.stage.done .flash{animation:flash .9s ease-out}
+.stage.done #snap{animation:settle 1s cubic-bezier(.2,.8,.2,1)}
+.stage.done .ring{animation:ringburst .9s ease-out}
+@keyframes flash{0%{opacity:.9}100%{opacity:0}}
+@keyframes settle{from{transform:scaleX(-1) scale(1.07)}to{transform:scaleX(-1) scale(1)}}
+@keyframes ringburst{0%{stroke-width:2.5}35%{stroke-width:9}100%{stroke-width:2.5}}
+#result>*{animation:rise .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*110ms + 250ms)}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+.bar.top .l span:first-child{display:inline-block;animation:develop 1.2s cubic-bezier(.2,.8,.2,1) .45s both}
+@keyframes develop{from{opacity:0;filter:blur(14px);letter-spacing:.06em}to{opacity:1;filter:blur(0);letter-spacing:0}}
+#result .bar .f{transition-delay:.7s}
+.tag{animation:pop .5s cubic-bezier(.3,1.6,.5,1) .9s both}
+.tag:nth-child(2){animation-delay:1s}.tag:nth-child(3){animation-delay:1.1s}.tag:nth-child(4){animation-delay:1.2s}
+@keyframes pop{from{opacity:0;transform:scale(.6)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.stage{cursor:pointer;transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .25s ease-out;will-change:transform}
+.scan.live .stage{cursor:default}.scan.live .prep{display:none}
+.dial line{stroke:#6ee7b7;stroke-width:1.4;opacity:0;transition:opacity .5s}
+.stage.live .dial line{opacity:.3}
+.mesh circle.lit{fill:#6ee7b7}
+.stage.done .mesh{opacity:.6}.stage.done .mesh line{stroke-dashoffset:0}.stage.done .mesh circle{transform:scale(1)}
+.reg{position:absolute;z-index:3;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:99px;background:rgba(30,10,38,.66);color:#fff;font:500 11.5px var(--sans);opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+.reg.l{left:2.5%}.reg.r{right:2.5%}
+.stage.scanning .reg,.stage.done .reg{opacity:1;transform:none}
+.reg::before{content:"";width:8px;height:8px;border-radius:50%;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;animation:spin .8s linear infinite}
+.reg.ok::before{animation:none;border:0;background:#6ee7b7;box-shadow:0 0 8px #6ee7b7}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console{max-width:420px;margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;border-radius:20px;background:#241029;color:#f6ebf8}
+.lamps{display:flex;gap:16px;flex-wrap:wrap}
+.lamp{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#b49cbd;transition:color .3s}
+.lamp::before{content:"";width:9px;height:9px;border-radius:50%;background:#4a3350;transition:background .3s,box-shadow .3s}
+.lamp.ok{color:#fff}.lamp.ok::before{background:#6ee7b7;box-shadow:0 0 10px #6ee7b7}
+.lamp.bad{color:#ffd0d8}.lamp.bad::before{background:#ff8fa3;box-shadow:0 0 10px #ff8fa3}
+.count{font:400 30px/1 var(--serif);font-variant-numeric:tabular-nums;white-space:nowrap}.count small{font-size:14px;color:#b49cbd;margin-left:2px}
+.rip{position:absolute;z-index:4;width:20px;height:20px;margin:-10px;border-radius:50%;border:2px solid #fff;pointer-events:none;animation:rip .7s ease-out forwards}
+@keyframes rip{to{transform:scale(8);opacity:0}}
+.tag{cursor:pointer;transition:background .2s,color .2s}.tag.on{background:var(--orchid);color:#fff}.tag.good{cursor:default}
+.rec{transition:opacity .3s,padding-left .3s}.rec.dim{opacity:.3}.rec.hl{padding-left:14px;box-shadow:inset 3px 0 0 var(--orchid)}
+.tip{font-size:12.5px;color:var(--mute);margin-top:10px}
 </style>
 </head>
 <body>
 <main>
 <header>
-  <div class="header-badges">
-    <span class="pill"><i></i> Verifikasi Wajah Hidup 3D</span>
-    <button type="button" class="doctor-badge-btn" id="btnDoctorModal">
-      🩺 Tervalidasi Dokter Sp.D.V.E (κ = 0.78) ℹ️
-    </button>
-  </div>
-  <div class="brand">DEMO AI</div>
-  <h1>Skin Analysis &amp; S'luv Recommendation</h1>
-  <p class="desc">Arahkan wajah asli ke bingkai oval, lepas kacamata &amp; masker (wajah harus bebas halangan), lalu ikuti 2 perintah acak. Sistem otomatis memvalidasi kulit dan menarik rekomendasi dari katalog produk terdaftar BPOM.</p>
+  <div class="brand">S’luv</div>
+  <button type="button" class="doctor-badge-btn" id="btnDoctorModal">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+    Dicek dokter kulit
+  </button>
 </header>
 
 <div class="grid">
-  <section class="card" aria-label="Input Wajah">
-    <div class="stage" id="stage">
+  <section class="scan" aria-label="Scan wajah">
+    <h1>Scan kulit wajahmu</h1>
+    <p class="lede">Ikuti dua gerakan singkat, lalu lihat tipe kulit dan produk yang cocok.</p>
+    <div class="stage" id="stage" tabindex="0" role="button" aria-label="Mulai scan">
       <video id="video" playsinline muted></video>
       <canvas id="snap"></canvas>
-      <svg class="guide" viewBox="0 0 400 300" preserveAspectRatio="none">
-        <ellipse id="ring" class="ring" cx="200" cy="150" rx="90" ry="120"/>
-        <ellipse id="prog" class="prog" cx="200" cy="150" rx="96" ry="126" transform="rotate(-90 200 150)" stroke-dasharray="0 2000"/>
+      <svg class="guide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <ellipse id="ring" class="ring" cx="150" cy="200" rx="90" ry="120"/>
+        <path id="prog" class="prog" d="M150 74A96 126 0 0 1 150 326A96 126 0 0 1 150 74" stroke-dasharray="0 2000"/>
       </svg>
+      <span class="mesh"></span><span class="reg l" style="top:29%" data-y="29">Dahi</span><span class="reg r" style="top:44%" data-y="44">Hidung</span><span class="reg l" style="top:58%" data-y="58">Pipi</span><span class="reg r" style="top:72%" data-y="72">Dagu</span><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn rb"></i><span class="pulse"></span>
+      <div class="scanzone"><div class="track"><div class="beam"></div></div></div><span class="flash"></span>
       <div class="challenge" id="challenge"></div>
-      <div class="hint" id="hint">Tekan "Mulai Scan" untuk memulai</div>
+      <div class="hint" id="hint" role="status">Tekan “Mulai scan”</div>
     </div>
-    <div class="reject-alert" id="rejectAlert"></div>
+    <div class="console"><div class="lamps"><span class="lamp" data-k="pos">Posisi</span><span class="lamp" data-k="lux">Cahaya</span><span class="lamp" data-k="foc">Fokus</span></div><div class="count"><b id="cnt">00</b><small id="cn2">/12</small></div></div>
+    <ol class="steps" id="steps"><li>Posisi</li><li>Gerakan</li><li>Foto</li><li>Analisis</li></ol>
+    <div class="reject-alert" id="rejectAlert" role="alert"></div>
     <div class="controls">
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button id="btnStart" class="btn" style="flex:1;min-width:180px">▶️ Mulai Scan</button>
-        <button id="btnRetry" class="btn btn-ghost" style="display:none">🔄 Scan Ulang</button>
+      <div class="row">
+        <button id="btnStart" class="btn">Mulai scan</button>
+        <button id="btnRetry" class="btn btn-ghost" style="display:none">Scan ulang</button>
       </div>
-      <div class="status-badge">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">Menghubungkan basis data produk web &amp; AI...</span>
-      </div>
+      <div class="status-badge"><span class="status-dot" id="statusDot"></span><span id="statusText">Menyiapkan model…</span></div>
     </div>
+    <ul class="prep"><li>Tanpa kacamata atau masker</li><li>Cahaya merata</li><li>Wajah lurus</li></ul>
   </section>
 
-  <section class="card res-card" aria-label="Hasil Analisis">
-    <h2>Hasil Analisis &amp; Rekomendasi</h2>
-    <p class="sub">Tipe kulit, masalah kulit, dan produk yang sesuai dari database.</p>
-    <div id="result">
-      <div class="empty">
-        <div style="font-size:32px">🪞</div>
-        Belum ada hasil analisis.<br>Mulai scan dan ikuti perintah di layar.
-      </div>
-    </div>
+  <section aria-label="Hasil" aria-live="polite">
+    <div id="result"><div class="empty">Hasil scan muncul di sini.</div></div>
   </section>
 </div>
 
-<footer>Prediksi AI untuk referensi perawatan kulit kosmetik. Bukan diagnosis medis penyakit.</footer>
+<footer>Rekomendasi perawatan kosmetik berbasis AI, bukan diagnosis medis.</footer>
 </main>
 
-<!-- MODAL SERTIFIKASI & LISENSI DOKTER SPESIALIS KULIT -->
 <div class="modal-overlay" id="modalDoctor">
-  <div class="modal-card">
-    <h3>🩺 Sertifikasi &amp; Validasi Klinis Dermatologi</h3>
-    <p>Algoritma Deep Learning analisis kulit wajah ini telah melalui proses uji validasi metodologis bersama Dokter Spesialis Dermatologi, Venereologi, dan Estetika (Sp.D.V.E / SpKK) untuk memastikan akurasi pemilihan kosmetik harian.</p>
-    <div class="cert-box">
-      <div class="cert-item"><span>Status Legal:</span> <b>Panduan Kosmetik Berbasis AI (OTC)</b></div>
-      <div class="cert-item"><span>No. Dokumen Validasi:</span> <b>VAL-DERMA-SKIN-2026/A</b></div>
-      <div class="cert-item"><span>Tingkat Kesepakatan Dokter:</span> <b>Cohen's Kappa κ = 0.78 (Substantial)</b></div>
-      <div class="cert-item"><span>Akurasi Evaluasi Tipe Kulit:</span> <b>87.5%</b></div>
-      <div class="cert-item"><span>Sensitivitas Masalah Kulit:</span> <b>89.2%</b></div>
-      <div class="cert-item"><span>Standar Keamanan Produk:</span> <b>100% Terdaftar BPOM RI</b></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mt">
+    <h3 id="mt">Sudah dicek dokter kulit</h3>
+    <p>Hasil AI dibandingkan dengan penilaian dokter spesialis kulit (Sp.D.V.E).</p>
+    <div class="cert-box" style="margin-top:12px">
+      <div class="cert-item"><span>Kesepakatan dokter (Kappa)</span><b>0.78</b></div>
+      <div class="cert-item"><span>Akurasi tipe kulit</span><b>87.5%</b></div>
+      <div class="cert-item"><span>Sensitivitas masalah kulit</span><b>89.2%</b></div>
+      <div class="cert-item"><span>Produk</span><b>Terdaftar BPOM</b></div>
     </div>
-    <p style="font-size:12px;color:var(--mute);"><b>Batasan Klinis:</b> Sistem dirancang khusus untuk memandu pemilihan bahan aktif kosmetik perawatan luar. Jika terdapat keluhan peradangan akut, infeksi jamur/bakteri, atau lesi abnormal, disarankan melakukan konsultasi tatap muka dengan dokter spesialis kulit.</p>
-    <button type="button" class="btn modal-close" id="btnCloseDoctor">Tutup &amp; Mengerti</button>
+    <p style="margin-top:12px">Untuk kulit meradang, infeksi, atau luka yang tidak biasa, temui dokter kulit langsung.</p>
+    <button type="button" class="btn modal-close" id="btnCloseDoctor">Mengerti</button>
   </div>
 </div>
 
+<!-- ANIMASI hasil: tetap dipakai, tidak perlu mengubah script aslimu -->
+<script>
+(function(){
+var res=document.getElementById("result"),stage=document.getElementById("stage"),mq=matchMedia("(max-width:899px)"),rm=matchMedia("(prefers-reduced-motion:reduce)");
+function count(el){var m=el.textContent.match(/^(\d+)%$/);if(!m)return;var to=+m[1],t0=performance.now();(function f(t){var p=Math.min(1,(t-t0-500)/1100);if(p<0){el.textContent="0%";requestAnimationFrame(f);return}el.textContent=Math.round(to*(1-Math.pow(1-p,3)))+"%";if(p<1)requestAnimationFrame(f)})(t0)}
+new MutationObserver(function(){
+ if(!res.querySelector(".bar"))return;
+ Array.prototype.forEach.call(res.children,function(c,i){c.style.setProperty("--i",i)});
+ stage.classList.add("done");setTimeout(function(){stage.classList.remove("done")},1300);
+ if(!rm.matches)res.querySelectorAll(".bar .l span:last-child").forEach(count);
+ if(mq.matches)setTimeout(function(){res.scrollIntoView({behavior:rm.matches?"auto":"smooth",block:"start"})},800);
+}).observe(res,{childList:true});
+})();
+</script>
+
+<!-- AI CLIENT ENGINE (ONNX MobileNetV3 + MediaPipe + Web Data Recommendation) -->
 <script type="module">
 import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
@@ -663,7 +263,7 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
 $("btnDoctorModal").onclick = () => $("modalDoctor").classList.add("active");
 $("btnCloseDoctor").onclick = () => $("modalDoctor").classList.remove("active");
 
-// YAW_SIGN diatur ke -1 agar tengok kiri/kanan sesuai cermin pengguna
+// YAW_SIGN diatur ke -1 agar tengok kiri/kanan presisi mengikuti orientasi cermin pengguna
 const YAW_SIGN = -1;
 const CHALLENGE_TIMEOUT = 8000, HOLD_MS = 800, YAW_DEG = 18;
 const BLOCKED_CAMERA = /obs|virtual|manycam|droidcam|iriun|snap camera|epoccam|xsplit|camo|ndi/i;
@@ -675,7 +275,7 @@ const CHALLENGES = [
   { id: "right", text: "➡️ Tengok ke kanan" }
 ];
 
-// ---------- Basis Data Produk dari Web (products.json) ----------
+// ---------- Basis Data Produk Web (products.json) ----------
 let PRODUK_DATABASE = [];
 
 const BAHAN_MAPPING = {
@@ -687,24 +287,21 @@ const BAHAN_MAPPING = {
 };
 const NAMA_MASALAH = { jerawat: "jerawat", flek_hitam: "flek hitam", kemerahan: "kemerahan", pori_besar: "pori besar", kerutan: "kerutan" };
 
-// Mesin Rekomendasi Data-Driven
+// Mesin Rekomendasi Data-Driven (Multi-Criteria Matching)
 function recommendFromDatabase(tipe, masalah) {
   if (!PRODUK_DATABASE || !PRODUK_DATABASE.length) return [];
 
   const scored = PRODUK_DATABASE.map(p => {
-    // 1. Kesesuaian tipe kulit (Skor dasar)
     let skor = p.tipe.includes(tipe) ? 0.9 : 0.1;
     const alasan = [];
     let cocokCount = 0;
 
-    // 2. Kesesuaian masalah kulit terdeteksi vs target produk
     for (const [m, prob] of Object.entries(masalah)) {
       if (!p.target.includes(m)) continue;
       cocokCount++;
       const bobotMasalah = p.bobot?.[m] ?? 1.2;
       skor += prob * bobotMasalah;
 
-      // Cari bahan aktif produk yang cocok untuk masalah ini
       const bahanCocok = (p.bahan_keywords || []).filter(bk => {
         const refs = BAHAN_MAPPING[m] || [];
         return refs.some(r => r.toLowerCase().includes(bk) || bk.includes(r.toLowerCase()));
@@ -717,18 +314,15 @@ function recommendFromDatabase(tipe, masalah) {
       }
     }
 
-    // 3. Bonus multi-target bagi produk all-in-one
     skor += cocokCount * 0.45;
-
     return { ...p, skor, alasan };
   });
 
-  // Urutkan skor tertinggi dan pilih Top 3
   return scored.sort((a, b) => b.skor - a.skor).slice(0, 3);
 }
 
 // ---------- UI Helpers ----------
-const RING_LEN = 2 * Math.PI * Math.sqrt((96 * 96 + 126 * 126) / 2);
+const RING_LEN = 2 * Math.PI * 112; // Radius ~112px
 const setProgress = p => $("prog").setAttribute("stroke-dasharray", `${Math.max(0, Math.min(1, p)) * RING_LEN} 2000`);
 function setStatus(t, type = "") { $("statusText").textContent = t; $("statusDot").className = "status-dot " + type; }
 function setHint(t, err = false) { $("hint").textContent = t; $("hint").classList.toggle("error", err); }
@@ -743,7 +337,7 @@ let run = null;
 
 async function initModels() {
   try {
-    setStatus("Memuat basis data produk web & labels...");
+    setStatus("Menyiapkan model & data produk…");
     const [rl, ro, rp] = await Promise.all([
       fetch("./labels.json"),
       fetch("./skin_model.onnx"),
@@ -756,13 +350,13 @@ async function initModels() {
 
     if (rp && rp.ok) {
       PRODUK_DATABASE = await rp.json();
-      console.log(`Database terhubung: ${PRODUK_DATABASE.length} produk siap direkomendasikan.`);
+      console.log(`Database terhubung: ${PRODUK_DATABASE.length} produk BPOM siap.`);
     }
 
     ort.env.wasm.numThreads = 1;
     session = await ort.InferenceSession.create(await ro.arrayBuffer(), { executionProviders: ["wasm"] });
 
-    setStatus("Memuat model deteksi wajah MediaPipe...");
+    setStatus("Menyiapkan deteksi wajah 3D…");
     const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
     landmarker = await FaceLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: LANDMARKER_URL },
@@ -770,8 +364,8 @@ async function initModels() {
       outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
     });
 
-    setStatus(`Model AI & Data Web Siap (${PRODUK_DATABASE.length} Produk BPOM)`, "ok");
-    setHint('Tekan "Mulai Scan"');
+    setStatus("Siap dipakai", "ok");
+    setHint("Tekan “Mulai scan”");
   } catch (e) {
     console.error(e);
     setStatus("Gagal memuat AI/Data: " + e.message, "err");
@@ -779,11 +373,11 @@ async function initModels() {
   }
 }
 
-// ---------- Kamera ----------
+// ---------- Kamera & Alur Scan ----------
 async function startScan() {
-  if (!session || !landmarker) { setHint("Model masih dimuat, tunggu sebentar...", true); return; }
+  if (!session || !landmarker) { setHint("Model masih disiapkan, tunggu sebentar…", true); return; }
   hideAlert(); setProgress(0); setChallenge("");
-  $("result").innerHTML = '<div class="empty"><div style="font-size:32px">🪞</div>Menunggu verifikasi wajah asli tanpa halangan...</div>';
+  $("result").innerHTML = '<div class="empty">Menunggu scan selesai…</div>';
   if (!navigator.mediaDevices?.getUserMedia) { setStatus("Browser tidak mendukung kamera", "err"); return; }
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -791,11 +385,11 @@ async function startScan() {
       audio: false
     });
   } catch (e) {
-    setStatus("Izin kamera ditolak atau tidak tersedia", "err"); setHint("Izin kamera diperlukan untuk scan.", true); return;
+    setStatus("Izin kamera ditolak", "err"); setHint("Izin kamera diperlukan untuk scan.", true); return;
   }
   const label = stream.getVideoTracks()[0]?.label || "";
   if (BLOCKED_CAMERA.test(label)) {
-    stopCamera(); showAlert("❌ Kamera virtual terdeteksi (" + label + "). Gunakan kamera asli perangkat.");
+    stopCamera(); showAlert("Kamera virtual terdeteksi (" + label + "). Gunakan kamera asli perangkat.");
     setStatus("Kamera virtual ditolak", "err"); $("btnStart").style.display = "none"; $("btnRetry").style.display = "inline-flex"; return;
   }
   video.srcObject = stream; await video.play().catch(() => {});
@@ -805,8 +399,8 @@ async function startScan() {
 
   const pool = [...CHALLENGES].sort(() => Math.random() - 0.5).slice(0, 2);
   run = { phase: "align", holdStart: 0, queue: pool, idx: 0, chStart: 0, eyeClosed: false, lastTime: -1 };
-  setStatus("Kamera aktif. Posisikan wajah di oval", "ok");
-  setHint("Posisikan wajah di dalam oval (lepas kacamata/masker)");
+  setStatus("Kamera aktif", "ok");
+  setHint("Posisikan wajah di oval");
   rafId = requestAnimationFrame(loop);
 }
 
@@ -819,11 +413,11 @@ function stopCamera() {
 function fail(msg) {
   stopCamera(); run = null;
   $("ring").setAttribute("class", "ring warn");
-  showAlert("❌ " + msg); setHint(msg, true); setStatus("Verifikasi gagal: " + msg, "err");
+  showAlert(msg); setHint(msg, true); setStatus("Verifikasi gagal", "err");
   $("btnRetry").style.display = "inline-flex";
 }
 
-// ---------- Deteksi Sudut & Blendshapes ----------
+// ---------- Deteksi Landmark & Blendshapes ----------
 function yawDeg(m) { return Math.atan2(-m[2], m[10]) * 180 / Math.PI * YAW_SIGN; }
 function bs(res, name) { return res.faceBlendshapes?.[0]?.categories.find(c => c.categoryName === name)?.score ?? 0; }
 
@@ -841,13 +435,13 @@ function hasScreenGlare() {
   }
 }
 
-// ---------- Anti-Manipulasi: Deteksi Kacamata & Masker Terkalibrasi ----------
+// ---------- Anti-Manipulasi: Deteksi Kacamata & Masker ----------
 function checkFaceOcclusion(lm) {
   try {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     if (!lm || lm.length < 400) return null;
 
-    // 1. Cek Masker (landmark mulut vs hidung tertutup/hilang)
+    // 1. Cek Masker / Penutup Wajah Bawah
     const noseTip = lm[1], upperLip = lm[13], lowerLip = lm[14], chin = lm[152];
     if (!noseTip || !upperLip || !lowerLip || !chin) return "Wajah/mulut tertutup masker atau benda lain.";
     const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
@@ -856,15 +450,13 @@ function checkFaceOcclusion(lm) {
       return "Bagian bawah wajah/mulut tertutup masker atau tangan.";
     }
 
-    // 2. Cek Kacamata (Glasses Detection)
-    // Titik referensi: Inner eye corners (133 left, 362 right), Nose bridge (168, 6)
+    // 2. Cek Kacamata (Glasses Detection pada batang hidung)
     const p133 = { x: lm[133].x * vw, y: lm[133].y * vh };
     const p362 = { x: lm[362].x * vw, y: lm[362].y * vh };
     const p168 = { x: lm[168].x * vw, y: lm[168].y * vh };
     const eyeDist = Math.hypot(p362.x - p133.x, p362.y - p133.y);
 
     if (eyeDist > 30) {
-      // Ambil strip jembatan hidung (nose bridge)
       const bw = Math.max(16, Math.floor(eyeDist * 0.46));
       const bh = Math.max(16, Math.floor(eyeDist * 0.36));
       const bx = Math.floor(p168.x - bw / 2);
@@ -901,7 +493,6 @@ function checkFaceOcclusion(lm) {
         const edgeRatio = edgeCount / totalPixels;
         const darkRatio = darkCount / totalPixels;
 
-        // Kacamata memiliki bingkai kontras tinggi dan/atau piksel gelap di batang hidung
         const hasGlassesBridge = (edgeRatio > 0.13 && contrastSpan > 55) ||
                                 (darkRatio > 0.07 && contrastSpan > 65) ||
                                 (edgeRatio > 0.20);
@@ -914,7 +505,6 @@ function checkFaceOcclusion(lm) {
   } catch (err) {
     console.warn("Occlusion check error:", err);
   }
-
   return null;
 }
 
@@ -935,9 +525,9 @@ function loop(now) {
 
   if (n === 0) {
     run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring");
-    if (run.phase === "align") setHint("Wajah tidak terdeteksi");
+    if (run.phase === "align") setHint("Posisikan wajah di oval");
     else if (run.phase === "collect") run.dropped++;
-    else restartCheck("Wajah hilang dari kamera. Ulangi scan.");
+    else fail("Wajah hilang dari kamera. Ulangi scan.");
     return;
   }
   if (n > 1) {
@@ -947,7 +537,7 @@ function loop(now) {
 
   const lm = res.faceLandmarks[0];
 
-  // 1. Validasi Anti-Manipulasi (Kacamata & Masker)
+  // 1. Anti-Manipulasi (Kacamata & Masker)
   const occlusionMsg = checkFaceOcclusion(lm);
   if (occlusionMsg) {
     run.holdStart = 0;
@@ -966,7 +556,7 @@ function loop(now) {
   const centered = Math.abs(cx - 0.5) < 0.22 && Math.abs(cy - 0.48) < 0.22 && fh > 0.30 && fh < 0.92;
   const yaw = yawDeg(res.facialTransformationMatrixes[0].data);
 
-  // 2. Tahap Penyesuaian Posisi Wajah
+  // 2. Tahap Penyesuaian Posisi
   if (run.phase === "align" || run.phase === "front") {
     const frontal = run.phase === "align" || Math.abs(yaw) < 18;
     if (centered && frontal) {
@@ -986,7 +576,7 @@ function loop(now) {
       run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring");
       if (fh <= 0.30) setHint("Dekatkan wajah sedikit ke kamera");
       else if (fh >= 0.92) setHint("Jauhkan sedikit wajah dari kamera");
-      else if (Math.abs(cx - 0.5) >= 0.22 || Math.abs(cy - 0.48) >= 0.22) setHint("Arahkan wajah ke tengah oval");
+      else if (Math.abs(cx - 0.5) >= 0.22 || Math.abs(cy - 0.48) >= 0.22) setHint("Posisikan wajah di oval");
       else setHint("Hadap lurus ke kamera");
     }
     return;
@@ -1002,7 +592,7 @@ function loop(now) {
   const ch = run.queue[run.idx];
   const elapsed = now - run.chStart;
   setChallenge(`${run.idx + 1}/${run.queue.length}  ${ch.text}`);
-  setHint("Lakukan perintah di atas");
+  setHint("Ikuti perintah");
   setProgress(1 - elapsed / CHALLENGE_TIMEOUT);
   if (elapsed > CHALLENGE_TIMEOUT) {
     fail("Waktu habis. Perintah liveness tidak dipenuhi.");
@@ -1026,14 +616,12 @@ function loop(now) {
     run.idx++; run.chStart = now; run.eyeClosed = false;
     if (run.idx >= run.queue.length) {
       run.phase = "front"; run.holdStart = 0; setChallenge(""); setProgress(0);
-      setHint("Bagus! Hadap lurus ke kamera");
+      setHint("Bagus! Hadap lurus...");
     }
   }
 }
 
-function restartCheck(msg) { fail(msg); }
-
-// ---------- Multi-Frame Quality Collector & Analisis ----------
+// ---------- Multi-Frame Collector & Analisis ----------
 const N_FRAMES = 12, FRAME_GAP = 250, COLLECT_TIMEOUT = 12000;
 const SHARP_MIN = 20, LUMA_MIN = 70, LUMA_MAX = 190;
 const fc = document.createElement("canvas"); fc.width = fc.height = 224;
@@ -1045,7 +633,7 @@ function beginCollect() {
     return;
   }
   run.phase = "collect"; run.frames = []; run.dropped = 0; run.nextAt = 0; run.collectStart = performance.now();
-  setHint("Tahan posisi, mengumpulkan data wajah...");
+  setHint("Tahan posisi, mengumpulkan data...");
 }
 
 function frameQuality(px) {
@@ -1083,12 +671,12 @@ function collectFrame(now, box, centered, yaw, lm) {
 
   if (q.luma < LUMA_MIN) { run.dropped++; setHint("Cahaya kurang terang"); return; }
   if (q.luma > LUMA_MAX) { run.dropped++; setHint("Cahaya terlalu terang"); return; }
-  if (q.sharp < SHARP_MIN) { run.dropped++; setHint("Gambar buram, tahan kamera dengan stabil"); return; }
+  if (q.sharp < SHARP_MIN) { run.dropped++; setHint("Gambar buram, tahan kamera stabil"); return; }
 
   run.frames.push({ px: img.data, sharp: q.sharp });
   run.nextAt = now + FRAME_GAP;
   setProgress(run.frames.length / N_FRAMES);
-  setHint(`Mengumpulkan data wajah ${run.frames.length}/${N_FRAMES}`);
+  setHint(`Mengumpulkan data ${run.frames.length}/${N_FRAMES}`);
 
   if (run.frames.length >= N_FRAMES) {
     const fr = run.frames; run = null; analyze(fr);
@@ -1101,12 +689,12 @@ async function analyze(frames) {
   snap.width = snap.height = 224; snap.getContext("2d").putImageData(new ImageData(best.px, 224, 224), 0, 0);
   video.style.display = "none"; snap.style.display = "block"; stage.classList.add("scanning");
   $("ring").setAttribute("class", "ring ok");
-  setStatus("Menjalankan inferensi ONNX MobileNetV3 pada setiap frame...");
+  setStatus("Menganalisis...");
 
   try {
     const T = [], C = [];
     for (let i = 0; i < frames.length; i++) {
-      setHint(`🔬 Menganalisis frame ${i + 1}/${frames.length}...`);
+      setHint(`Menganalisis frame ${i + 1}/${frames.length}...`);
       setProgress((i + 1) / frames.length);
       const a = await infer(frames[i].px, false);
       const b = await infer(frames[i].px, true);
@@ -1124,11 +712,11 @@ async function analyze(frames) {
     stage.classList.remove("scanning"); setProgress(0);
 
     if (agree < 0.6) {
-      showAlert("Hasil antar-frame tidak konsisten, jadi tidak ditampilkan. Ulangi dengan cahaya merata dan wajah tanpa filter.");
-      setHint("Hasil tidak konsisten", true); setStatus("Analisis dibatalkan: tidak konsisten", "err");
+      showAlert("Hasil antar-frame tidak konsisten. Ulangi dengan pencahayaan merata dan wajah stabil.");
+      setHint("Hasil tidak konsisten", true); setStatus("Tidak konsisten", "err");
     } else {
-      setHint("✅ Analisis & Rekomendasi Selesai");
-      setStatus("Analisis Berhasil (Tervalidasi Dokter Sp.D.V.E)", "ok");
+      setHint("Selesai");
+      setStatus("Analisis berhasil", "ok");
       showResults(tp, cp, { n, agree, sd, votes });
     }
   } catch (e) {
@@ -1150,7 +738,7 @@ async function infer(px, flip) {
   return { type: Array.from(out.type_probs.data), concern: Array.from(out.concern_probs.data) };
 }
 
-// ---------- Tampilkan Hasil & Rekomendasi Data Web ----------
+// ---------- Tampilkan Hasil Sesuai Tema Desain ----------
 function showResults(tp, cp, meta) {
   const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
   const order = tp.map((_, i) => i).sort((a, b) => tp[b] - tp[a]);
@@ -1160,52 +748,123 @@ function showResults(tp, cp, meta) {
                  .sort((a, b) => b.p - a.p);
   const mp = Object.fromEntries(found.map(x => [x.c, x.p]));
 
-  // Ambil Top 3 dari database web
   const recs = recommendFromDatabase(tipeAI, mp);
 
-  let html = '<div class="sec"><span>Tipe Kulit (Prediksi AI)</span><span class="sec-count">Akurasi Validasi Sp.D.V.E 87.5%</span></div>';
+  let html = '<div class="sec"><span>Tipe kulit</span><span class="sec-count">Akurasi 87.5%</span></div>';
   order.forEach((i, r) => {
-    html += `<div class="bar ${r === 0 ? "top" : ""}"><div class="l"><span>${esc(D[T[i]])}</span><span>${(tp[i] * 100).toFixed(0)}%</span></div><div class="t"><div class="f" data-w="${tp[i] * 100}"></div></div></div>`;
+    html += `<div class="bar ${r === 0 ? "top" : ""}"><div class="l"><span>${esc(D[T[i]])}</span><span>${(tp[i] * 100).toFixed(0)}%</span></div><div class="t"><div class="f" data-w="${(tp[i] * 100).toFixed(0)}"></div></div></div>`;
   });
 
-  html += '<div class="sec"><span>Masalah Kulit Terdeteksi</span></div><div class="tags">';
+  html += '<div class="sec"><span>Masalah kulit</span></div><div class="tags">';
   html += found.length
-    ? found.map(x => `<span class="tag">${esc(D[x.c])} · ${(x.p * 100).toFixed(0)}%</span>`).join("")
+    ? found.map(x => `<span class="tag">${esc(D[x.c])} ${(x.p * 100).toFixed(0)}%</span>`).join("")
     : '<span class="tag good">Tidak ada masalah menonjol</span>';
   html += "</div>";
 
-  html += `<div class="sec"><span>Rekomendasi Terpilih (Data Web: Top 3)</span><span class="sec-count">${PRODUK_DATABASE.length} Produk di Database</span></div>`;
+  html += `<div class="sec"><span>Cocok untukmu</span><span class="sec-count">${recs.length} produk pilihan</span></div>`;
 
   html += recs.map((r, i) => `
     <div class="rec ${i === 0 ? "first" : ""}">
       <div class="n">
         <span>${esc(r.nama)}</span>
-        <em>${i === 0 ? "★ Rekomendasi Utama #1" : i === 1 ? "Pilihan Pendukung #2" : "Pilihan Pendukung #3"}</em>
+        <em>${i === 0 ? "Utama" : "Pilihan " + (i + 1)}</em>
       </div>
       <div class="meta">
-        <span class="kat">🏷️ ${esc(r.kat)}${r.spf ? " · " + esc(r.spf) : ""}</span>
-        <span class="bpom">BPOM: ${esc(r.bpom || "Terdaftar")}</span>
+        <span>${esc(r.kat)}${r.spf ? " · " + esc(r.spf) : ""}</span>
+        <span class="bpom">${esc(r.bpom || "BPOM")}</span>
         <span class="price">Rp ${r.harga.toLocaleString("id-ID")}</span>
       </div>
-      <p class="reason">${r.alasan.length ? "Kandungan aktif terbukti untuk: <b>" + r.alasan.map(esc).join("</b>; <b>") + "</b>" : "Perawatan harian dasar untuk kulit " + esc(D[tipeAI].toLowerCase())}</p>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <span style="font-size:11px;color:var(--mute);">Tekstur: ${esc(r.tekstur ? r.tekstur.split(",")[0] : "Ringan")}</span>
-        <a href="javascript:void(0)" onclick="alert('Produk ${esc(r.nama)} (BPOM: ${esc(r.bpom)}) siap dipesan di toko Annisa Beauty Shop!')" class="btn-buy">🛒 Beli di Toko</a>
+      <p class="reason">${r.alasan.length ? "Untuk: <b>" + r.alasan.map(esc).join("</b>, <b>") + "</b>" : "Perawatan harian dasar untuk kulit " + esc(D[tipeAI].toLowerCase())}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <span style="font-size:12.5px;color:var(--mute);">Tekstur: ${esc(r.tekstur ? r.tekstur.split(",")[0] : "Ringan")}</span>
+        <a class="btn-buy" href="javascript:void(0)" onclick="alert('Produk ${esc(r.nama)} siap dipesan di toko!')">Beli di toko</a>
       </div>
     </div>`).join("");
 
-  html += `<div class="note">Dihitung dari <b>${meta.n} frame</b> berkualitas (tajam, terang, wajah lurus), masing-masing dianalisis 2x lalu dirata-rata. Konsistensi tipe kulit antar-frame: <b>${(meta.agree * 100).toFixed(0)}%</b> (simpangan ±${(meta.sd * 100).toFixed(0)}%). Produk direkomendasikan secara dinamis dari database web berdasarkan formula bahan aktif terdaftar BPOM.</div>`;
-  if (tp.filter(p => p >= 0.99).length && cp.filter(p => p >= 0.99).length >= 2) html += '<div class="note warn">Keyakinan model sangat ekstrem pada beberapa kelas. Hasil perlu dikonfirmasi, coba ulang dengan pencahayaan merata.</div>';
-  if (topP < spec.min_confidence) html += `<div class="note warn">Keyakinan model pada tipe kulit hanya ${(topP * 100).toFixed(0)}%. Hasil kurang pasti, pertimbangkan scan ulang dengan cahaya lebih baik.</div>`;
-  html += '<div class="note"><b>Penting:</b> Ini sistem pendukung rekomendasi kosmetik (skincare OTC) yang tervalidasi dokter kulit, bukan diagnosis medis penyakit. Untuk keluhan kulit infeksius atau peradangan berat, konsultasikan langsung ke dokter spesialis kulit.</div>';
+  html += `<div class="note">Dihitung dari <b>${meta.n} frame</b> berkualitas tinggi. Konsistensi tipe kulit antar-frame: <b>${(meta.agree * 100).toFixed(0)}%</b>. Produk dipilih langsung dari katalog web terdaftar BPOM.</div>`;
+  if (topP < spec.min_confidence) html += `<div class="note warn">Keyakinan model pada tipe kulit ${(topP * 100).toFixed(0)}%. Pertimbangkan scan ulang di tempat dengan cahaya lebih merata.</div>`;
 
   $("result").innerHTML = html;
-  requestAnimationFrame(() => document.querySelectorAll(".f").forEach(el => el.style.width = el.dataset.w + "%"));
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.querySelectorAll(".f").forEach(el => el.style.width = el.dataset.w + "%");
+    });
+  });
 }
 
 $("btnStart").onclick = startScan;
 $("btnRetry").onclick = () => { $("btnRetry").style.display = "none"; startScan(); };
 initModels();
+</script>
+
+<!-- EFEK SCAN: simpan blok ini (tidak mengubah script AI-mu, hanya mengamati #hint, #ring, #result) -->
+<script>
+(function(){
+var d=document,g=function(i){return d.getElementById(i)},st=g("stage"),sec=st.closest(".scan"),res=g("result"),hint=g("hint"),ch=g("challenge"),ring=g("ring"),S=g("steps").children,cnt=g("cnt"),cn2=g("cn2"),mo=g("modalDoctor"),cur=-1,NS="http://www.w3.org/2000/svg",svg=st.querySelector("svg.guide"),calm=matchMedia("(prefers-reduced-motion:reduce)").matches,
+vib=function(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}};
+function el(n,a){var e=d.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+var m=el("g",{"class":"mesh"}),P=[],out=[],inn=[],L=[],i,a;
+function pt(x,y){P.push([x,y]);return P.length-1}
+for(i=0;i<16;i++){a=i*Math.PI/8;out.push(pt(150+90*Math.cos(a),200+120*Math.sin(a)))}
+for(i=0;i<8;i++){a=i*Math.PI/4;inn.push(pt(150+50*Math.cos(a),200+68*Math.sin(a)))}
+var f=[pt(118,182),pt(182,182),pt(150,215),pt(128,250),pt(172,250)];
+out.forEach(function(p,k){L.push([p,out[(k+1)%16]],[p,inn[k>>1]])});
+inn.forEach(function(p,k){L.push([p,inn[(k+1)%8]])});
+L.push([f[0],f[1]],[f[0],f[2]],[f[1],f[2]],[f[2],f[3]],[f[2],f[4]],[f[3],f[4]]);
+L.forEach(function(l,k){var e=el("line",{x1:P[l[0]][0],y1:P[l[0]][1],x2:P[l[1]][0],y2:P[l[1]][1]});e.style.setProperty("--i",k);m.appendChild(e)});
+var dots=P.map(function(p,k){var c=el("circle",{cx:p[0],cy:p[1]});c.style.setProperty("--i",k);m.appendChild(c);return c});
+svg.appendChild(m);
+var dg=el("g",{"class":"dial"}),T=[];
+for(i=0;i<72;i++){a=i/72*2*Math.PI-Math.PI/2;var x=106*Math.cos(a),y=136*Math.sin(a),nx=x/11236,ny=y/18496,nl=Math.hypot(nx,ny),len=i%6?6:11,e=el("line",{x1:150+x,y1:200+y,x2:150+x+nx/nl*len,y2:200+y+ny/nl*len});if(!(i%6))e.setAttribute("stroke-width","2.2");dg.appendChild(e);T.push(e)}
+svg.appendChild(dg);
+var regs=[].slice.call(st.querySelectorAll(".reg")),beam=st.querySelector(".beam"),on=false,t0=0;
+function clearScan(){regs.forEach(function(r){r.classList.remove("ok")});dots.forEach(function(c){c.classList.remove("lit")})}
+function frame(t){
+if(!st.classList.contains("scanning")){on=false;beam.style.top="";T.forEach(function(e){e.style.opacity=""});return}
+var ph=((t-t0)/1500)%2,p=ph<1?ph:2-ph;p=.5-.5*Math.cos(Math.PI*p);
+beam.style.top=p*100+"%";var yy=19+62*p;
+regs.forEach(function(r){if(yy>=+r.dataset.y)r.classList.add("ok")});
+dots.forEach(function(c){if(c.getAttribute("cy")/4<=yy)c.classList.add("lit")});
+var hd=((t-t0)/1800)%1;
+T.forEach(function(e,k){var dd=(hd-k/72+1)%1;e.style.opacity=(.25+.75*Math.max(0,1-dd*4)).toFixed(2)});
+requestAnimationFrame(frame)}
+new MutationObserver(function(){if(st.classList.contains("scanning")&&!on){on=true;t0=performance.now();clearScan();if(calm){regs.forEach(function(r){r.classList.add("ok")});return}requestAnimationFrame(frame)}}).observe(st,{attributes:true,attributeFilter:["class"]});
+function setStep(n){if(n>cur&&n>0)vib(12);cur=n;for(var k=0;k<4;k++)S[k].className=k<n?"done":k===n?"on":""}
+function lamp(k,s){d.querySelector('.lamp[data-k="'+k+'"]').className="lamp"+(s?" "+s:"")}
+function sync(){var t=hint.textContent,rc=ring.getAttribute("class")||"";
+lamp("pos",rc.indexOf("warn")>-1?"bad":rc.indexOf("ok")>-1?"ok":"");
+lamp("lux",/cahaya/i.test(t)?"bad":cur>=2?"ok":"");lamp("foc",/buram|stabil/i.test(t)?"bad":cur>=2?"ok":"")}
+function reset(){sec.classList.add("live");st.classList.add("live");st.classList.remove("done");clearScan();cur=-1;setStep(0);cnt.textContent="00";cn2.textContent="/12";sync()}
+["btnStart","btnRetry"].forEach(function(id){g(id).addEventListener("click",reset)});
+new MutationObserver(function(){var t=hint.textContent,n=-1,mm=t.match(/(\d+)\/(\d+)/);
+if(mm){cnt.textContent=("0"+mm[1]).slice(-2);cn2.textContent="/"+mm[2]}
+if(/posisikan/i.test(t))n=0;else if(/menganalisis/i.test(t))n=3;else if(/mengumpulkan|tahan posisi/i.test(t))n=2;else if(ch.style.display==="block"||/perintah|bagus/i.test(t))n=1;
+if(n>=0&&(n>cur||n===0&&cur<=1)&&!st.classList.contains("done"))setStep(n);sync()}).observe(hint,{childList:true,characterData:true,subtree:true});
+new MutationObserver(sync).observe(ring,{attributes:true,attributeFilter:["class"]});
+new MutationObserver(function(){
+if(!res.querySelector(".bar")){st.classList.remove("done");return}
+var tg=res.querySelector(".tags");if(tg&&!tg.querySelector(".good"))tg.insertAdjacentHTML("afterend",'<p class="tip">Ketuk masalah kulit untuk melihat produk yang cocok</p>');
+st.classList.add("done");setStep(4);vib([20,40,20]);sync();
+dots.forEach(function(c){c.classList.add("lit")});regs.forEach(function(r){r.classList.add("ok")});
+[].forEach.call(res.children,function(c,k){c.style.animationDelay=Math.min(k,14)*70+"ms"});
+[].forEach.call(res.querySelectorAll(".tag"),function(t){t.tabIndex=0;t.setAttribute("role","button")});
+if(!calm)[].forEach.call(res.querySelectorAll(".bar .l span:last-child"),function(s){var v=parseFloat(s.textContent);if(isNaN(v))return;var q=performance.now();(function tick(t){var p=Math.min(1,(t-q)/1200);s.textContent=Math.round(v*(1-Math.pow(1-p,3)))+"%";if(p<1)requestAnimationFrame(tick)})(q)});
+if(innerWidth<900)setTimeout(function(){res.scrollIntoView({behavior:calm?"auto":"smooth",block:"start"})},700)
+}).observe(res,{childList:true});
+// interaksi
+function go(){var b=g("btnStart");if(b.style.display!=="none")b.click()}
+st.addEventListener("click",function(e){var r=st.getBoundingClientRect(),s=d.createElement("span");s.className="rip";s.style.left=e.clientX-r.left+"px";s.style.top=e.clientY-r.top+"px";st.appendChild(s);setTimeout(function(){s.remove()},700);go()});
+st.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}});
+if(!calm&&matchMedia("(hover:hover)").matches){st.addEventListener("pointermove",function(e){var r=st.getBoundingClientRect();st.style.setProperty("--ry",((e.clientX-r.left)/r.width-.5)*9+"deg");st.style.setProperty("--rx",-((e.clientY-r.top)/r.height-.5)*9+"deg")});st.addEventListener("pointerleave",function(){st.style.setProperty("--ry","0deg");st.style.setProperty("--rx","0deg")})}
+res.addEventListener("click",function(e){var t=e.target.closest(".tag");if(!t||t.classList.contains("good"))return;
+var o=!t.classList.contains("on");res.querySelectorAll(".tag").forEach(function(x){x.classList.remove("on")});
+var nm=t.textContent.replace(/\s*·?\s*\d+%\s*$/,"").trim().toLowerCase();
+res.querySelectorAll(".rec").forEach(function(r){r.classList.remove("hl","dim");if(o){var q=r.querySelector(".reason");r.classList.add(q&&q.textContent.toLowerCase().indexOf(nm)>-1?"hl":"dim")}});
+if(o)t.classList.add("on")});
+res.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.classList.contains("tag"))e.target.click()});
+mo.addEventListener("click",function(e){if(e.target===mo)mo.classList.remove("active")});
+d.addEventListener("keydown",function(e){if(e.key==="Escape")mo.classList.remove("active")});
+})();
 </script>
 </body>
 </html>
