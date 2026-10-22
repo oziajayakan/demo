@@ -127,14 +127,642 @@ const CHALLENGES = [
 
 // ---------- Rekomendasi ----------
 const PRODUK = [
-  { nama: "S'Luv Perfect Sunscreen All-in-One", kat: "Sunscreen", spf: "SPF 50 PA++++", harga: 85000,
-    tipe: ["normal","berminyak","kering","kombinasi"], target: ["flek_hitam","pori_besar","jerawat","kemerahan"],
-    bahan: "niacinamide alpha-arbutin tranexamic salicylic panthenol allantoin ceramide",
-    bobot: { flek_hitam: 1.2, kemerahan: 1.1, jerawat: 1.05, pori_besar: 1.05, kerutan: .4 } },
-  { nama: "S'Luv Brightening Calming Essence with DNA Salmon", kat: "Essence / Serum", spf: "", harga: 95000,
-    tipe: ["normal","berminyak","kering","kombinasi"], target: ["flek_hitam","kerutan","kemerahan","pori_besar","jerawat"],
-    bahan: "dna salmon niacinamide tranexamic alpha-arbutin glutathione cysteamine vitamin c panthenol allantoin centella chamomile green tea witch hazel",
-    bobot: { kerutan: 1.5, flek_hitam: 1.2 } }
+  {
+    "nama": "S'Luv Perfect Sunscreen All-in-One",
+    "kat": "Sunscreen",
+    "spf": "SPF 50 PA++++",
+    "harga": 85000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "pori_besar",
+      "jerawat",
+      "kemerahan"
+    ],
+    "bahan": "niacinamide alpha-arbutin tranexamic salicylic panthenol allantoin ceramide",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "pori_besar": 1.05,
+      "jerawat": 1.15,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "S'Luv Brightening Calming Essence with DNA Salmon",
+    "kat": "Essence / Serum",
+    "spf": "",
+    "harga": 95000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "pori_besar",
+      "jerawat",
+      "kemerahan",
+      "kerutan"
+    ],
+    "bahan": "niacinamide alpha-arbutin tranexamic panthenol allantoin dna salmon glutathione cysteamine vitamin c centella chamomile green tea witch hazel",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "pori_besar": 1.05,
+      "jerawat": 1.15,
+      "kemerahan": 1.1,
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Low pH Gentle Barrier Cleanser",
+    "kat": "Facial Wash",
+    "spf": "",
+    "harga": 49000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "kemerahan"
+    ],
+    "bahan": "panthenol ceramide oat",
+    "bobot": {
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "Salicylic Acid Acne Clear Foam Cleanser",
+    "kat": "Facial Wash",
+    "spf": "",
+    "harga": 52000,
+    "tipe": [
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "pori_besar",
+      "jerawat"
+    ],
+    "bahan": "salicylic centella tea tree zinc",
+    "bobot": {
+      "pori_besar": 1.05,
+      "jerawat": 1.15
+    }
+  },
+  {
+    "nama": "Calming Centella Soothing Facial Wash",
+    "kat": "Facial Wash",
+    "spf": "",
+    "harga": 55000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "jerawat",
+      "kemerahan"
+    ],
+    "bahan": "allantoin centella chamomile",
+    "bobot": {
+      "jerawat": 1.15,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "Bright & Glow Amino Acid Cleanser",
+    "kat": "Facial Wash",
+    "spf": "",
+    "harga": 58000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam"
+    ],
+    "bahan": "niacinamide glutathione",
+    "bobot": {
+      "flek_hitam": 1.2
+    }
+  },
+  {
+    "nama": "Heartleaf Daily Calming Toner",
+    "kat": "Toner",
+    "spf": "",
+    "harga": 68000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "pori_besar",
+      "kemerahan"
+    ],
+    "bahan": "panthenol centella",
+    "bobot": {
+      "pori_besar": 1.05,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "AHA BHA PHA Pore Clarifying Toner",
+    "kat": "Toner",
+    "spf": "",
+    "harga": 75000,
+    "tipe": [
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "pori_besar",
+      "jerawat"
+    ],
+    "bahan": "niacinamide salicylic tea tree glycolic",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "pori_besar": 1.05,
+      "jerawat": 1.15
+    }
+  },
+  {
+    "nama": "Hyaluronic 7D Hydrating Barrier Toner",
+    "kat": "Toner",
+    "spf": "",
+    "harga": 72000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "kerutan"
+    ],
+    "bahan": "panthenol ceramide hyaluronic",
+    "bobot": {
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Rice Bran & Niacinamide Milky Toner",
+    "kat": "Toner",
+    "spf": "",
+    "harga": 78000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam"
+    ],
+    "bahan": "niacinamide alpha-arbutin ceramide",
+    "bobot": {
+      "flek_hitam": 1.2
+    }
+  },
+  {
+    "nama": "10% Niacinamide + Tranexamic Dark Spot Serum",
+    "kat": "Serum",
+    "spf": "",
+    "harga": 89000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "pori_besar"
+    ],
+    "bahan": "niacinamide alpha-arbutin tranexamic glutathione centella",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "pori_besar": 1.05
+    }
+  },
+  {
+    "nama": "Salicylic Acid 2% + Zinc PCA Acne Fighter Serum",
+    "kat": "Serum",
+    "spf": "",
+    "harga": 85000,
+    "tipe": [
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "pori_besar",
+      "jerawat"
+    ],
+    "bahan": "salicylic allantoin tea tree zinc",
+    "bobot": {
+      "pori_besar": 1.05,
+      "jerawat": 1.15
+    }
+  },
+  {
+    "nama": "Cica & Mugwort Intensive Calming Serum",
+    "kat": "Serum",
+    "spf": "",
+    "harga": 88000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "jerawat",
+      "kemerahan"
+    ],
+    "bahan": "panthenol centella mugwort",
+    "bobot": {
+      "jerawat": 1.15,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "Encapsulated Retinol 1% + Peptide Youth Serum",
+    "kat": "Serum",
+    "spf": "",
+    "harga": 105000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "pori_besar",
+      "kerutan"
+    ],
+    "bahan": "ceramide retinol bakuchiol peptide squalane",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "pori_besar": 1.05,
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Vitamin C 15% Ethyl Ascorbic Radiance Booster",
+    "kat": "Serum",
+    "spf": "",
+    "harga": 98000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "kerutan"
+    ],
+    "bahan": "",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Copper Tripeptide & Collagen Firming Ampoule",
+    "kat": "Serum",
+    "spf": "",
+    "harga": 115000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "kerutan"
+    ],
+    "bahan": "peptide copper collagen",
+    "bobot": {
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "5X Ceramide Barrier Moisture Cream",
+    "kat": "Moisturizer",
+    "spf": "",
+    "harga": 79000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "kemerahan",
+      "kerutan"
+    ],
+    "bahan": "ceramide centella hyaluronic collagen",
+    "bobot": {
+      "kemerahan": 1.1,
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Cica Soothing Water Gel (Oil-Free)",
+    "kat": "Moisturizer",
+    "spf": "",
+    "harga": 69000,
+    "tipe": [
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "pori_besar",
+      "jerawat",
+      "kemerahan"
+    ],
+    "bahan": "niacinamide allantoin centella mugwort",
+    "bobot": {
+      "pori_besar": 1.05,
+      "jerawat": 1.15,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "DNA Salmon & Probiotic Rejuvenating Night Cream",
+    "kat": "Moisturizer",
+    "spf": "",
+    "harga": 92000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "kerutan"
+    ],
+    "bahan": "niacinamide dna salmon peptide squalane",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Brightening Glow Sleeping Mask with Alpha Arbutin",
+    "kat": "Moisturizer",
+    "spf": "",
+    "harga": 72000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam"
+    ],
+    "bahan": "niacinamide alpha-arbutin tranexamic glutathione",
+    "bobot": {
+      "flek_hitam": 1.2
+    }
+  },
+  {
+    "nama": "Ultra Light Invisible Sunscreen Serum SPF 50",
+    "kat": "Sunscreen",
+    "spf": "SPF 50 PA++++",
+    "harga": 79000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "pori_besar"
+    ],
+    "bahan": "niacinamide centella green tea zinc",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "pori_besar": 1.05
+    }
+  },
+  {
+    "nama": "Mineral Physical Sunscreen Gentle Care SPF 50",
+    "kat": "Sunscreen",
+    "spf": "SPF 50+ PA++++",
+    "harga": 89000,
+    "tipe": [
+      "normal",
+      "kering"
+    ],
+    "target": [
+      "flek_hitam",
+      "kemerahan"
+    ],
+    "bahan": "ceramide chamomile zinc",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "Acne Spot Care Treatment Gel",
+    "kat": "Acne Treatment",
+    "spf": "",
+    "harga": 42000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "jerawat",
+      "kemerahan"
+    ],
+    "bahan": "niacinamide salicylic centella tea tree sulfur",
+    "bobot": {
+      "jerawat": 1.15,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "Mugwort Pore Clarifying Clay Mask",
+    "kat": "Masker",
+    "spf": "",
+    "harga": 65000,
+    "tipe": [
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "pori_besar",
+      "jerawat"
+    ],
+    "bahan": "niacinamide salicylic centella mugwort kaolin",
+    "bobot": {
+      "pori_besar": 1.05,
+      "jerawat": 1.15
+    }
+  },
+  {
+    "nama": "Brightening Vitamin C Jelly Sleeping Mask",
+    "kat": "Masker",
+    "spf": "",
+    "harga": 59000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam"
+    ],
+    "bahan": "niacinamide hyaluronic",
+    "bobot": {
+      "flek_hitam": 1.2
+    }
+  },
+  {
+    "nama": "Peptide Eye Lift & Dark Circle Cream",
+    "kat": "Eye Cream",
+    "spf": "",
+    "harga": 85000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam",
+      "kerutan"
+    ],
+    "bahan": "niacinamide peptide collagen caffeine",
+    "bobot": {
+      "flek_hitam": 1.2,
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Barrier Repair Facial Oil with Squalane & Rosehip",
+    "kat": "Face Oil",
+    "spf": "",
+    "harga": 89000,
+    "tipe": [
+      "normal",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "kemerahan",
+      "kerutan"
+    ],
+    "bahan": "squalane",
+    "bobot": {
+      "kemerahan": 1.1,
+      "kerutan": 1.3
+    }
+  },
+  {
+    "nama": "Salicylic Acid 2% Gentle Exfoliating Cleanser",
+    "kat": "Facial Wash",
+    "spf": "",
+    "harga": 54000,
+    "tipe": [
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "pori_besar",
+      "jerawat"
+    ],
+    "bahan": "niacinamide salicylic green tea",
+    "bobot": {
+      "pori_besar": 1.05,
+      "jerawat": 1.15
+    }
+  },
+  {
+    "nama": "Centella Asiatica Calming Facial Mist",
+    "kat": "Facial Mist",
+    "spf": "",
+    "harga": 48000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "kemerahan"
+    ],
+    "bahan": "panthenol allantoin centella tea tree",
+    "bobot": {
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "Deep Hydrating 5D Ceramide Lip Treatment",
+    "kat": "Lip Care",
+    "spf": "",
+    "harga": 38000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [],
+    "bahan": "ceramide hyaluronic",
+    "bobot": {}
+  },
+  {
+    "nama": "Propolis & BHA Acne Barrier Balancing Toner",
+    "kat": "Toner",
+    "spf": "",
+    "harga": 76000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kombinasi"
+    ],
+    "target": [
+      "pori_besar",
+      "jerawat",
+      "kemerahan"
+    ],
+    "bahan": "centella zinc propolis",
+    "bobot": {
+      "pori_besar": 1.05,
+      "jerawat": 1.15,
+      "kemerahan": 1.1
+    }
+  },
+  {
+    "nama": "SymWhite 377 + Niacinamide Melasma Fader Serum",
+    "kat": "Serum",
+    "spf": "",
+    "harga": 119000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "flek_hitam"
+    ],
+    "bahan": "niacinamide tranexamic glutathione symwhite",
+    "bobot": {
+      "flek_hitam": 1.2
+    }
+  }
 ];
 const BAHAN = {
   jerawat: ["Salicylic Acid","Centella","Witch Hazel","Niacinamide"],
