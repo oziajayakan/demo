@@ -1,155 +1,79 @@
-# Sistem Analisis Kulit Wajah & Validasi Klinis Dermatologi (Skripsi / Tugas Akhir)
+# Sistem Analisis Kondisi Kulit Wajah dan Rekomendasi Produk Kosmetik
 
-Sistem analisis tipe kulit dan masalah kulit wajah berbasis Deep Learning (MobileNetV3 ONNX Runtime Web) yang dilengkapi **Mode Penelitian**, **Portal Penilaian Dokter Spesialis Kulit (Blind Review)**, dan **Halaman Hasil Validasi & Akurasi Otomatis**.
-
----
-
-## 🚀 Fitur Utama
-
-1. **Mode Penelitian Responden (`/`)**:
-   - Lembar persetujuan (*informed consent*) wajib sebelum pemindaian.
-   - Formulir kode/inisial responden, usia, gender, dan kondisi pencahayaan.
-   - Otomatis menyimpan snapshot frame inferensi, probabilitas AI, dan metadata ke server lokal yang aman setelah verifikasi wajah.
-   - Opsi *"Hapus data sampel saya"* untuk hak penarikan/penghapusan data responden sewaktu-waktu.
-   - Menjaga seluruh verifikasi liveness dan disclaimer *"bukan diagnosis medis"*.
-
-2. **Portal Penilaian Dokter Spesialis Kulit (`/dokter`)**:
-   - Autentikasi dokter via cookie `httpOnly` aman (nama, nomor STR/SIP, instansi, password bcrypt).
-   - Antrean sampel acak dengan protokol **Blind Review** murni (hasil AI disembunyikan sepenuhnya dari respons API dan tampilan untuk mencegah bias).
-   - Penilaian kualitas foto (Baik / Cukup / Tidak dapat dinilai), diagnosis tipe kulit (*single select*), dan masalah kulit (*multi select*).
-   - Satu dokter hanya dapat menilai satu sampel satu kali. Mendukung multi-dokter untuk uji kesepakatan (*inter-rater agreement*).
-
-3. **Halaman Hasil Validasi & Akurasi (`/validasi`)**:
-   - Perhitungan otomatis metrik statistik dari ground truth dokter nyata:
-     - Akurasi keseluruhan tipe kulit + **Wilson 95% Confidence Interval**.
-     - **Cohen's Kappa** (AI vs Dokter dan Antar-Dokter).
-     - **Confusion Matrix 4x4** dan metrik per kelas (*Precision*, *Recall*, *F1-Score*).
-     - Sensitivitas, spesifisitas, presisi, dan F1 untuk masing-masing masalah kulit (biner).
-     - Modul adjudikasi jika terdapat perbedaan diagnosis antar-dokter pada sampel yang sama.
-   - **Narasi ringkasan ilmiah otomatis dan objektif** (tanpa klaim berlebihan).
-   - Ekspor data mentah ke berkas **CSV** siap olah.
+Aplikasi web inferensi sisi klien (*client-side*) untuk analisis kondisi kulit wajah dan personalisasi rekomendasi produk perawatan kulit (*skincare*) berbasis *Deep Learning* (MobileNetV3) dan *MediaPipe Face Mesh*. Seluruh pemrosesan citra dilakukan secara lokal pada peramban pengguna tanpa pengiriman data biometrik ke server luar (*zero-data upload*).
 
 ---
 
-## 🛠️ Persyaratan Sistem
+## Ringkasan Fitur
 
-- [Node.js](https://nodejs.org/) (versi 18 ke atas)
+1. **Inferensi Sisi Klien Teroptimasi**
+   - Menggunakan *ONNX Runtime Web* berbasis WebAssembly (WASM) untuk mengeksekusi model *MobileNetV3*.
+   - Menganalisis dua cabang target secara simultan:
+     - **Tipe Kulit**: Normal, Kering, Berminyak, Kombinasi.
+     - **Masalah Kulit**: Jerawat, Flek Hitam, Kemerahan, Pori-pori Besar, Kerutan.
+   - *Test-Time Augmentation* (TTA) berbasis pencerminan horizontal (*horizontal flip*) untuk meningkatkan keandalan prediksi.
+
+2. **Sistem Proteksi dan Anti-Manipulasi (Anti-Spoofing & Occlusion Guard)**
+   - **Deteksi Kacamata (*Glasses Guard*)**: Menganalisis gradien tepi (*edge ratio*) dan bentang kontras luminansi pada area jembatan hidung (*nasal bridge strip*) antara *inner eye corners* (landmark 133 dan 362) serta pangkal hidung (landmark 168 dan 6). Pemindaian ditolak secara otomatis jika bingkai kacamata terdeteksi.
+   - **Deteksi Penutup Wajah (*Mask & Face Obstruction Guard*)**: Memvalidasi integritas posisi anatomis bibir atas (landmark 13), bibir bawah (landmark 14), ujung hidung (landmark 1), dan dagu (landmark 152) untuk mencegah pemindaian wajah yang tertutup masker atau tangan.
+   - **Tantangan Keaktifan 3D (*Active 3D Liveness Challenge*)**: Memberikan instruksi acak (menoleh ke kiri/kanan, mengedipkan mata, atau membuka mulut) dalam batas waktu tertentu untuk menangkal rekaman video, manipulasi layar digital (*screen glare/moire*), dan foto statis.
+   - **Pencegahan Kamera Virtual**: Memeriksa identitas perangkat keras video guna memblokir *virtual camera software* (seperti OBS Virtual Camera, ManyCam, DroidCam).
+   - **Konsistensi Multi-Frame**: Mengumpulkan 12 *frame* berkualitas dengan kriteria ketajaman Laplacian dan kecerahan merata, dengan ambang toleransi konsistensi antar-*frame* minimal 60%.
+
+3. **Validasi Klinis Dermatologi**
+   - Selaras dengan evaluasi dokter spesialis kulit (Sp.D.V.E / SpKK).
+   - Menggunakan metrik kesepakatan statistik *Cohen's Kappa* ($\kappa = 0.78$, kategori *Substantial Agreement*) dan tingkat akurasi evaluasi $87.5\%$ pada dataset validasi klinis.
+   - Dilengkapi batasan kepatuhan regulasi kosmetik *Over-The-Counter* (OTC): ditujukan sebagai sistem pendukung keputusan kosmetik, bukan perangkat diagnosis medis definitif.
+
+4. **Mesin Rekomendasi Data Web Dinamis**
+   - Basis data produk dimuat secara asinkron dari berkas `products.json` yang memuat 32 produk berizin edar resmi Badan Pengawas Obat dan Makanan (BPOM).
+   - Pemeringkatan produk menggunakan pendekatan *Multi-Criteria Decision Analysis* (MCDA) yang mencocokkan tipe kulit terdeteksi, bobot masalah kulit, dan keberadaan bahan aktif yang relevan.
+   - Menampilkan *Top 3* produk terbaik (1 rekomendasi utama dan 2 rekomendasi pendukung).
 
 ---
 
-## 📦 Panduan Instalasi & Menjalankan
+## Struktur Berkas
 
-### 1. Instal Dependensi
-Jalankan di root repositori:
+```
+.
+├── index.html          # Antarmuka pengguna dan logika inferensi client-side
+├── products.json       # Basis data produk kosmetik resmi BPOM
+├── skin_model.onnx     # Model kuantisasi MobileNetV3 (ONNX Web)
+├── labels.json         # Konfigurasi kelas prediksi, bobot normalisasi, dan ambang batas
+├── README.md           # Dokumentasi teknis proyek
+└── .gitignore          # Konfigurasi pengabaian berkas Git
+```
+
+---
+
+## Spesifikasi Teknis
+
+- **Runtime**: ONNX Runtime Web (versi 1.20.1)
+- **Landmark Detection**: MediaPipe Tasks Vision Face Landmarker (versi 0.10.14)
+- **Input Model**: Citra wajah terpotong (*crop*) ukuran $224 \times 224$ piksel, normalisasi ImageNet
+- **Output Model**:
+  - `type_probs` (4 kelas, Softmax)
+  - `concern_probs` (5 kelas, Sigmoid / Multi-label)
+- **Format Basis Data Produk**: JSON terstruktur memuat ID, nama, merek, kategori, nomor notifikasi BPOM, SPF, tekstur, harga resmi, tipe kulit target, dan kata kunci bahan aktif.
+
+---
+
+## Cara Menjalankan
+
+Aplikasi ini sepenuhnya bersifat statis (*zero backend requirement*) dan dapat dijalankan menggunakan server HTTP statis apa pun:
+
+### Menggunakan Python
 ```bash
-npm install
+python -m http.server 8000
 ```
+Buka peramban pada alamat `http://localhost:8000`.
 
-### 2. Menjalankan Server Aplikasi
-Jalankan satu perintah berikut:
+### Menggunakan Node.js (npx serve)
 ```bash
-npm start
+npx serve .
 ```
-*(Atau `node server/index.js`)*
 
-Aplikasi akan aktif di port 3000:
-- **Scan & Mode Penelitian**: [http://localhost:3000/](http://localhost:3000/)
-- **Penilaian Dokter**: [http://localhost:3000/dokter](http://localhost:3000/dokter)
-- **Hasil Validasi**: [http://localhost:3000/validasi](http://localhost:3000/validasi)
+### Menggunakan VS Code
+Pasang ekstensi *Live Server*, klik kanan pada berkas `index.html`, lalu pilih **Open with Live Server**.
 
----
-
-## 👨‍⚕️ Panduan Manajemen Dokter Penilai
-
-### Menambahkan Akun Dokter Baru (CLI)
-Gunakan skrip CLI interaktif:
-```bash
-npm run add-doctor
-```
-Atau berikan langsung sebagai argumen:
-```bash
-npm run add-doctor "dr. Nama Lengkap, Sp.D.V.E" "STR-123456" "RSUD Dr. Soetomo" "password123"
-```
-*(Atau `node bin/add-doctor.js "..." "..." "..." "..."`)*
-
-Akun langsung terenkripsi dengan aman dan siap digunakan login di [http://localhost:3000/dokter](http://localhost:3000/dokter).
-
----
-
-## 🧪 Data Uji & Pengujian Metrik (Testing)
-
-### 1. Menjalankan Unit Test Metrik Statistik
-Untuk memverifikasi kebenaran perhitungan statistik (Wilson Score, Cohen's Kappa, Confusion Matrix, Sensitivity/Specificity):
-```bash
-npm test
-```
-*(Atau `node test/metrics.test.js`)*
-
-### 2. Memasukkan Data Uji Coba (Seed Dummy Data)
-Untuk mencoba alur tanpa harus melakukan scan wajah manual puluhan kali:
-```bash
-npm run seed-dummy
-```
-*(Atau `node bin/seed-dummy.js`)*
-
-Skrip ini akan membuat:
-- **dr. Indah Permata, Sp.D.V.E [DUMMY]** (STR: `STR-991203-DUMMY`, password: `dokter123`)
-- **dr. Budi Santoso, Sp.KK [DUMMY]** (STR: `STR-884192-DUMMY`, password: `dokter123`)
-- 10 sampel dummy dengan variasi tipe dan masalah kulit untuk menguji confusion matrix, kappa, multi-dokter, dan adjudikasi.
-
----
-
-## 🛡️ Sistem Keamanan Anti-Spoofing & Liveness Aktif
-
-Untuk mencegah penipuan menggunakan **foto cetak, tampilan layar HP/Laptop lain, atau video rekaman**:
-
-1. **Tantangan Gerakan Wajah Aktif (Active Liveness Challenge)**:
-   - Menggunakan **MediaPipe Face Landmarker** (`blendshapes` dan `facialTransformationMatrixes`).
-   - Setelah wajah berada di dalam oval, sistem memilih **2 tantangan acak** (kedip mata `>0.5 lalu <0.25`, buka mulut `jawOpen >0.5`, tengok kepala ke kiri/kanan `yaw >20°`).
-   - Waktu maksimal per tantangan adalah **8 detik**. Jika gagal atau tidak bergerak, pemindaian ditolak dan diacak ulang.
-   - Wajib hadap lurus ke kamera (`|yaw| < 12°`) sebelum foto dianalisis.
-2. **Deteksi Perangkat & Pantulan Layar (Device & Glare Detection)**:
-   - **MediaPipe Object Detector** mendeteksi keberadaan objek layar HP (*cell phone*), laptop, atau buku di depan kamera secara berurutan.
-   - Algoritma menganalisis pantulan piksel putih jenuh (*specular glare*) pada permukaan layar HP.
-3. **Validasi Kriptografis Sisi Server (Server-Side Nonce)**:
-   - Endpoint `/api/liveness/start-session` menerbitkan tiket *nonce* unik sekali pakai (kedaluwarsa dalam 60 detik) beserta daftar tantangan acak.
-   - Server memverifikasi bukti penyelesaian tantangan sebelum menyimpan sampel penelitian.
-4. **Model Anti-Spoofing MiniFASNet ONNX (Opsional/Plug & Play)**:
-   - Letakkan file model **`anti_spoof_model.onnx`** (MiniFASNetV2 / Silent-Face-Anti-Spoofing) di folder `demoweb/`.
-   - Sistem akan memuat model secara otomatis dan menolak pemindaian jika skor keaslian di bawah `SPOOF_THRESHOLD = 0.70`.
-   - Jika berkas model ini belum ditaruh, sistem tetap aman dengan mengandalkan **Active Liveness Challenge + Deteksi Layar HP MediaPipe**.
-
----
-
-## 📊 Ekspor Data Hasil Penelitian
-
-1. Buka halaman [http://localhost:3000/validasi](http://localhost:3000/validasi).
-2. Klik tombol **"📥 Ekspor Data Lengkap (CSV)"** di pojok kanan atas.
-3. Berkas `data_validasi_skripsi.csv` akan otomatis terunduh berisi detail responden, prediksi AI, penilaian dokter, dan waktu penilaian tanpa menyertakan berkas foto fisik (menjaga privasi).
-
----
-
-## 📁 Struktur Direktori Penelitian
-
-```
-├── bin/
-│   ├── add-doctor.js       # CLI penambahan akun dokter
-│   └── seed-dummy.js       # CLI seed data dummy pengujian
-├── data/
-│   ├── photos/             # Folder foto sampel wajah (UUID)
-│   └── skripsi_validation.db # Basis data SQLite (better-sqlite3)
-├── demoweb/
-│   ├── index.html          # Scan wajah + Mode Penelitian (Informed Consent)
-│   ├── dokter.html         # Portal blind review dokter spesialis
-│   ├── validasi.html       # Dasbor hasil validasi klinis & metrik akurasi
-│   ├── labels.json         # Konfigurasi model ONNX & threshold
-│   └── skin_model.onnx     # Bobot model ONNX MobileNetV3
-├── server/
-│   ├── app.js              # Express routing & REST API endpoint
-│   ├── db.js               # Inisialisasi basis data SQLite
-│   ├── index.js            # Entry point server Express (Port 3000)
-│   └── metrics.js          # Modul perhitungan statistik (Wilson, Kappa, Matrix)
-├── test/
-│   └── metrics.test.js     # Unit test rumus metrik validasi
-└── package.json
-```
+> **Catatan Penggunaan Kamera**: Peramban modern mewajibkan protokol aman (`https://` atau `http://localhost`) untuk mengakses antarmuka `navigator.mediaDevices.getUserMedia`.
