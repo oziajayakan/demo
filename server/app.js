@@ -40,7 +40,58 @@ function doctorAuthMiddleware(req, res, next) {
 }
 
 // =========================================================================
-// 1. ENDPOINT MODE PENELITIAN (PUBLIK / DARI INDEX.HTML)
+// 1. ENDPOINT LIVENESS SESSION & TANTANGAN AKTIF (SERVER-SIDE NONCE)
+// =========================================================================
+
+// Penyimpanan sesi liveness aktif (nonce berlaku 60 detik, sekali pakai)
+const activeLivenessSessions = new Map();
+
+// Bersihkan sesi kedaluwarsa secara berkala
+setInterval(() => {
+  const now = Date.now();
+  for (const [nonce, session] of activeLivenessSessions.entries()) {
+    if (now - session.createdAt > 60000) {
+      activeLivenessSessions.delete(nonce);
+    }
+  }
+}, 15000);
+
+const DAFTAR_TANTANGAN = [
+  { id: 'blink', instruksi: 'Kedipkan kedua mata Anda', icon: '👁️' },
+  { id: 'mouth', instruksi: 'Buka mulut Anda perlahan', icon: '😮' },
+  { id: 'turn_left', instruksi: 'Tengokkan kepala ke KIRI', icon: '👈' },
+  { id: 'turn_right', instruksi: 'Tengokkan kepala ke KANAN', icon: '👉' }
+];
+
+// Endpoint untuk meminta nonce & 2 tantangan acak sebelum memulai pemindaian
+app.get('/api/liveness/start-session', (req, res) => {
+  try {
+    const nonce = uuidv4();
+    // Acak 2 tantangan unik dari 4 opsi
+    const shuffled = [...DAFTAR_TANTANGAN].sort(() => 0.5 - Math.random());
+    const selectedChallenges = shuffled.slice(0, 2);
+
+    activeLivenessSessions.set(nonce, {
+      nonce,
+      challenges: selectedChallenges.map(c => c.id),
+      createdAt: Date.now()
+    });
+
+    return res.json({
+      success: true,
+      nonce,
+      challenges: selectedChallenges,
+      timeoutSeconds: 8,
+      expiresIn: 60
+    });
+  } catch (err) {
+    console.error('Error start liveness session:', err);
+    return res.status(500).json({ error: 'Gagal membuat sesi liveness.' });
+  }
+});
+
+// =========================================================================
+// 2. ENDPOINT MODE PENELITIAN (PUBLIK / DARI INDEX.HTML)
 // =========================================================================
 
 // Simpan data sampel penelitian baru dari responden
@@ -57,7 +108,8 @@ app.post('/api/research/submit', (req, res) => {
       ai_concern_probs,
       ai_type,
       ai_concerns,
-      model_version
+      model_version,
+      livenessProof // Bukti verifikasi server-side (nonce, completedChallenges, spoofScore)
     } = req.body;
 
     // Validasi consent wajib
@@ -67,6 +119,31 @@ app.post('/api/research/submit', (req, res) => {
 
     if (!kode || !kode.trim()) {
       return res.status(400).json({ error: 'Kode atau inisial responden wajib diisi.' });
+    }
+
+    // Validasi Liveness Server-Side Nonce
+    if (!livenessProof || !livenessProof.nonce) {
+      return res.status(400).json({ error: 'Bukti verifikasi liveness tidak ditemukan. Silakan ulangi pemindaian.' });
+    }
+
+    const session = activeLivenessSessions.get(livenessProof.nonce);
+    if (!session) {
+      return res.status(400).json({ error: 'Sesi verifikasi liveness kedaluwarsa atau tidak valid. Silakan scan ulang.' });
+    }
+
+    // Hapus sesi agar nonce menjadi sekali pakai (anti-replay attack)
+    activeLivenessSessions.delete(livenessProof.nonce);
+
+    // Cek batas kedaluwarsa 60 detik
+    if (Date.now() - session.createdAt > 60000) {
+      return res.status(400).json({ error: 'Sesi verifikasi liveness telah kedaluwarsa (>60 detik).' });
+    }
+
+    // Pastikan tantangan yang diselesaikan cocok dengan yang ditugaskan server
+    const completed = Array.isArray(livenessProof.completedChallenges) ? livenessProof.completedChallenges : [];
+    const isChallengesComplete = session.challenges.every(cId => completed.includes(cId));
+    if (!isChallengesComplete) {
+      return res.status(400).json({ error: 'Tantangan liveness aktif tidak terselesaikan secara lengkap.' });
     }
 
     if (!photoBase64 || !photoBase64.startsWith('data:image/')) {

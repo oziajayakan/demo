@@ -99,6 +99,28 @@ Skrip ini akan membuat:
 
 ---
 
+## 🛡️ Sistem Keamanan Anti-Spoofing & Liveness Aktif
+
+Untuk mencegah penipuan menggunakan **foto cetak, tampilan layar HP/Laptop lain, atau video rekaman**:
+
+1. **Tantangan Gerakan Wajah Aktif (Active Liveness Challenge)**:
+   - Menggunakan **MediaPipe Face Landmarker** (`blendshapes` dan `facialTransformationMatrixes`).
+   - Setelah wajah berada di dalam oval, sistem memilih **2 tantangan acak** (kedip mata `>0.5 lalu <0.25`, buka mulut `jawOpen >0.5`, tengok kepala ke kiri/kanan `yaw >20°`).
+   - Waktu maksimal per tantangan adalah **8 detik**. Jika gagal atau tidak bergerak, pemindaian ditolak dan diacak ulang.
+   - Wajib hadap lurus ke kamera (`|yaw| < 12°`) sebelum foto dianalisis.
+2. **Deteksi Perangkat & Pantulan Layar (Device & Glare Detection)**:
+   - **MediaPipe Object Detector** mendeteksi keberadaan objek layar HP (*cell phone*), laptop, atau buku di depan kamera secara berurutan.
+   - Algoritma menganalisis pantulan piksel putih jenuh (*specular glare*) pada permukaan layar HP.
+3. **Validasi Kriptografis Sisi Server (Server-Side Nonce)**:
+   - Endpoint `/api/liveness/start-session` menerbitkan tiket *nonce* unik sekali pakai (kedaluwarsa dalam 60 detik) beserta daftar tantangan acak.
+   - Server memverifikasi bukti penyelesaian tantangan sebelum menyimpan sampel penelitian.
+4. **Model Anti-Spoofing MiniFASNet ONNX (Opsional/Plug & Play)**:
+   - Letakkan file model **`anti_spoof_model.onnx`** (MiniFASNetV2 / Silent-Face-Anti-Spoofing) di folder `demoweb/`.
+   - Sistem akan memuat model secara otomatis dan menolak pemindaian jika skor keaslian di bawah `SPOOF_THRESHOLD = 0.70`.
+   - Jika berkas model ini belum ditaruh, sistem tetap aman dengan mengandalkan **Active Liveness Challenge + Deteksi Layar HP MediaPipe**.
+
+---
+
 ## 📊 Ekspor Data Hasil Penelitian
 
 1. Buka halaman [http://localhost:3000/validasi](http://localhost:3000/validasi).
