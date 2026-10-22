@@ -911,25 +911,39 @@ function checkFaceOcclusion(lm) {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     if (!lm || lm.length < 264) return null;
 
-    // 1. Cek Masker (landmark mulut vs hidung tertutup/hilang)
+    // 1. Cek Masker (area mulut/hidung/dagu tertutup)
     const noseTip = lm[1], upperLip = lm[13], lowerLip = lm[14], chin = lm[152];
     if (!noseTip || !upperLip || !lowerLip || !chin) return "Wajah/mulut tertutup masker atau benda lain.";
     const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
-    if (chinNoseDist < 0.05) return "Bagian bawah wajah/mulut tertutup masker.";
+    if (chinNoseDist < 0.06) return "Bagian bawah wajah/mulut tertutup masker.";
 
-    // 2. Cek Kacamata (area pangkal hidung & mata: landmark 168)
-    const nx = Math.floor(lm[168].x * vw), ny = Math.floor(lm[168].y * vh);
+    // 2. Cek Kacamata (Multi-zone: Jembatan Hidung 168 & Frame Bawah Mata 117, 346)
     const eyeL = lm[33], eyeR = lm[263];
     const eyeDist = Math.hypot((eyeR.x - eyeL.x) * vw, (eyeR.y - eyeL.y) * vh);
-    const sampleRadius = Math.max(12, Math.floor(eyeDist * 0.16));
+    if (eyeDist < 40) return null; // wajah terlalu jauh untuk deteksi kacamata
 
-    if (nx > sampleRadius && nx < vw - sampleRadius && ny > sampleRadius && ny < vh - sampleRadius) {
+    const sampleRadius = Math.max(10, Math.floor(eyeDist * 0.14));
+    const checkPoints = [
+      { pt: lm[168], weight: 1.3 }, // Jembatan hidung tengah
+      { pt: lm[6], weight: 1.1 },   // Atas hidung
+      { pt: lm[117], weight: 0.9 }, // Bawah mata kiri (frame kacamata)
+      { pt: lm[346], weight: 0.9 }  // Bawah mata kanan (frame kacamata)
+    ];
+
+    let totalEdgeScore = 0;
+    let validChecks = 0;
+
+    for (const cp of checkPoints) {
+      const px = Math.floor(cp.pt.x * vw);
+      const py = Math.floor(cp.pt.y * vh);
+      if (px <= sampleRadius || px >= vw - sampleRadius || py <= sampleRadius || py >= vh - sampleRadius) continue;
+
       const sw = sampleRadius * 2, sh = sampleRadius * 2;
       gc.width = sw; gc.height = sh;
-      gctx.drawImage(video, nx - sampleRadius, ny - sampleRadius, sw, sh, 0, 0, sw, sh);
+      gctx.drawImage(video, px - sampleRadius, py - sampleRadius, sw, sh, 0, 0, sw, sh);
       const idata = gctx.getImageData(0, 0, sw, sh).data;
-      
-      let edgeEnergy = 0, darkPixels = 0, total = sw * sh;
+
+      let edgeCount = 0, darkCount = 0, total = sw * sh;
       for (let y = 1; y < sh - 1; y++) {
         for (let x = 1; x < sw - 1; x++) {
           const idx = (y * sw + x) * 4;
@@ -937,13 +951,20 @@ function checkFaceOcclusion(lm) {
           const rightLuma = 0.299 * idata[idx + 4] + 0.587 * idata[idx + 5] + 0.114 * idata[idx + 6];
           const downLuma = 0.299 * idata[idx + sw * 4] + 0.587 * idata[idx + sw * 4 + 1] + 0.114 * idata[idx + sw * 4 + 2];
           const diff = Math.abs(luma - rightLuma) + Math.abs(luma - downLuma);
-          if (diff > 45) edgeEnergy++;
-          if (luma < 40) darkPixels++;
+          if (diff > 35) edgeCount++;
+          if (luma < 60) darkCount++; // bingkai kacamata hitam/gelap
         }
       }
-      const edgeRatio = edgeEnergy / total;
-      const darkRatio = darkPixels / total;
-      if (edgeRatio > 0.20 || (edgeRatio > 0.12 && darkRatio > 0.10)) {
+
+      const zoneScore = ((edgeCount / total) * 1.5 + (darkCount / total)) * cp.weight;
+      totalEdgeScore += zoneScore;
+      validChecks++;
+    }
+
+    if (validChecks > 0) {
+      const avgScore = totalEdgeScore / validChecks;
+      // Ambang batas ketat: jika frame kacamata/bingkai terdeteksi
+      if (avgScore > 0.18) {
         return "Terdeteksi memakai kacamata atau aksesoris wajah. Lepas kacamata sebelum scan.";
       }
     }
@@ -1009,7 +1030,7 @@ function loop(now) {
     return;
   }
 
-  if (run.phase === "collect") { collectFrame(now, { minx, maxx, miny, maxy }, centered, yaw); return; }
+  if (run.phase === "collect") { collectFrame(now, { minx, maxx, miny, maxy }, centered, yaw, lm); return; }
 
   // phase: challenge
   const ch = run.queue[run.idx];
@@ -1060,8 +1081,13 @@ function frameQuality(px) {
   return { luma: sum / (W * W), sharp: lap / c };
 }
 
-function collectFrame(now, box, centered, yaw) {
+function collectFrame(now, box, centered, yaw, lm) {
   if (now < run.nextAt) return;
+  const occ = checkFaceOcclusion(lm);
+  if (occ) {
+    fail("Scan dibatalkan: " + occ);
+    return;
+  }
   if (!centered || Math.abs(yaw) > 15) { run.dropped++; setHint("Hadap lurus dan tetap di tengah oval"); return; }
   const vw = video.videoWidth, vh = video.videoHeight;
   const side = Math.min(Math.max((box.maxx - box.minx) * vw, (box.maxy - box.miny) * vh) * 1.25, vw, vh);
