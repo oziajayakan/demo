@@ -436,13 +436,11 @@ function hasScreenGlare() {
 }
 
 // ---------- Anti-Manipulasi: Deteksi Kacamata & Masker ----------
-// ---------- Anti-Manipulasi: Deteksi Kacamata & Masker Terkalibrasi ----------
+// ---------- Anti-Manipulasi: Validasi Geometri 3D (Cepat & Zero-Lag) ----------
 function checkFaceOcclusion(lm) {
   try {
-    const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-    if (!lm || lm.length < 400) return null;
+    if (!lm || lm.length < 400) return "Wajah tidak terdeteksi utuh.";
 
-    // 1. Cek Masker & Penutup Wajah Bawah
     const noseTip = lm[1], chin = lm[152], forehead = lm[10];
     const mouthL = lm[61], mouthR = lm[291];
     const eyeL = lm[133], eyeR = lm[362];
@@ -456,101 +454,14 @@ function checkFaceOcclusion(lm) {
     const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
     const mouthW = Math.hypot(mouthR.x - mouthL.x, mouthR.y - mouthL.y);
 
-    // Rasio proporsi dagu-hidung dan lebar mulut terhadap anatomi wajah normal
-    if (faceH > 0.25) {
+    // Validasi masker / penutup wajah lewat proporsi geometris (0ms overhead)
+    if (faceH > 0.20) {
       const lowerRatio = chinNoseDist / faceH;
-      if (lowerRatio < 0.20 || lowerRatio > 0.58) {
+      if (lowerRatio < 0.18 || lowerRatio > 0.62) {
         return "Bagian bawah wajah/dagu tertutup masker atau tangan.";
       }
-      if (eyeDist > 0.05 && (mouthW / eyeDist < 0.40)) {
+      if (eyeDist > 0.05 && (mouthW / eyeDist < 0.35)) {
         return "Bagian mulut tertutup tangan atau masker.";
-      }
-    }
-
-    // Cek warna kain masker (surgical blue/white/black mask) pada area mulut
-    const pMouth = { x: Math.floor(lm[14].x * vw), y: Math.floor(lm[14].y * vh) };
-    const pForehead = { x: Math.floor(forehead.x * vw), y: Math.floor(forehead.y * vh + (faceH * vh * 0.15)) };
-
-    if (pMouth.x > 10 && pMouth.x < vw - 10 && pMouth.y > 10 && pMouth.y < vh - 10 &&
-        pForehead.x > 10 && pForehead.x < vw - 10 && pForehead.y > 10 && pForehead.y < vh - 10) {
-      gc.width = 16; gc.height = 16;
-      // Sampel dahi (kulit asli)
-      gctx.drawImage(video, pForehead.x - 8, pForehead.y - 8, 16, 16, 0, 0, 16, 16);
-      const foreData = gctx.getImageData(0, 0, 16, 16).data;
-      let fR = 0, fG = 0, fB = 0;
-      for (let i = 0; i < foreData.length; i += 4) { fR += foreData[i]; fG += foreData[i+1]; fB += foreData[i+2]; }
-      fR /= 256; fG /= 256; fB /= 256;
-
-      // Sampel mulut/masker
-      gctx.drawImage(video, pMouth.x - 8, pMouth.y - 8, 16, 16, 0, 0, 16, 16);
-      const mData = gctx.getImageData(0, 0, 16, 16).data;
-      let mR = 0, mG = 0, mB = 0;
-      for (let i = 0; i < mData.length; i += 4) { mR += mData[i]; mG += mData[i+1]; mB += mData[i+2]; }
-      mR /= 256; mG /= 256; mB /= 256;
-
-      // Masker bedah biru: mB jauh lebih dominan daripada mR
-      if (mB - mR > 18) {
-        return "Terdeteksi memakai masker. Mohon lepas masker.";
-      }
-      // Masker putih pekat buatan atau masker kain hitam
-      if (mR > 215 && mG > 215 && mB > 215 && fR < 185) {
-        return "Terdeteksi memakai masker putih. Mohon lepas masker.";
-      }
-      if (mR < 35 && mG < 35 && mB < 35 && fR > 65) {
-        return "Terdeteksi masker hitam menutupi mulut.";
-      }
-    }
-
-    // 2. Cek Kacamata (Glasses Bridge Detection di Nasion lm[6])
-    const pEyeL = { x: eyeL.x * vw, y: eyeL.y * vh };
-    const pEyeR = { x: eyeR.x * vw, y: eyeR.y * vh };
-    const pNasion = { x: lm[6].x * vw, y: lm[6].y * vh };
-    const eyeDistPx = Math.hypot(pEyeR.x - pEyeL.x, pEyeR.y - pEyeL.y);
-
-    if (eyeDistPx > 35) {
-      const bw = Math.max(16, Math.floor(eyeDistPx * 0.38));
-      const bh = Math.max(12, Math.floor(eyeDistPx * 0.22));
-      const bx = Math.floor(pNasion.x - bw / 2);
-      const by = Math.floor(pNasion.y - bh / 2);
-
-      if (bx > 0 && bx + bw < vw && by > 0 && by + bh < vh) {
-        gc.width = bw; gc.height = bh;
-        gctx.drawImage(video, bx, by, bw, bh, 0, 0, bw, bh);
-        const img = gctx.getImageData(0, 0, bw, bh).data;
-
-        let totalLuma = 0, minLuma = 255, maxLuma = 0;
-        let edgeCount = 0, darkCount = 0;
-        const totalPixels = bw * bh;
-
-        for (let y = 1; y < bh - 1; y++) {
-          for (let x = 1; x < bw - 1; x++) {
-            const idx = (y * bw + x) * 4;
-            const luma = 0.299 * img[idx] + 0.587 * img[idx + 1] + 0.114 * img[idx + 2];
-            totalLuma += luma;
-            if (luma < minLuma) minLuma = luma;
-            if (luma > maxLuma) maxLuma = luma;
-
-            const downIdx = ((y + 1) * bw + x) * 4;
-            const rightIdx = (y * bw + (x + 1)) * 4;
-            const dLuma = Math.abs(luma - (0.299 * img[downIdx] + 0.587 * img[downIdx + 1] + 0.114 * img[downIdx + 2]));
-            const rLuma = Math.abs(luma - (0.299 * img[rightIdx] + 0.587 * img[rightIdx + 1] + 0.114 * img[rightIdx + 2]));
-
-            if (dLuma > 28 || rLuma > 28) edgeCount++;
-            if (luma < 65) darkCount++;
-          }
-        }
-
-        const contrastSpan = maxLuma - minLuma;
-        const edgeRatio = edgeCount / totalPixels;
-        const darkRatio = darkCount / totalPixels;
-
-        const hasGlasses = (edgeRatio > 0.18 && contrastSpan > 65) ||
-                          (darkRatio > 0.12 && contrastSpan > 75) ||
-                          (edgeRatio > 0.26);
-
-        if (hasGlasses) {
-          return "Terdeteksi memakai kacamata. Mohon lepas kacamata untuk akurasi analisis kulit.";
-        }
       }
     }
   } catch (err) {
@@ -559,12 +470,17 @@ function checkFaceOcclusion(lm) {
   return null;
 }
 
+let lastDetect = 0;
+const DETECT_INTERVAL = 45; // ~22 FPS MediaPipe tracking: smooth 60 FPS rendering, zero lag
+
 // ---------- Loop Utama Pemeriksaan ----------
 function loop(now) {
   if (!run) return;
   rafId = requestAnimationFrame(loop);
-  if (video.readyState < 2 || video.currentTime === run.lastTime) return;
-  run.lastTime = video.currentTime;
+  if (video.readyState < 2) return;
+  if (now - lastDetect < DETECT_INTERVAL) return;
+  lastDetect = now;
+
   if (run.phase === "collect" && now - run.collectStart > COLLECT_TIMEOUT) {
     fail("Kualitas gambar kurang baik (cahaya, buram, atau wajah bergerak). Ulangi di tempat lebih terang.");
     return;
