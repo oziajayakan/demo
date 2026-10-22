@@ -335,34 +335,54 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">
 let spec = null, session = null, landmarker = null, stream = null, rafId = null;
 let run = null;
 
+// ---------- Cache Helper (Penyimpanan Offline Cepat) ----------
+async function fetchCached(url) {
+  try {
+    if ('caches' in window) {
+      const cache = await caches.open('sluv-ai-cache-v2');
+      const cached = await cache.match(url);
+      if (cached) return cached;
+      const res = await fetch(url);
+      if (res.ok) cache.put(url, res.clone());
+      return res;
+    }
+  } catch (e) {
+    console.warn("Cache API fallback:", e);
+  }
+  return fetch(url);
+}
+
 async function initModels() {
   try {
-    setStatus("Menyiapkan model & data produk…");
-    const [rl, ro, rp] = await Promise.all([
-      fetch("./labels.json"),
-      fetch("./skin_model.onnx"),
-      fetch("./products.json").catch(() => null)
-    ]);
+    setStatus("Memuat modul AI & deteksi 3D…");
 
-    if (!rl.ok) throw new Error("labels.json HTTP " + rl.status);
-    if (!ro.ok) throw new Error("skin_model.onnx HTTP " + ro.status);
-    spec = await rl.json();
+    // Unduh dan inisialisasi ONNX dan MediaPipe secara PARALEL (simultan)
+    const initONNX = async () => {
+      const [rl, ro, rp] = await Promise.all([
+        fetch("./labels.json"),
+        fetchCached("./skin_model.onnx"),
+        fetch("./products.json").catch(() => null)
+      ]);
+      if (!rl.ok) throw new Error("labels.json HTTP " + rl.status);
+      if (!ro.ok) throw new Error("skin_model.onnx HTTP " + ro.status);
+      spec = await rl.json();
+      if (rp && rp.ok) PRODUK_DATABASE = await rp.json();
 
-    if (rp && rp.ok) {
-      PRODUK_DATABASE = await rp.json();
-      console.log(`Database terhubung: ${PRODUK_DATABASE.length} produk BPOM siap.`);
-    }
+      ort.env.wasm.numThreads = 1;
+      const buf = await ro.arrayBuffer();
+      session = await ort.InferenceSession.create(buf, { executionProviders: ["wasm"] });
+    };
 
-    ort.env.wasm.numThreads = 1;
-    session = await ort.InferenceSession.create(await ro.arrayBuffer(), { executionProviders: ["wasm"] });
+    const initMediaPipe = async () => {
+      const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+      landmarker = await FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: LANDMARKER_URL },
+        runningMode: "VIDEO", numFaces: 1,
+        outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
+      });
+    };
 
-    setStatus("Menyiapkan deteksi wajah 3D…");
-    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-    landmarker = await FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: LANDMARKER_URL },
-      runningMode: "VIDEO", numFaces: 2,
-      outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
-    });
+    await Promise.all([initONNX(), initMediaPipe()]);
 
     setStatus("Siap dipakai", "ok");
     setHint("Tekan “Mulai scan”");
@@ -711,15 +731,42 @@ async function infer(px) {
 }
 
 // ---------- Tampilkan Hasil Sesuai Tema Desain ----------
+// ---------- Tampilkan Hasil Sesuai Tema Desain ----------
 function showResults(tp, cp, meta) {
   const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
   const order = tp.map((_, i) => i).sort((a, b) => tp[b] - tp[a]);
   const topP = tp[order[0]], tipeAI = T[order[0]];
-  const found = C.map((c, j) => ({ c, p: cp[j], t: spec.concern_thresholds[c], v: meta.votes[j] }))
-                 .filter(x => x.p >= x.t && x.v >= 0.5)
-                 .sort((a, b) => b.p - a.p);
-  const mp = Object.fromEntries(found.map(x => [x.c, x.p]));
 
+  // Ambang batas sensitivitas terkalibrasi untuk kamera HP / webcam
+  const CONCERN_BASE_THRESHOLDS = {
+    jerawat: 0.18,
+    flek_hitam: 0.20,
+    kemerahan: 0.18,
+    pori_besar: 0.20,
+    kerutan: 0.18
+  };
+
+  // Evaluasi semua masalah kulit dari yang probabilitas tertinggi
+  const evaluated = C.map((c, j) => {
+    const rawThresh = spec.concern_thresholds?.[c] || 0.35;
+    const baseThresh = CONCERN_BASE_THRESHOLDS[c] || 0.20;
+    return {
+      c,
+      p: cp[j],
+      t: Math.min(rawThresh, baseThresh)
+    };
+  }).sort((a, b) => b.p - a.p);
+
+  // Ambil masalah yang memenuhi ambang batas sensitivitas realistis
+  let found = evaluated.filter(x => x.p >= x.t);
+
+  // Jika tidak ada yang melampaui ambang batas tapi ada indikasi (p >= 0.12),
+  // sertakan 1-2 masalah teratas agar rekomendasi produk spesifik & tepat sasaran
+  if (found.length === 0 && evaluated.length > 0 && evaluated[0].p >= 0.12) {
+    found = evaluated.slice(0, Math.min(2, evaluated.length)).filter(x => x.p >= 0.12);
+  }
+
+  const mp = Object.fromEntries(found.map(x => [x.c, x.p]));
   const recs = recommendFromDatabase(tipeAI, mp);
 
   let html = '<div class="sec"><span>Tipe kulit</span><span class="sec-count">Akurasi 87.5%</span></div>';
@@ -730,7 +777,7 @@ function showResults(tp, cp, meta) {
   html += '<div class="sec"><span>Masalah kulit</span></div><div class="tags">';
   html += found.length
     ? found.map(x => `<span class="tag">${esc(D[x.c])} ${(x.p * 100).toFixed(0)}%</span>`).join("")
-    : '<span class="tag good">Tidak ada masalah menonjol</span>';
+    : '<span class="tag good">Kulit bersih / tidak ada masalah menonjol</span>';
   html += "</div>";
 
   html += `<div class="sec"><span>Cocok untukmu</span><span class="sec-count">${recs.length} produk pilihan</span></div>`;
