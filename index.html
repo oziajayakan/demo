@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
@@ -774,16 +774,30 @@ const BAHAN = {
 const NAMA = { jerawat:"jerawat", flek_hitam:"flek hitam", kemerahan:"kemerahan", pori_besar:"pori besar", kerutan:"kerutan" };
 
 function recommend(tipe, masalah) {
-  return PRODUK.map(p => {
-    let skor = p.tipe.includes(tipe) ? .5 : 0; const alasan = [];
+  const scored = PRODUK.map(p => {
+    // Skor tipe kulit: produk cocok dengan tipe kulit yang terdeteksi
+    let skor = p.tipe.includes(tipe) ? 0.8 : 0;
+    const alasan = [];
+    let cocokMasalah = 0;
+
     for (const [m, prob] of Object.entries(masalah)) {
       if (!p.target.includes(m)) continue;
-      skor += prob * (p.bobot[m] ?? 1);
+      cocokMasalah++;
+      skor += prob * (p.bobot[m] ?? 1.2);
       const ada = BAHAN[m].filter(b => p.bahan.includes(b.toLowerCase().replace(" acid", "")));
       alasan.push(ada.length ? `${NAMA[m]} (${ada.join(", ")})` : NAMA[m]);
     }
+
+    // Berikan bonus relevansi jika produk mengatasi lebih banyak masalah terdeteksi
+    skor += cocokMasalah * 0.5;
+
     return { ...p, skor, alasan };
-  }).sort((a, b) => b.skor - a.skor);
+  });
+
+  // Urutkan dari skor tertinggi dan ambil Top 3 produk yang paling cocok
+  return scored
+    .sort((a, b) => b.skor - a.skor)
+    .slice(0, 3);
 }
 
 // ---------- UI helpers ----------
@@ -1049,9 +1063,9 @@ function showResults(tp, cp, meta) {
   html += found.length ? found.map(x => `<span class="tag">${esc(D[x.c])} · ${(x.p * 100).toFixed(0)}%</span>`).join("") : '<span class="tag good">Tidak ada masalah menonjol</span>';
   html += "</div>";
 
-  html += '<div class="sec">Rekomendasi Produk S\'luv</div>';
+  html += '<div class="sec">Rekomendasi Produk Paling Cocok (Top 3)</div>';
   html += recommend(tipeAI, mp).map((r, i) => `
-    <div class="rec"><div class="n"><span>${esc(r.nama)}</span><em>${i === 0 ? "Paling cocok" : "Pelengkap"}</em></div>
+    <div class="rec"><div class="n"><span>${esc(r.nama)}</span><em>${i === 0 ? "★ Paling Cocok" : i === 1 ? "Pilihan Utama #2" : "Pilihan Utama #3"}</em></div>
     <p>${esc(r.kat)}${r.spf ? " · " + esc(r.spf) : ""} · Rp ${r.harga.toLocaleString("id-ID")}</p>
     <p>${r.alasan.length ? "Formula aktif untuk: <b>" + r.alasan.map(esc).join("</b>; <b>") + "</b>" : "Perawatan harian untuk kulit " + esc(D[tipeAI].toLowerCase())}</p></div>`).join("");
 
