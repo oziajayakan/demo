@@ -358,14 +358,16 @@ async function initModels() {
       if (rp && rp.ok) PRODUK_DATABASE = await rp.json();
 
       ort.env.wasm.numThreads = 1;
-      ort.env.wasm.proxy = false;
       const buf = await ro.arrayBuffer();
       session = await ort.InferenceSession.create(buf, { executionProviders: ["wasm"] });
+      window.session = session;
+      window.spec = spec;
       try {
         const dummy = new ort.Tensor("float32", new Float32Array(3 * 224 * 224), [1, 3, 224, 224]);
         await session.run({ input: dummy });
+        console.log("[AI] Pre-warm pass completed successfully.");
       } catch (pw) {
-        console.warn("Pre-warm pass:", pw);
+        console.warn("[AI] Pre-warm pass warning:", pw);
       }
     };
 
@@ -708,6 +710,7 @@ async function analyze(frames) {
 }
 
 async function infer(px) {
+  console.log("[AI] Starting infer on frame pixels...");
   const n = 224 * 224;
   const t = new Float32Array(3 * n);
   const m0 = spec.mean[0], m1 = spec.mean[1], m2 = spec.mean[2];
@@ -721,9 +724,14 @@ async function infer(px) {
   }
 
   const tensor = new ort.Tensor("float32", t, [1, 3, 224, 224]);
+  console.log("[AI] Running session.run({ input: tensor })...");
+  const t0 = performance.now();
   const out = await session.run({ input: tensor });
+  const dur = performance.now() - t0;
+  console.log("[AI] session.run finished in", dur.toFixed(1), "ms");
   return { type: Array.from(out.type_probs.data), concern: Array.from(out.concern_probs.data) };
 }
+window.infer = infer;
 
 // ---------- Tampilkan Hasil Sesuai Tema Desain ----------
 // ---------- Tampilkan Hasil Sesuai Tema Desain ----------
