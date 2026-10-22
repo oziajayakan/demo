@@ -180,7 +180,7 @@ footer{margin-top:44px;font-size:12.5px;color:var(--mute);max-width:60ch}
 <body>
 <main>
 <header>
-  <div class="brand">S’luv <span class="badge-ver">v2.5 Fast</span></div>
+  <div class="brand">S’luv <span class="badge-ver">v2.6 Ultra</span></div>
   <button type="button" class="doctor-badge-btn" id="btnDoctorModal">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
     Dicek dokter kulit
@@ -425,11 +425,8 @@ async function startScan() {
 function stopCamera() {
   if (rafId) cancelAnimationFrame(rafId); rafId = null;
   if (stream) {
-    try { stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    try { stream.getTracks().forEach(t => t.stop()); } catch (e) { console.warn("Track stop error:", e); }
     stream = null;
-  }
-  if (video) {
-    try { video.pause(); video.srcObject = null; } catch (e) {}
   }
   setProgress(0); setChallenge("");
 }
@@ -675,19 +672,28 @@ function collectFrame(now, box, centered, yaw, lm) {
 }
 
 async function analyze(frames) {
-  stopCamera();
   const sorted = [...frames].sort((a, b) => b.sharp - a.sharp);
   const best = sorted[0];
   snap.width = snap.height = 224; snap.getContext("2d").putImageData(new ImageData(best.px, 224, 224), 0, 0);
   video.style.display = "none"; snap.style.display = "block"; stage.classList.add("scanning");
   $("ring").setAttribute("class", "ring ok");
+
+  const cntEl = $("cnt"), cn2El = $("cn2");
+  if (cntEl) cntEl.textContent = "12";
+  if (cn2El) cn2El.textContent = "/12";
+
   setStatus("Menganalisis kondisi kulit…");
   setHint("Menganalisis kondisi kulit...");
   setProgress(0.6);
 
+  // Micro-delay untuk teardown kamera setelah switch video -> snap canvas
+  setTimeout(() => {
+    stopCamera();
+  }, 80);
+
   try {
-    // Beri jeda 60ms agar browser merender snap canvas & efek visual sebelum inferensi
-    await new Promise(r => setTimeout(r, 60));
+    // Beri jeda 80ms agar browser merender snap canvas & transisi visual sebelum inferensi
+    await new Promise(r => setTimeout(r, 80));
 
     // Jalankan inferensi presisi tinggi 1x pada frame terbaik dengan safety timeout 10 detik
     const inferPromise = infer(best.px);
@@ -729,7 +735,17 @@ async function infer(px) {
   const out = await session.run({ input: tensor });
   const dur = performance.now() - t0;
   console.log("[AI] session.run finished in", dur.toFixed(1), "ms");
-  return { type: Array.from(out.type_probs.data), concern: Array.from(out.concern_probs.data) };
+  
+  const typeProbs = Array.from(out.type_probs.data);
+  const concernProbs = Array.from(out.concern_probs.data);
+
+  try {
+    tensor.dispose?.();
+    out.type_probs?.dispose?.();
+    out.concern_probs?.dispose?.();
+  } catch (dispErr) {}
+
+  return { type: typeProbs, concern: concernProbs };
 }
 window.infer = infer;
 
@@ -799,7 +815,7 @@ function showResults(tp, cp, meta) {
       <p class="reason">${r.alasan.length ? "Untuk: <b>" + r.alasan.map(esc).join("</b>, <b>") + "</b>" : "Perawatan harian dasar untuk kulit " + esc(D[tipeAI].toLowerCase())}</p>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
         <span style="font-size:12.5px;color:var(--mute);">Tekstur: ${esc(r.tekstur ? r.tekstur.split(",")[0] : "Ringan")}</span>
-        <a class="btn-buy" href="javascript:void(0)" onclick="alert('Produk ${esc(r.nama)} siap dipesan di toko!')">Beli di toko</a>
+        <button type="button" class="btn-buy" data-nama="${esc(r.nama)}">Beli di toko</button>
       </div>
     </div>`).join("");
 
@@ -881,7 +897,10 @@ function go(){var b=g("btnStart");if(b.style.display!=="none")b.click()}
 st.addEventListener("click",function(e){var r=st.getBoundingClientRect(),s=d.createElement("span");s.className="rip";s.style.left=e.clientX-r.left+"px";s.style.top=e.clientY-r.top+"px";st.appendChild(s);setTimeout(function(){s.remove()},700);go()});
 st.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}});
 if(!calm&&matchMedia("(hover:hover)").matches){st.addEventListener("pointermove",function(e){var r=st.getBoundingClientRect();st.style.setProperty("--ry",((e.clientX-r.left)/r.width-.5)*9+"deg");st.style.setProperty("--rx",-((e.clientY-r.top)/r.height-.5)*9+"deg")});st.addEventListener("pointerleave",function(){st.style.setProperty("--ry","0deg");st.style.setProperty("--rx","0deg")})}
-res.addEventListener("click",function(e){var t=e.target.closest(".tag");if(!t||t.classList.contains("good"))return;
+res.addEventListener("click",function(e){
+  var buyBtn = e.target.closest(".btn-buy");
+  if (buyBtn) { alert("Produk " + (buyBtn.dataset.nama || "pilihan") + " siap dipesan di toko!"); return; }
+  var t=e.target.closest(".tag");if(!t||t.classList.contains("good"))return;
 var o=!t.classList.contains("on");res.querySelectorAll(".tag").forEach(function(x){x.classList.remove("on")});
 var nm=t.textContent.replace(/\s*·?\s*\d+%\s*$/,"").trim().toLowerCase();
 res.querySelectorAll(".rec").forEach(function(r){r.classList.remove("hl","dim");if(o){var q=r.querySelector(".reason");r.classList.add(q&&q.textContent.toLowerCase().indexOf(nm)>-1?"hl":"dim")}});
