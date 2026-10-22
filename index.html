@@ -30,12 +30,12 @@ header{display:flex;justify-content:space-between;align-items:center;gap:12px;ma
 h1{font:400 clamp(40px,8vw,56px)/1.02 var(--serif);letter-spacing:-.01em}
 .lede{color:var(--mute);margin:10px 0 22px;max-width:36ch}
 /* cermin lengkung: elemen utama halaman */
-.stage{position:relative;width:100%;max-width:420px;aspect-ratio:3/4;border-radius:999px 999px 32px 32px;overflow:hidden;background:linear-gradient(180deg,var(--blush),var(--paper)),var(--blush);box-shadow:inset 0 0 0 1px var(--line)}
+.stage{position:relative;width:100%;max-width:420px;aspect-ratio:3/4;border-radius:999px 999px 32px 32px;overflow:hidden;background:linear-gradient(180deg,var(--blush),var(--paper)),var(--blush);box-shadow:inset 0 0 0 1px var(--line);transform:translateZ(0);will-change:transform}
 .stage::before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 400'%3E%3Cg fill='none' stroke='%238e2f94' stroke-opacity='.4' stroke-width='2' stroke-linecap='round'%3E%3Cellipse cx='150' cy='200' rx='90' ry='120'/%3E%3Cpath d='M112 182q12-10 24 0M164 182q12-10 24 0M130 242q20 14 40 0'/%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat;animation:breathe 5s ease-in-out infinite}
 @keyframes breathe{50%{opacity:.45}}
 .stage::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse 31% 31% at 50% 50%,transparent 96%,rgba(30,10,38,.5) 100%)}
-video,#snap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-video{transform:scaleX(-1)}#snap{display:none;transform:scaleX(-1)}
+video,#snap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;will-change:transform}
+video{transform:scaleX(-1) translateZ(0)}#snap{display:none;transform:scaleX(-1) translateZ(0)}
 svg.guide{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
 .ring{fill:none;stroke:rgba(255,255,255,.85);stroke-width:2.5;stroke-dasharray:6 9;transition:stroke .3s}
 .ring.ok{stroke:#6ee7b7;stroke-dasharray:none;filter:drop-shadow(0 0 6px #6ee7b7)}
@@ -58,7 +58,7 @@ svg.guide{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-eve
 .stage.scanning .scanzone{opacity:1}
 .scanzone::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.13) 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,rgba(255,255,255,.13) 0 1px,transparent 1px 18px)}
 .track{position:absolute;left:0;right:0;top:19%;bottom:19%}
-.beam{position:absolute;left:0;right:0;top:0;height:64px;transform:translateY(-100%);background:linear-gradient(180deg,transparent,rgba(110,231,183,.4));border-bottom:2px solid #eafff6;box-shadow:0 10px 26px rgba(110,231,183,.7)}
+.beam{position:absolute;left:0;right:0;top:0;height:64px;transform:translate3d(0,-100%,0);will-change:transform;background:linear-gradient(180deg,transparent,rgba(110,231,183,.4));border-bottom:2px solid #eafff6;box-shadow:0 10px 26px rgba(110,231,183,.7)}
 .mesh{opacity:0;transition:opacity .6s}
 .stage.scanning .mesh{opacity:1}
 .mesh line{stroke:rgba(255,255,255,.45);stroke-width:.9;stroke-dasharray:120;stroke-dashoffset:120}
@@ -180,7 +180,7 @@ footer{margin-top:44px;font-size:12.5px;color:var(--mute);max-width:60ch}
 <body>
 <main>
 <header>
-  <div class="brand">S’luv <span class="badge-ver">v3.0 Ultra-Light</span></div>
+  <div class="brand">S’luv <span class="badge-ver">v4.0 Super-Light</span></div>
   <button type="button" class="doctor-badge-btn" id="btnDoctorModal">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
     Dicek dokter kulit
@@ -203,7 +203,7 @@ footer{margin-top:44px;font-size:12.5px;color:var(--mute);max-width:60ch}
       <div class="challenge" id="challenge"></div>
       <div class="hint" id="hint" role="status">Tekan “Mulai scan”</div>
     </div>
-    <div class="console"><div class="lamps"><span class="lamp" data-k="pos">Posisi</span><span class="lamp" data-k="lux">Cahaya</span><span class="lamp" data-k="foc">Fokus</span></div><div class="count"><b id="cnt">00</b><small id="cn2">/03</small></div></div>
+    <div class="console"><div class="lamps"><span class="lamp" data-k="pos">Posisi</span><span class="lamp" data-k="lux">Cahaya</span><span class="lamp" data-k="foc">Fokus</span></div><div class="count"><b id="cnt">00</b><small id="cn2">/02</small></div></div>
     <ol class="steps" id="steps"><li>Posisi</li><li>Gerakan</li><li>Foto</li><li>Analisis</li></ol>
     <div class="reject-alert" id="rejectAlert" role="alert"></div>
     <div class="controls">
@@ -254,7 +254,7 @@ $("btnCloseDoctor").onclick = () => $("modalDoctor").classList.remove("active");
 
 // YAW_SIGN diatur ke -1 agar tengok kiri/kanan presisi mengikuti orientasi cermin pengguna
 const YAW_SIGN = -1;
-const CHALLENGE_TIMEOUT = 8000, HOLD_MS = 550, YAW_DEG = 18;
+const CHALLENGE_TIMEOUT = 8000, HOLD_MS = 380, YAW_DEG = 12;
 const BLOCKED_CAMERA = /obs|virtual|manycam|droidcam|iriun|snap camera|epoccam|xsplit|camo|ndi/i;
 
 const CHALLENGES = [
@@ -358,6 +358,7 @@ async function initModels() {
       if (rp && rp.ok) PRODUK_DATABASE = await rp.json();
 
       ort.env.wasm.numThreads = 1;
+      ort.env.wasm.simd = true;
       const buf = await ro.arrayBuffer();
       session = await ort.InferenceSession.create(buf, { executionProviders: ["wasm"] });
       window.session = session;
@@ -373,11 +374,32 @@ async function initModels() {
 
     const initMediaPipe = async () => {
       const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-      landmarker = await FaceLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: LANDMARKER_URL },
-        runningMode: "VIDEO", numFaces: 1,
-        outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
-      });
+      let modelBuffer = null;
+      try {
+        const lmRes = await fetchCached(LANDMARKER_URL);
+        if (lmRes && lmRes.ok) modelBuffer = new Uint8Array(await lmRes.arrayBuffer());
+      } catch (e) {
+        console.warn("Cached landmarker fetch:", e);
+      }
+
+      const baseOpts = modelBuffer ? { modelAssetBuffer: modelBuffer } : { modelAssetPath: LANDMARKER_URL };
+
+      // Coba akselerasi WebGL GPU terlebih dahulu agar CPU & baterai HP sangat dingin
+      try {
+        landmarker = await FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: { ...baseOpts, delegate: "GPU" },
+          runningMode: "VIDEO", numFaces: 1,
+          outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
+        });
+        console.log("[AI] MediaPipe GPU acceleration active.");
+      } catch (gpuErr) {
+        console.warn("[AI] GPU delegate unsupported, fallback to CPU:", gpuErr);
+        landmarker = await FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: { ...baseOpts, delegate: "CPU" },
+          runningMode: "VIDEO", numFaces: 1,
+          outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
+        });
+      }
     };
 
     await Promise.all([initONNX(), initMediaPipe()]);
@@ -399,7 +421,12 @@ async function startScan() {
   if (!navigator.mediaDevices?.getUserMedia) { setStatus("Browser tidak mendukung kamera", "err"); return; }
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      video: {
+        facingMode: "user",
+        width: { ideal: 480, max: 640 },
+        height: { ideal: 640, max: 640 },
+        frameRate: { ideal: 24, max: 30 }
+      },
       audio: false
     });
   } catch (e) {
@@ -424,10 +451,12 @@ async function startScan() {
 
 function stopCamera() {
   if (rafId) cancelAnimationFrame(rafId); rafId = null;
+  isDetecting = false;
   if (stream) {
     try { stream.getTracks().forEach(t => t.stop()); } catch (e) { console.warn("Track stop error:", e); }
     stream = null;
   }
+  try { video.pause(); } catch (e) {}
   setProgress(0); setChallenge("");
 }
 
@@ -449,8 +478,8 @@ function hasScreenGlare() {
   try {
     gctx.drawImage(video, 0, 0, 64, 64);
     const d = gctx.getImageData(0, 0, 64, 64).data; let g = 0;
-    for (let i = 0; i < d.length; i += 4) if (d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245) g++;
-    return g / 4096 > 0.06;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 248 && d[i + 1] > 248 && d[i + 2] > 248) g++;
+    return g / 4096 > 0.18;
   } catch (e) {
     return false;
   }
@@ -491,131 +520,140 @@ function checkFaceOcclusion(lm) {
   return null;
 }
 
+let isDetecting = false;
 let lastDetect = 0;
-const DETECT_INTERVAL = 60; // ~16 FPS tracking: sangat hemat baterai & ringan di HP
+const DETECT_INTERVAL = 85; // ~12 FPS tracking: sangat hemat baterai, super ringan di HP
 
 // ---------- Loop Utama Pemeriksaan ----------
 function loop(now) {
   if (!run) return;
   rafId = requestAnimationFrame(loop);
   if (video.readyState < 2) return;
-  if (now - lastDetect < DETECT_INTERVAL) return;
+  if (isDetecting || (now - lastDetect < DETECT_INTERVAL)) return;
   lastDetect = now;
+  isDetecting = true;
 
-  if (run.phase === "collect" && now - run.collectStart > COLLECT_TIMEOUT) {
-    fail("Kualitas gambar kurang baik (cahaya, buram, atau wajah bergerak). Ulangi di tempat lebih terang.");
-    return;
-  }
+  try {
+    if (run.phase === "collect" && now - run.collectStart > COLLECT_TIMEOUT) {
+      fail("Kualitas gambar kurang baik. Pastikan wajah tegak lurus di tempat terang.");
+      return;
+    }
 
-  const res = landmarker.detectForVideo(video, performance.now());
-  const n = res.faceLandmarks?.length || 0;
-  const ring = $("ring");
+    const res = landmarker.detectForVideo(video, performance.now());
+    const n = res.faceLandmarks?.length || 0;
+    const ring = $("ring");
 
-  if (n === 0) {
-    run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring");
-    if (run.phase === "align") setHint("Posisikan wajah di oval");
-    else if (run.phase === "collect") run.dropped++;
-    else fail("Wajah hilang dari kamera. Ulangi scan.");
-    return;
-  }
-  if (n > 1) {
-    fail("Terdeteksi lebih dari satu wajah. Pastikan hanya Anda di kamera.");
-    return;
-  }
-
-  const lm = res.faceLandmarks[0];
-
-  // 1. Anti-Manipulasi (Kacamata & Masker)
-  const occlusionMsg = checkFaceOcclusion(lm);
-  if (occlusionMsg) {
-    run.holdStart = 0;
-    setProgress(0);
-    ring.setAttribute("class", "ring warn");
-    setHint("⚠️ " + occlusionMsg, true);
-    return;
-  }
-
-  let minx = 1, maxx = 0, miny = 1, maxy = 0;
-  for (const p of lm) {
-    if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x;
-    if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y;
-  }
-  const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, fh = maxy - miny;
-  const centered = Math.abs(cx - 0.5) < 0.22 && Math.abs(cy - 0.48) < 0.22 && fh > 0.30 && fh < 0.92;
-  const yaw = yawDeg(res.facialTransformationMatrixes[0].data);
-
-  // 2. Tahap Penyesuaian Posisi
-  if (run.phase === "align" || run.phase === "front") {
-    const frontal = run.phase === "align" || Math.abs(yaw) < 18;
-    if (centered && frontal) {
-      ring.setAttribute("class", "ring ok");
-      if (!run.holdStart) run.holdStart = now;
-      const p = (now - run.holdStart) / HOLD_MS; setProgress(p);
-      setHint(run.phase === "align" ? "Posisi pas! Tahan sejenak..." : "Bagus! Hadap lurus...");
-      if (p >= 1) {
-        run.holdStart = 0; setProgress(0);
-        if (run.phase === "align") {
-          run.phase = "challenge"; run.chStart = now; run.eyeClosed = false;
-        } else {
-          beginCollect();
-        }
-      }
-    } else {
+    if (n === 0) {
       run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring");
-      if (fh <= 0.30) setHint("Dekatkan wajah sedikit ke kamera");
-      else if (fh >= 0.92) setHint("Jauhkan sedikit wajah dari kamera");
-      else if (Math.abs(cx - 0.5) >= 0.22 || Math.abs(cy - 0.48) >= 0.22) setHint("Posisikan wajah di oval");
-      else setHint("Hadap lurus ke kamera");
+      if (run.phase === "align") setHint("Posisikan wajah di oval");
+      else if (run.phase === "collect") run.dropped++;
+      else fail("Wajah hilang dari kamera. Ulangi scan.");
+      return;
     }
-    return;
-  }
-
-  // 3. Tahap Pengambilan Frame Berkualitas
-  if (run.phase === "collect") {
-    collectFrame(now, { minx, maxx, miny, maxy }, centered, yaw, lm);
-    return;
-  }
-
-  // 4. Tahap Active Liveness Challenge (2 Tantangan Acak)
-  const ch = run.queue[run.idx];
-  const elapsed = now - run.chStart;
-  setChallenge(`${run.idx + 1}/${run.queue.length}  ${ch.text}`);
-  setHint("Ikuti perintah");
-  setProgress(1 - elapsed / CHALLENGE_TIMEOUT);
-  if (elapsed > CHALLENGE_TIMEOUT) {
-    fail("Waktu habis. Perintah liveness tidak dipenuhi.");
-    return;
-  }
-
-  let done = false;
-  if (ch.id === "blink") {
-    const b = Math.min(bs(res, "eyeBlinkLeft"), bs(res, "eyeBlinkRight"));
-    if (b > 0.5) run.eyeClosed = true;
-    else if (run.eyeClosed && b < 0.25) done = true;
-  } else if (ch.id === "mouth") {
-    done = bs(res, "jawOpen") > 0.5;
-  } else if (ch.id === "left") {
-    done = yaw < -YAW_DEG;
-  } else if (ch.id === "right") {
-    done = yaw > YAW_DEG;
-  }
-
-  if (done) {
-    run.idx++; run.chStart = now; run.eyeClosed = false;
-    if (run.idx >= run.queue.length) {
-      run.phase = "front"; run.holdStart = 0; setChallenge(""); setProgress(0);
-      setHint("Bagus! Hadap lurus...");
+    if (n > 1) {
+      fail("Terdeteksi lebih dari satu wajah. Pastikan hanya Anda di kamera.");
+      return;
     }
+
+    const lm = res.faceLandmarks[0];
+
+    // 1. Anti-Manipulasi (Kacamata & Masker)
+    const occlusionMsg = checkFaceOcclusion(lm);
+    if (occlusionMsg) {
+      run.holdStart = 0;
+      setProgress(0);
+      ring.setAttribute("class", "ring warn");
+      setHint("⚠️ " + occlusionMsg, true);
+      return;
+    }
+
+    let minx = 1, maxx = 0, miny = 1, maxy = 0;
+    for (const p of lm) {
+      if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x;
+      if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y;
+    }
+    const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, fh = maxy - miny;
+    const centered = Math.abs(cx - 0.5) < 0.22 && Math.abs(cy - 0.48) < 0.22 && fh > 0.30 && fh < 0.92;
+    const yaw = yawDeg(res.facialTransformationMatrixes[0].data);
+
+    // 2. Tahap Penyesuaian Posisi (Snap Cepat)
+    if (run.phase === "align" || run.phase === "front") {
+      const frontal = run.phase === "align" || Math.abs(yaw) < 16;
+      if (centered && frontal) {
+        ring.setAttribute("class", "ring ok");
+        if (!run.holdStart) run.holdStart = now;
+        const targetHold = run.phase === "front" ? 180 : HOLD_MS;
+        const p = (now - run.holdStart) / targetHold; setProgress(p);
+        setHint(run.phase === "align" ? "Posisi pas! Tahan sejenak..." : "Bagus! Mengambil foto...");
+        if (p >= 1) {
+          run.holdStart = 0; setProgress(0);
+          if (run.phase === "align") {
+            run.phase = "challenge"; run.chStart = now; run.eyeClosed = false;
+          } else {
+            beginCollect();
+          }
+        }
+      } else {
+        run.holdStart = 0; setProgress(0); ring.setAttribute("class", "ring");
+        if (fh <= 0.30) setHint("Dekatkan wajah sedikit ke kamera");
+        else if (fh >= 0.92) setHint("Jauhkan sedikit wajah dari kamera");
+        else if (Math.abs(cx - 0.5) >= 0.22 || Math.abs(cy - 0.48) >= 0.22) setHint("Posisikan wajah di oval");
+        else setHint("Hadap lurus ke kamera");
+      }
+      return;
+    }
+
+    // 3. Tahap Pengambilan Frame Berkualitas
+    if (run.phase === "collect") {
+      collectFrame(now, { minx, maxx, miny, maxy }, centered, yaw, lm);
+      return;
+    }
+
+    // 4. Tahap Active Liveness Challenge (1 Gerakan Cepat & Responsif)
+    const ch = run.queue[run.idx];
+    const elapsed = now - run.chStart;
+    setChallenge(`${run.idx + 1}/${run.queue.length}  ${ch.text}`);
+    setHint("Ikuti perintah");
+    setProgress(1 - elapsed / CHALLENGE_TIMEOUT);
+    if (elapsed > CHALLENGE_TIMEOUT) {
+      fail("Waktu habis. Perintah liveness tidak dipenuhi.");
+      return;
+    }
+
+    let done = false;
+    if (ch.id === "blink") {
+      const b = Math.min(bs(res, "eyeBlinkLeft"), bs(res, "eyeBlinkRight"));
+      if (b > 0.32) run.eyeClosed = true;
+      else if (run.eyeClosed && b < 0.28) done = true;
+    } else if (ch.id === "mouth") {
+      done = bs(res, "jawOpen") > 0.32;
+    } else if (ch.id === "left") {
+      done = yaw < -11;
+    } else if (ch.id === "right") {
+      done = yaw > 11;
+    }
+
+    if (done) {
+      run.idx++; run.chStart = now; run.eyeClosed = false;
+      if (run.idx >= run.queue.length) {
+        run.phase = "front"; run.holdStart = 0; setChallenge(""); setProgress(0);
+        setHint("Bagus! Mengambil foto...");
+      }
+    }
+  } catch (err) {
+    console.warn("Detection loop error:", err);
+  } finally {
+    isDetecting = false;
   }
 }
 
-// ---------- Multi-Frame Collector & Analisis (Ultra-Light 3-Frame Engine) ----------
-const N_FRAMES = 3, FRAME_GAP = 180, COLLECT_TIMEOUT = 8000;
-const SHARP_MIN = 18, LUMA_MIN = 65, LUMA_MAX = 195;
+// ---------- Multi-Frame Collector & Analisis (Ultra-Light 2-Frame Engine) ----------
+const N_FRAMES = 2, FRAME_GAP = 80, COLLECT_TIMEOUT = 8000;
+const SHARP_MIN = 6, LUMA_MIN = 35, LUMA_MAX = 230;
 const fc = document.createElement("canvas"); fc.width = fc.height = 224;
 const fctx = fc.getContext("2d", { willReadFrequently: true });
 const W = 224;
-const g_gray = new Float32Array(W * W);
+const g_tensorData = new Float32Array(3 * W * W);
 
 function beginCollect() {
   if (hasScreenGlare()) {
@@ -623,24 +661,28 @@ function beginCollect() {
     return;
   }
   run.phase = "collect"; run.frames = []; run.dropped = 0; run.nextAt = 0; run.collectStart = performance.now();
-  setHint("Tahan posisi sejenak...");
+  setHint("Mengambil foto...");
 }
 
 function frameQuality(px) {
-  let sum = 0;
-  for (let i = 0; i < W * W; i++) {
-    const val = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
-    g_gray[i] = val;
-    sum += val;
-  }
-  let lap = 0, c = 0;
-  for (let y = 1; y < W - 1; y += 4) {
-    for (let x = 1; x < W - 1; x += 4) {
-      const v = 4 * g_gray[y * W + x] - g_gray[(y - 1) * W + x] - g_gray[(y + 1) * W + x] - g_gray[y * W + x - 1] - g_gray[y * W + x + 1];
-      lap += v * v; c++;
+  let sum = 0, lap = 0, c = 0;
+  // Sampling ultra-ringan: evaluasi 784 titik strategis langsung tanpa alokasi memori
+  for (let y = 8; y < W - 8; y += 8) {
+    const yw = y * W;
+    for (let x = 8; x < W - 8; x += 8) {
+      const idx = (yw + x) * 4;
+      const val = 0.299 * px[idx] + 0.587 * px[idx + 1] + 0.114 * px[idx + 2];
+      sum += val;
+      const top = 0.299 * px[((y - 4) * W + x) * 4] + 0.587 * px[((y - 4) * W + x) * 4 + 1] + 0.114 * px[((y - 4) * W + x) * 4 + 2];
+      const bot = 0.299 * px[((y + 4) * W + x) * 4] + 0.587 * px[((y + 4) * W + x) * 4 + 1] + 0.114 * px[((y + 4) * W + x) * 4 + 2];
+      const lft = 0.299 * px[(yw + x - 4) * 4] + 0.587 * px[(yw + x - 4) * 4 + 1] + 0.114 * px[(yw + x - 4) * 4 + 2];
+      const rgt = 0.299 * px[(yw + x + 4) * 4] + 0.587 * px[(yw + x + 4) * 4 + 1] + 0.114 * px[(yw + x + 4) * 4 + 2];
+      const diff = 4 * val - top - bot - lft - rgt;
+      lap += diff * diff;
+      c++;
     }
   }
-  return { luma: sum / (W * W), sharp: lap / c };
+  return { luma: sum / c, sharp: lap / c };
 }
 
 function collectFrame(now, box, centered, yaw, lm) {
@@ -682,8 +724,8 @@ async function analyze(frames) {
   $("ring").setAttribute("class", "ring ok");
 
   const cntEl = $("cnt"), cn2El = $("cn2");
-  if (cntEl) cntEl.textContent = "03";
-  if (cn2El) cn2El.textContent = "/03";
+  if (cntEl) cntEl.textContent = "02";
+  if (cn2El) cn2El.textContent = "/02";
 
   setStatus("Menganalisis kondisi kulit…");
   setHint("Menganalisis kondisi kulit...");
@@ -692,11 +734,11 @@ async function analyze(frames) {
   // Micro-delay untuk teardown kamera setelah switch video -> snap canvas
   setTimeout(() => {
     stopCamera();
-  }, 80);
+  }, 60);
 
   try {
-    // Beri jeda 80ms agar browser merender snap canvas & transisi visual sebelum inferensi
-    await new Promise(r => setTimeout(r, 80));
+    // Beri jeda 60ms agar browser merender snap canvas & transisi visual sebelum inferensi
+    await new Promise(r => setTimeout(r, 60));
 
     // Jalankan inferensi presisi tinggi 1x pada frame terbaik dengan safety timeout 10 detik
     const inferPromise = infer(best.px);
@@ -721,18 +763,17 @@ async function analyze(frames) {
 async function infer(px) {
   console.log("[AI] Starting infer on frame pixels...");
   const n = 224 * 224;
-  const t = new Float32Array(3 * n);
   const m0 = spec.mean[0], m1 = spec.mean[1], m2 = spec.mean[2];
   const s0 = spec.std[0], s1 = spec.std[1], s2 = spec.std[2];
 
   for (let i = 0; i < n; i++) {
     const src = i * 4;
-    t[i] = (px[src] / 255 - m0) / s0;
-    t[n + i] = (px[src + 1] / 255 - m1) / s1;
-    t[2 * n + i] = (px[src + 2] / 255 - m2) / s2;
+    g_tensorData[i] = (px[src] / 255 - m0) / s0;
+    g_tensorData[n + i] = (px[src + 1] / 255 - m1) / s1;
+    g_tensorData[2 * n + i] = (px[src + 2] / 255 - m2) / s2;
   }
 
-  const tensor = new ort.Tensor("float32", t, [1, 3, 224, 224]);
+  const tensor = new ort.Tensor("float32", g_tensorData, [1, 3, 224, 224]);
   console.log("[AI] Running session.run({ input: tensor })...");
   const t0 = performance.now();
   const out = await session.run({ input: tensor });
@@ -866,19 +907,20 @@ svg.appendChild(dg);
 var regs=[].slice.call(st.querySelectorAll(".reg")),beam=st.querySelector(".beam"),on=false,t0=0;
 function clearScan(){regs.forEach(function(r){r.classList.remove("ok")});dots.forEach(function(c){c.classList.remove("lit")})}
 function frame(t){
-if(!st.classList.contains("scanning")){on=false;beam.style.top="";return}
-var ph=((t-t0)/1500)%2,p=ph<1?ph:2-ph;p=.5-.5*Math.cos(Math.PI*p);
-beam.style.top=p*100+"%";var yy=19+62*p;
+if(!st.classList.contains("scanning")){on=false;beam.style.transform="";return}
+var ph=((t-t0)/1400)%2,p=ph<1?ph:2-ph;p=.5-.5*Math.cos(Math.PI*p);
+beam.style.transform="translate3d(0,"+(p*320)+"px,0)";var yy=19+62*p;
 regs.forEach(function(r){if(yy>=+r.dataset.y)r.classList.add("ok")});
 dots.forEach(function(c){if(c.getAttribute("cy")/4<=yy)c.classList.add("lit")});
 requestAnimationFrame(frame)}
 new MutationObserver(function(){if(st.classList.contains("scanning")&&!on){on=true;t0=performance.now();clearScan();if(calm){regs.forEach(function(r){r.classList.add("ok")});return}requestAnimationFrame(frame)}}).observe(st,{attributes:true,attributeFilter:["class"]});
 function setStep(n){if(n>cur&&n>0)vib(12);cur=n;for(var k=0;k<4;k++)S[k].className=k<n?"done":k===n?"on":""}
-function lamp(k,s){d.querySelector('.lamp[data-k="'+k+'"]').className="lamp"+(s?" "+s:"")}
+var lamps={pos:d.querySelector('.lamp[data-k="pos"]'),lux:d.querySelector('.lamp[data-k="lux"]'),foc:d.querySelector('.lamp[data-k="foc"]')};
+function lamp(k,s){if(lamps[k])lamps[k].className="lamp"+(s?" "+s:"")}
 function sync(){var t=hint.textContent,rc=ring.getAttribute("class")||"";
 lamp("pos",rc.indexOf("warn")>-1?"bad":rc.indexOf("ok")>-1?"ok":"");
 lamp("lux",/cahaya/i.test(t)?"bad":cur>=2?"ok":"");lamp("foc",/buram|stabil/i.test(t)?"bad":cur>=2?"ok":"")}
-function reset(){sec.classList.add("live");st.classList.add("live");st.classList.remove("done");clearScan();cur=-1;setStep(0);cnt.textContent="00";cn2.textContent="/03";sync()}
+function reset(){sec.classList.add("live");st.classList.add("live");st.classList.remove("done");clearScan();cur=-1;setStep(0);cnt.textContent="00";cn2.textContent="/02";sync()}
 ["btnStart","btnRetry"].forEach(function(id){g(id).addEventListener("click",reset)});
 new MutationObserver(function(){var t=hint.textContent,n=-1,mm=t.match(/(\d+)\/(\d+)/);
 if(mm){cnt.textContent=("0"+mm[1]).slice(-2);cn2.textContent="/"+mm[2]}
