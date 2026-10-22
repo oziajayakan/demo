@@ -742,6 +742,9 @@ main {
         <button type="button" class="btn-control" id="btnSwitchFacing">
           <span>🔄</span> Balik Kamera
         </button>
+        <button type="button" class="btn-control primary" id="btnManualTrigger">
+          <span>📸</span> Scan Sekarang
+        </button>
         <button type="button" class="btn-control primary" id="btnRestartScan" style="display:none">
           <span>⚡</span> Scan Ulang
         </button>
@@ -783,6 +786,7 @@ main {
   const sensLive = document.getElementById("sensLive");
   
   const btnSwitchFacing = document.getElementById("btnSwitchFacing");
+  const btnManualTrigger = document.getElementById("btnManualTrigger");
   const btnRestartScan = document.getElementById("btnRestartScan");
   const emptyStateView = document.getElementById("emptyStateView");
   const activeResultView = document.getElementById("activeResultView");
@@ -795,6 +799,12 @@ main {
   let rafId = null;
   let isAnalyzing = false;
   let isCompleted = false;
+
+  // Native FaceDetector C++ engine jika didukung browser (Chromium/Android)
+  let nativeDetector = null;
+  if ('FaceDetector' in window) {
+    try { nativeDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 }); } catch(e){}
+  }
 
   // State Anti-Manipulasi & Liveness Challenge
   // Skenario Liveness: 1. Optical Check -> 2. Kedip / Gerakan Alami -> 3. Tangkap 4 Frame Bersih
@@ -957,22 +967,39 @@ main {
       }
     }
 
-    prevSample = imgData;
+    // Native FaceDetector C++ engine jika didukung browser
+    let faceAligned = false;
+    if (nativeDetector) {
+      try {
+        const faces = await nativeDetector.detect(video);
+        if (faces && faces.length >= 1) {
+          const f = faces[0].boundingBox;
+          const vw = video.videoWidth, vh = video.videoHeight;
+          const cx = (f.x + f.width / 2) / vw;
+          const cy = (f.y + f.height / 2) / vh;
+          const fh = f.height / vh;
+          if (Math.abs(cx - 0.5) < 0.28 && Math.abs(cy - 0.5) < 0.28 && fh > 0.22 && fh < 0.92) {
+            faceAligned = true;
+          }
+        }
+      } catch(e) {}
+    }
 
     const avgLuma = totalLuma / totalPixels;
     const skinRatio = skinCount / totalPixels;
     const motionRatio = motionDiff / totalPixels;
 
-    const isLightGood = avgLuma >= 45 && avgLuma <= 225;
-    const isPositioned = skinRatio >= 0.35;
-    const isMotionNatural = motionRatio < 0.18; // Tidak goyang ekstrem
+    // Ambang batas yang ramah pengguna & adaptif
+    const isLightGood = avgLuma >= 25 && avgLuma <= 240;
+    const isPositioned = faceAligned || (skinRatio >= 0.22);
+    const isMotionNatural = motionRatio < 0.25;
 
     // Layer 2: Anti-Spoofing & Liveness Validation
     if (isPositioned && isLightGood) {
       sensSpoof.textContent = "Kulit Alami";
       sensSpoof.className = "sensor-status active";
     } else {
-      sensSpoof.textContent = isLightGood ? "Posisi Miring" : (avgLuma < 45 ? "Gelap" : "Silau");
+      sensSpoof.textContent = isLightGood ? "Mencari Wajah" : (avgLuma < 25 ? "Kurang Terang" : "Silau");
       sensSpoof.className = "sensor-status danger";
     }
 
@@ -988,7 +1015,7 @@ main {
       const remainSec = Math.max(0, (REQUIRED_HOLD_MS - elapsed) / 1000).toFixed(1);
 
       liveIcon.textContent = "⏱️";
-      liveText.textContent = `Tahan posisi mantap… ${remainSec}s`;
+      liveText.textContent = `Wajah pas! Tahan… ${remainSec}s`;
       livenessBanner.className = "liveness-banner success";
 
       if (progress >= 1) {
@@ -1005,13 +1032,13 @@ main {
 
       if (!isPositioned) {
         liveIcon.textContent = "👤";
-        liveText.textContent = "Arahkan wajah penuh ke oval";
+        liveText.textContent = "Dekatkan wajah ke oval";
       } else if (!isLightGood) {
         liveIcon.textContent = "💡";
-        liveText.textContent = avgLuma < 45 ? "Ruangan terlalu gelap" : "Cahaya terlalu silau";
+        liveText.textContent = avgLuma < 25 ? "Ruangan agak gelap" : "Cahaya terlalu silau";
       } else {
         liveIcon.textContent = "🤝";
-        liveText.textContent = "Tahan HP lebih tenang";
+        liveText.textContent = "Tahan kamera tetap tenang";
       }
       livenessBanner.className = "liveness-banner";
     }
@@ -1249,6 +1276,13 @@ main {
     currentFacing = (currentFacing === "user") ? "environment" : "user";
     video.style.transform = (currentFacing === "user") ? "scaleX(-1)" : "none";
     startCameraStream();
+  };
+
+  btnManualTrigger.onclick = () => {
+    if (isAnalyzing || isCompleted) return;
+    isAnalyzing = true;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    executeClinicalInference();
   };
 
   btnRestartScan.onclick = () => {
