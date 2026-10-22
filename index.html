@@ -3,1603 +3,297 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Klinik Kulit AI — Anti-Manipulasi 3D Liveness & Rekomendasi Klinis</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
-<!-- ONNX Runtime Web -->
+<title>Cek Kulit Wajah · Annisa Beauty Shop</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@1,500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
 <style>
-:root {
-  --bg-primary: #0b0f19;
-  --bg-secondary: #111827;
-  --bg-card: rgba(17, 24, 39, 0.85);
-  --border-card: rgba(255, 255, 255, 0.08);
-  --primary: #6366f1;
-  --primary-glow: rgba(99, 102, 241, 0.25);
-  --accent-teal: #14b8a6;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
-  --text-main: #f9fafb;
-  --text-muted: #9ca3af;
-  --text-dim: #6b7280;
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Playfair Display', Georgia, serif;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-main);
-  font-family: var(--font-sans);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow-x: hidden;
-  background-image: 
-    radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(20, 184, 166, 0.08) 0%, transparent 40%);
-}
-
-header {
-  padding: 16px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-card);
-  backdrop-filter: blur(12px);
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(11, 15, 25, 0.9);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.brand-logo {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #6366f1, #14b8a6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 16px var(--primary-glow);
-}
-.brand-logo svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 2.2;
-}
-.brand-text h1 {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #ffffff;
-}
-.brand-text p {
-  font-size: 11px;
-  color: var(--accent-teal);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.doc-license-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  background: rgba(20, 184, 166, 0.1);
-  border: 1px solid rgba(20, 184, 166, 0.25);
-  border-radius: 99px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #2dd4bf;
-}
-.doc-license-badge span.pulse-dot {
-  width: 8px;
-  height: 8px;
-  background: #2dd4bf;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #2dd4bf;
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.8; }
-}
-
-main {
-  flex: 1;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px 20px 48px;
-  width: 100%;
-}
-
-.app-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 32px;
-}
-@media (min-width: 860px) {
-  .app-grid {
-    grid-template-columns: 430px 1fr;
-    align-items: start;
-    gap: 40px;
-  }
-}
-
-/* Panel Scanner */
-.scanner-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 24px;
-  padding: 20px;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-}
-
-.card-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-}
-.card-title h2 {
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-}
-.sec-tag {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(99, 102, 241, 0.15);
-  color: #a5b4fc;
-  font-weight: 600;
-}
-
-/* Cermin Viewport Kamera */
-.viewport-wrapper {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 3/4;
-  border-radius: 20px;
-  overflow: hidden;
-  background: #000;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-#videoFeed, #capturedCanvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-#videoFeed {
-  transform: scaleX(-1);
-}
-#capturedCanvas {
-  display: none;
-}
-
-/* Oval Scanner Overlay */
-.scan-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 10;
-}
-.scan-oval {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 68%;
-  height: 74%;
-  border-radius: 50% / 46%;
-  border: 2px dashed rgba(255, 255, 255, 0.4);
-  box-shadow: 0 0 0 9999px rgba(11, 15, 25, 0.55);
-  transition: all 0.3s ease;
-}
-.scan-oval.valid {
-  border-color: #2dd4bf;
-  border-style: solid;
-  box-shadow: 0 0 0 9999px rgba(11, 15, 25, 0.4), 0 0 20px rgba(45, 212, 191, 0.4);
-}
-.scan-oval.warning {
-  border-color: var(--accent-rose);
-  border-style: solid;
-  box-shadow: 0 0 0 9999px rgba(225, 29, 72, 0.25);
-}
-
-/* Sinar Laser Pemindaian Otomatis */
-.laser-beam {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -10px;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, #2dd4bf, #6366f1, transparent);
-  box-shadow: 0 0 16px #2dd4bf, 0 0 8px #6366f1;
-  opacity: 0;
-  z-index: 12;
-}
-.is-scanning .laser-beam {
-  opacity: 1;
-  animation: scanSweep 1.1s ease-in-out infinite alternate;
-}
-@keyframes scanSweep {
-  0% { top: 12%; }
-  100% { top: 86%; }
-}
-
-/* Challenge Banner & Status Interaktif */
-.challenge-banner {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 15;
-  background: rgba(15, 23, 42, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 8px 16px;
-  border-radius: 99px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #f1f5f9;
-  white-space: nowrap;
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  transition: all 0.3s ease;
-}
-.challenge-banner.active-test {
-  background: rgba(99, 102, 241, 0.95);
-  border-color: #818cf8;
-  color: #ffffff;
-  animation: bounceTip 1s infinite alternate;
-}
-@keyframes bounceTip {
-  from { transform: translateX(-50%) translateY(0); }
-  to { transform: translateX(-50%) translateY(-3px); }
-}
-
-.liveness-banner {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 15;
-  background: rgba(17, 24, 39, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 8px 16px;
-  border-radius: 99px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #fff;
-  white-space: nowrap;
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 90%;
-  transition: all 0.25s ease;
-}
-.liveness-banner.success {
-  background: rgba(13, 148, 136, 0.95);
-  color: #f0fdfa;
-  border-color: #2dd4bf;
-}
-.liveness-banner.alert {
-  background: rgba(225, 29, 72, 0.94);
-  border-color: #f43f5e;
-}
-
-/* Sensor Guard Status */
-.sensor-checks {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-top: 14px;
-}
-.sensor-badge {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-card);
-  padding: 6px 4px;
-  border-radius: 10px;
-  text-align: center;
-}
-.sensor-label {
-  font-size: 10px;
-  color: var(--text-dim);
-  display: block;
-}
-.sensor-status {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-.sensor-status.active { color: #2dd4bf; }
-.sensor-status.danger { color: var(--accent-rose); }
-.sensor-status.warning { color: var(--accent-amber); }
-
-/* Tombol Scan Ulang */
-.scanner-actions {
-  margin-top: 14px;
-}
-.btn-control {
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  border: 1px solid var(--border-card);
-  background: var(--primary);
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 14px var(--primary-glow);
-  transition: all 0.2s ease;
-}
-.btn-control:hover {
-  background: #4f46e5;
-}
-
-/* Kolom Kanan: Hasil & Rekomendasi Terfokus */
-.result-column {
-  min-height: 480px;
-}
-
-.empty-state {
-  height: 100%;
-  min-height: 420px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 40px 24px;
-  border: 1px dashed var(--border-card);
-  border-radius: 24px;
-  background: rgba(17, 24, 39, 0.3);
-}
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: rgba(99, 102, 241, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-  color: #a5b4fc;
-}
-.empty-state h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 8px;
-}
-.empty-state p {
-  font-size: 14px;
-  color: var(--text-muted);
-  max-width: 320px;
-  line-height: 1.6;
-}
-
-/* Kotak Lisensi Dokter di Hasil */
-.doctor-certificate-card {
-  background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(99, 102, 241, 0.08));
-  border: 1px solid rgba(20, 184, 166, 0.3);
-  border-radius: 20px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-}
-.doc-seal {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #0f766e;
-  border: 2px solid #2dd4bf;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-  box-shadow: 0 0 12px rgba(45, 212, 191, 0.3);
-}
-.doc-meta h4 {
-  font-size: 15px;
-  font-weight: 700;
-  color: #f0fdfa;
-}
-.doc-meta p {
-  font-size: 12px;
-  color: #99f6e4;
-  margin-top: 2px;
-}
-.doc-meta .sip-tag {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
-/* Header Diagnosa Ringkas */
-.diagnosis-summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  border-bottom: 1px solid var(--border-card);
-  padding-bottom: 12px;
-  margin-bottom: 18px;
-}
-.diagnosis-summary .title {
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-  color: var(--accent-teal);
-}
-.diagnosis-summary .confidence {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.detected-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-.pill {
-  padding: 6px 14px;
-  border-radius: 99px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.pill.skin-type {
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  color: #c7d2fe;
-}
-.pill.concern {
-  background: rgba(244, 63, 94, 0.12);
-  border: 1px solid rgba(244, 63, 94, 0.3);
-  color: #fca5a5;
-}
-
-/* Rekomendasi Terfokus: PRODUK PALING COCOK */
-.rec-section-title {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  color: #fff;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.rec-section-title span.badge-star {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 10px;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #fff;
-  border-radius: 99px;
-  letter-spacing: 0;
-}
-
-/* Kartu Rekomendasi Produk Utama */
-.hero-product-card {
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
-  border: 2px solid rgba(99, 102, 241, 0.5);
-  border-radius: 24px;
-  padding: 24px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), 0 0 30px rgba(99, 102, 241, 0.15);
-  margin-bottom: 20px;
-  animation: slideUp 0.4s ease-out;
-}
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.hero-product-card::before {
-  content: "Rekomendasi Klinis #1";
-  position: absolute;
-  top: 14px;
-  right: 18px;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.15);
-  padding: 4px 10px;
-  border-radius: 99px;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-}
-
-.prod-category {
-  font-size: 12px;
-  font-weight: 700;
-  color: #818cf8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 6px;
-}
-.prod-name {
-  font-size: 20px;
-  font-weight: 800;
-  color: #ffffff;
-  line-height: 1.3;
-  margin-bottom: 8px;
-  max-width: 80%;
-}
-.prod-bpom {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #2dd4bf;
-  margin-bottom: 14px;
-}
-.prod-bpom svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-}
-
-.clinical-reason {
-  background: rgba(0, 0, 0, 0.25);
-  border-left: 3px solid var(--accent-teal);
-  padding: 12px 14px;
-  border-radius: 0 10px 10px 0;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: #d1d5db;
-  margin-bottom: 18px;
-}
-.clinical-reason b {
-  color: #f3f4f6;
-  font-weight: 600;
-}
-
-.prod-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-card);
-}
-.prod-price {
-  font-size: 22px;
-  font-weight: 800;
-  color: #fff;
-}
-.prod-price span {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.btn-buy-now {
-  padding: 10px 24px;
-  border-radius: 99px;
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 4px 16px var(--primary-glow);
-  transition: transform 0.15s ease, filter 0.2s ease;
-}
-.btn-buy-now:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-/* Alternatif Pendukung */
-.secondary-recs {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-@media (min-width: 540px) {
-  .secondary-recs { grid-template-columns: 1fr 1fr; }
-}
-
-.sub-prod-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 16px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: border-color 0.2s ease;
-}
-.sub-prod-card:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-}
-.sub-prod-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 4px;
-}
-.sub-prod-reason {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.4;
-  margin-bottom: 12px;
-  flex: 1;
-}
-.sub-prod-action {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.sub-price {
-  font-size: 15px;
-  font-weight: 700;
-  color: #e5e7eb;
-}
-.btn-sub-buy {
-  padding: 6px 14px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-card);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-sub-buy:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.clinical-disclaimer {
-  margin-top: 24px;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  font-size: 11.5px;
-  color: var(--text-dim);
-  line-height: 1.6;
-}
-.clinical-disclaimer strong {
-  color: var(--text-muted);
-}
+:root{--ink:#111;--paper:#fff;--soft:#F3F2F0;--line:#E2E0DC;--gold:#A9824A;--mute:#6C6A66;--bad:#C8102E;--ok:#1B7F5B;
+padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);box-sizing:border-box}
+*{box-sizing:border-box;margin:0}
+body{font:400 16px/1.55 Jost,system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;border-bottom:1px solid var(--line)}
+.logo{font-weight:600;letter-spacing:.04em}.logo small{display:block;font-weight:300;color:var(--gold);font-size:12px;letter-spacing:.02em}
+.step{font-size:13px;color:var(--mute)}
+.wrap{max-width:960px;margin:0 auto;padding:0 22px}
+.scr{display:none}.scr.on{display:block}
+/* hero */
+.hero{display:grid;gap:28px;padding:40px 0 24px}
+@media(min-width:800px){.hero{grid-template-columns:1.1fr .9fr;align-items:center;padding:72px 0 40px}}
+.hero h1{font-weight:300;font-size:clamp(40px,7vw,72px);line-height:1.02;letter-spacing:-.02em}
+.hero h1 em{font-family:"Cormorant Garamond",serif;font-weight:500;color:var(--gold)}
+.hero p{margin:18px 0 26px;color:var(--mute);max-width:46ch}
+.btn{display:inline-block;background:var(--ink);color:#fff;border:0;padding:16px 34px;font-weight:500;letter-spacing:.03em}
+.btn:disabled{opacity:.45}.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.status{font-size:13px;color:var(--mute);margin-top:12px;min-height:20px}
+.mapart{aspect-ratio:4/5;background:var(--soft);position:relative;overflow:hidden}
+.mapart svg{position:absolute;inset:0;width:100%;height:100%}
+.tips{display:grid;gap:0;border-top:1px solid var(--line);margin-top:24px}
+@media(min-width:700px){.tips{grid-template-columns:repeat(3,1fr)}}
+.tip{padding:22px 0;border-bottom:1px solid var(--line)}
+@media(min-width:700px){.tip{padding:26px 24px 26px 0;border-bottom:0}}
+.tip b{display:block;font-weight:500;margin-bottom:4px}.tip span{color:var(--mute);font-size:14px}
+.fine{font-size:12px;color:var(--mute);padding:22px 0 40px}
+/* scan */
+.cam{position:relative;background:#000;max-width:520px;margin:20px auto 0;aspect-ratio:3/4;overflow:hidden}
+.cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#vid{transform:scaleX(-1)}#cap{display:none}
+.oval{position:absolute;left:50%;top:50%;width:68%;height:74%;transform:translate(-50%,-50%);border-radius:50%/46%;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 0 999px rgba(0,0,0,.5);transition:border-color .25s}
+.oval.ok{border-color:#7BE0B4}.oval.no{border-color:#FF6B7F}
+.laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#E8C98F,transparent);top:12%;opacity:0}
+.busy .laser{opacity:1;animation:sw 1.2s ease-in-out infinite alternate}
+@keyframes sw{to{top:86%}}
+.msg{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;padding:40px 20px 18px;text-align:center}
+.msg b{display:block;font-size:19px;font-weight:500}.msg span{font-size:14px;opacity:.85}
+.checks{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;max-width:520px;margin:14px auto 40px}
+.chk{font-size:13px;padding:5px 12px;border:1px solid var(--line);color:var(--mute)}
+.chk.ok{border-color:var(--ok);color:var(--ok)}.chk.no{border-color:var(--bad);color:var(--bad)}
+/* hasil */
+.res{display:grid;gap:32px;padding:32px 0 56px}
+@media(min-width:800px){.res{grid-template-columns:340px 1fr;gap:56px}}
+.face{position:relative;aspect-ratio:1;background:#000;overflow:hidden}
+.face canvas{width:100%;height:100%;display:block}
+.pin{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(0,0,0,.25)}
+.pin i{position:absolute;left:18px;top:-6px;font:500 11px Jost;font-style:normal;background:#fff;color:#111;padding:1px 6px;white-space:nowrap}
+.score{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:20px}
+.score .n{font:italic 500 88px/0.9 "Cormorant Garamond",serif;color:var(--gold)}
+.score .l{color:var(--mute);font-size:14px}.score h2{font-weight:400;font-size:26px;line-height:1.2}
+.dim{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.dim .lv{font-size:13px;color:var(--mute)}.dim .bar{grid-column:1/3;height:3px;background:var(--soft)}.dim .bar i{display:block;height:100%;background:var(--ink)}
+.doc{margin-top:20px;padding:16px 18px;background:var(--soft);font-size:14px}.doc b{font-weight:500}
+.rt{font-weight:400;font-size:28px;margin:44px 0 6px;grid-column:1/-1}
+.routine{grid-column:1/-1;display:grid;gap:18px}
+@media(min-width:800px){.routine{grid-template-columns:1.25fr 1fr}}
+.hero-p{background:var(--ink);color:#fff;padding:28px}
+.hero-p small{color:#E8C98F}.hero-p h3{font-weight:400;font-size:26px;line-height:1.2;margin:6px 0 10px}
+.hero-p p{font-size:14px;opacity:.85;margin-bottom:16px}
+.hero-p .bp{font-size:12px;opacity:.7;margin-bottom:18px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.hero-p .btn{background:#fff;color:#111;padding:11px 22px}
+.sub{padding:18px 0;border-bottom:1px solid var(--line)}.sub small{color:var(--gold)}
+.sub h4{font-weight:500;margin:2px 0 4px}.sub p{font-size:13px;color:var(--mute);margin-bottom:8px}
+.sub button{background:none;border:0;border-bottom:1px solid var(--ink);padding:0 0 1px;font-weight:500}
+.disc{grid-column:1/-1;font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:16px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<div class="top"><div class="logo">ANNISA BEAUTY SHOP<small>Skin Analysis</small></div><div class="step" id="stepLbl">Mulai</div></div>
 
-<header>
-  <div class="brand">
-    <div class="brand-logo">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-    </div>
-    <div class="brand-text">
-      <h1>Klinik Kulit AI</h1>
-      <p>Anti-Manipulasi 3D & Validasi Dokter</p>
-    </div>
-  </div>
-  <div class="doc-license-badge">
-    <span class="pulse-dot"></span>
-    <span>SIP: 503/442-DINKES/2023 · Sp.D.V.E</span>
-  </div>
-</header>
+<!-- 1. Pembuka -->
+<section class="scr on" id="s0"><div class="wrap">
+ <div class="hero">
+  <div><h1>Kenali kulitmu<br>dalam <em>30 detik.</em></h1>
+   <p>Cukup satu selfie. Kami memetakan wajahmu, menilai tipe dan masalah kulit, lalu menyusun rutinitas dari produk yang tersedia di toko kami.</p>
+   <button class="btn" id="start" disabled>Mulai analisis</button>
+   <div class="status" id="initMsg">Menyiapkan AI…</div></div>
+  <div class="mapart" aria-hidden="true"><svg viewBox="0 0 400 500"><g fill="none" stroke="#111" stroke-width="1"><ellipse cx="200" cy="250" rx="118" ry="165"/><path d="M110 180 Q200 110 290 180M135 330 Q200 400 265 330M200 120V380M120 250H280" opacity=".35"/></g>
+   <g fill="#A9824A"><circle cx="200" cy="170" r="5"/><circle cx="150" cy="260" r="5"/><circle cx="250" cy="260" r="5"/><circle cx="200" cy="300" r="5"/><circle cx="200" cy="360" r="5"/></g></svg></div>
+ </div>
+ <div class="tips">
+  <div class="tip"><b>Cahaya alami</b><span>Hadap jendela atau lampu yang merata.</span></div>
+  <div class="tip"><b>Tanpa makeup</b><span>Wajah bersih agar tekstur kulit terbaca.</span></div>
+  <div class="tip"><b>Wajah terbuka</b><span>Lepas kacamata dan masker, rambut jangan menutupi dahi.</span></div>
+ </div>
+ <p class="fine">Foto diproses di perangkatmu dan tidak diunggah ke server. Hasil bukan diagnosis medis dan tidak menggantikan pemeriksaan dokter.</p>
+</div></section>
 
-<main>
-  <div class="app-grid">
-    
-    <!-- Kolom Scanner Otomatis Penuh -->
-    <section class="scanner-card">
-      <div class="card-title">
-        <h2>Auto-Scan Anti-Manipulasi</h2>
-        <span class="sec-tag">Active 3D Liveness</span>
-      </div>
+<!-- 2. Pindai -->
+<section class="scr" id="s1"><div class="wrap">
+ <div class="cam" id="cam">
+  <video id="vid" playsinline muted autoplay></video><canvas id="cap"></canvas>
+  <div class="oval" id="oval"></div><div class="laser"></div>
+  <div class="msg"><b id="mHead">Posisikan wajah di oval</b><span id="mSub">Hadap lurus ke kamera</span></div>
+ </div>
+ <div class="checks"><span class="chk" id="cScreen">Wajah asli</span><span class="chk" id="cMask">Wajah terbuka</span><span class="chk" id="cGlass">Tanpa kacamata</span><span class="chk" id="cLive">Gerakan</span></div>
+</div></section>
 
-      <div class="viewport-wrapper" id="viewWrapper">
-        <video id="videoFeed" playsinline muted autoplay></video>
-        <canvas id="capturedCanvas"></canvas>
-        
-        <div class="scan-overlay">
-          <div class="scan-oval" id="scanOval"></div>
-          <div class="laser-beam" id="laserBeam"></div>
-        </div>
+<!-- 3. Hasil -->
+<section class="scr" id="s2"><div class="wrap"><div class="res" id="res"></div></div></section>
 
-        <!-- Instruksi Liveness Interaktif -->
-        <div class="challenge-banner" id="challengeBanner">
-          <span id="chIcon">👤</span>
-          <span id="chText">Menyiapkan kamera…</span>
-        </div>
-
-        <div class="liveness-banner" id="livenessBanner">
-          <span id="liveIcon">🔍</span>
-          <span id="liveText">Arahkan wajah ke oval panduan</span>
-        </div>
-      </div>
-
-      <!-- Sensor Keamanan Anti-Manipulasi Lengkap -->
-      <div class="sensor-checks">
-        <div class="sensor-badge">
-          <span class="sensor-label">Anti-Layar</span>
-          <span class="sensor-status" id="sensScreen">Mengecek</span>
-        </div>
-        <div class="sensor-badge">
-          <span class="sensor-label">Mask/Tangan</span>
-          <span class="sensor-status" id="sensMask">Bebas</span>
-        </div>
-        <div class="sensor-badge">
-          <span class="sensor-label">Kacamata</span>
-          <span class="sensor-status" id="sensGlasses">Bebas</span>
-        </div>
-        <div class="sensor-badge">
-          <span class="sensor-label">Liveness 3D</span>
-          <span class="sensor-status" id="sensLive">Tantangan</span>
-        </div>
-      </div>
-
-      <!-- Tombol Scan Ulang (Hanya Tampil Setelah Hasil Keluar) -->
-      <div class="scanner-actions">
-        <button type="button" class="btn-control" id="btnRestartScan" style="display:none">
-          <span>🔄</span> Pindai Ulang Wajah
-        </button>
-      </div>
-    </section>
-
-    <!-- Kolom Hasil Rekomendasi Terfokus -->
-    <section class="result-column" id="resultContainer">
-      <div class="empty-state" id="emptyStateView">
-        <div class="empty-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            <path d="M9 10h.01M15 10h.01M9.5 15.5a4.5 4.5 0 005 0"/>
-          </svg>
-        </div>
-        <h3>Pemindaian 100% Otomatis</h3>
-        <p>Arahkan wajah ke dalam oval tanpa kacamata & masker. Ikuti 1 gerakan alami (kedipkan mata atau miringkan kepala) dalam 1.5 detik untuk verifikasi wajah asli.</p>
-      </div>
-
-      <div id="activeResultView" style="display:none"></div>
-    </section>
-
-  </div>
-</main>
-
-<!-- Modul AI & MediaPipe Face Landmarker -->
 <script type="module">
-import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
-
-const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
-const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-
-(async function() {
-  const video = document.getElementById("videoFeed");
-  const canvas = document.getElementById("capturedCanvas");
-  const scanOval = document.getElementById("scanOval");
-  const viewWrapper = document.getElementById("viewWrapper");
-  const challengeBanner = document.getElementById("challengeBanner");
-  const chIcon = document.getElementById("chIcon");
-  const chText = document.getElementById("chText");
-  const livenessBanner = document.getElementById("livenessBanner");
-  const liveIcon = document.getElementById("liveIcon");
-  const liveText = document.getElementById("liveText");
-  
-  const sensScreen = document.getElementById("sensScreen");
-  const sensMask = document.getElementById("sensMask");
-  const sensGlasses = document.getElementById("sensGlasses");
-  const sensLive = document.getElementById("sensLive");
-  
-  const btnRestartScan = document.getElementById("btnRestartScan");
-  const emptyStateView = document.getElementById("emptyStateView");
-  const activeResultView = document.getElementById("activeResultView");
-
-  let session = null;
-  let landmarker = null;
-  let spec = null;
-  let products = [];
-  let stream = null;
-  let rafId = null;
-  let isAnalyzing = false;
-  let isCompleted = false;
-
-  // Alokasi Tensor Statis untuk ONNX Runtime (Zero Heap Overhead)
-  const TENSOR_SIZE = 224 * 224;
-  const g_tensorBuffer = new Float32Array(3 * TENSOR_SIZE);
-
-  // Canvas sampling optik kacamata & ketajaman
-  const sc = document.createElement("canvas");
-  sc.width = sc.height = 128;
-  const sctx = sc.getContext("2d", { willReadFrequently: true });
-
-  // State Otomatis Anti-Manipulasi:
-  // "align" (posisi & occlusion) -> "challenge" (kedip / tengok) -> "collect" (ambil foto otomatis) -> "done"
-  let phase = "align";
-  let alignHoldStart = 0;
-  const ALIGN_HOLD_MS = 600; // Stabil 0.6s langsung lanjut ke challenge
-
-  // Daftar Tantangan Acak (Active 3D Challenge-Response)
-  const CHALLENGES = [
-    { id: "blink", label: "Kedipkan matamu", icon: "😉", hint: "Tutup dan buka kedua mata sejenak" },
-    { id: "left", label: "Tolehkan kepala sedikit ke kiri", icon: "👈", hint: "Tengok ke arah kiri layar" },
-    { id: "right", label: "Tolehkan kepala sedikit ke kanan", icon: "👉", hint: "Tengok ke arah kanan layar" }
-  ];
-  let currentChallenge = null;
-  let challengeStart = 0;
-  const CHALLENGE_TIMEOUT_MS = 3500; // Batas waktu respons alami
-  let eyeWasClosed = false;
-
-  // Inisialisasi Model AI & MediaPipe Landmarker secara Simultan
-  async function initSystem() {
-    try {
-      liveText.textContent = "Mengunduh modul 3D & AI…";
-      
-      const initONNX = async () => {
-        const [rLabels, rModel, rProducts] = await Promise.all([
-          fetch("./labels.json"),
-          fetch("./skin_model.onnx"),
-          fetch("./products.json").catch(() => null)
-        ]);
-        if (!rLabels.ok || !rModel.ok) throw new Error("Gagal memuat skin_model.onnx");
-        spec = await rLabels.json();
-        if (rProducts && rProducts.ok) products = await rProducts.json();
-
-        ort.env.wasm.numThreads = 1;
-        ort.env.wasm.simd = true;
-        const modelBuffer = await rModel.arrayBuffer();
-        session = await ort.InferenceSession.create(modelBuffer, { executionProviders: ["wasm"] });
-
-        // Pre-warm ONNX session
-        const dummy = new ort.Tensor("float32", new Float32Array(3 * 224 * 224), [1, 3, 224, 224]);
-        await session.run({ input: dummy });
-        dummy.dispose?.();
-      };
-
-      const initLandmarker = async () => {
-        const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-        const baseOpts = { modelAssetPath: LANDMARKER_URL };
-        try {
-          landmarker = await FaceLandmarker.createFromOptions(fileset, {
-            baseOptions: { ...baseOpts, delegate: "GPU" },
-            runningMode: "VIDEO", numFaces: 1,
-            outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
-          });
-        } catch(gpuErr) {
-          landmarker = await FaceLandmarker.createFromOptions(fileset, {
-            baseOptions: { ...baseOpts, delegate: "CPU" },
-            runningMode: "VIDEO", numFaces: 1,
-            outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
-          });
-        }
-      };
-
-      await Promise.all([initONNX(), initLandmarker()]);
-      startCameraStream();
-    } catch (err) {
-      console.error(err);
-      liveIcon.textContent = "❌";
-      liveText.textContent = "Gagal inisialisasi AI: " + err.message;
-      livenessBanner.className = "liveness-banner alert";
-    }
-  }
-
-  // Buka Kamera Depan Pengguna Otomatis
-  async function startCameraStream() {
-    stopCameraStream();
-    isCompleted = false;
-    isAnalyzing = false;
-    phase = "align";
-    alignHoldStart = 0;
-    eyeWasClosed = false;
-    currentChallenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
-
-    scanOval.className = "scan-oval";
-    viewWrapper.classList.remove("is-scanning");
-    video.style.display = "block";
-    canvas.style.display = "none";
-    btnRestartScan.style.display = "none";
-    emptyStateView.style.display = "flex";
-    activeResultView.style.display = "none";
-
-    try {
-      // 1. Verifikasi Hardware Kamera
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(d => d.kind === "videoinput");
-        const virtualCamNames = ["obs", "virtual", "manycam", "droidcam", "vcam", "fake"];
-        const isVirtual = videoDevices.some(d => virtualCamNames.some(v => (d.label || "").toLowerCase().includes(v)));
-
-        if (sensScreen) {
-          sensScreen.textContent = isVirtual ? "Virtual" : "Mengecek";
-          sensScreen.className = isVirtual ? "sensor-status danger" : "sensor-status";
-        }
-      } catch(e) {}
-
-      // 2. Akses Kamera dengan Fallback Ramah Semua Perangkat
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
-        });
-      } catch(strictErr) {
-        // Fallback jika device/browser tidak mendukung constraint facingMode "user"
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      }
-
-      video.srcObject = stream;
-      await video.play();
-
-      chIcon.textContent = "🎯";
-      chText.textContent = "Posisikan wajah di dalam oval";
-      challengeBanner.className = "challenge-banner";
-
-      liveIcon.textContent = "👤";
-      liveText.textContent = "Posisikan wajah lurus & lepas kacamata";
-      livenessBanner.className = "liveness-banner";
-
-      rafId = requestAnimationFrame(detectionLoop);
-    } catch (err) {
-      console.error("Camera error:", err);
-      liveIcon.textContent = "⚠️";
-      liveText.textContent = "Klik ikon kamera di browser untuk izinkan kamera";
-      livenessBanner.className = "liveness-banner alert";
-      chText.textContent = "Izin kamera diperlukan";
-    }
-  }
-
-  function stopCameraStream() {
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
-  }
-
-  // 1. DETEKSI KACAMATA MULTI-ZONAL (Nasal Bridge + Eye Orbit Rim)
-  // Memeriksa batang hidung (168, 6) dan lingkaran bawah/luar mata (111, 117, 340, 346, 226, 446)
-  function detectGlasses(lm, vw, vh) {
-    if (!lm || lm.length < 400) return false;
-    const eyeL = lm[133], eyeR = lm[362], bridge = lm[168] || lm[6];
-    if (!eyeL || !eyeR || !bridge) return false;
-
-    try {
-      // Zona 1: Jembatan hidung di antara kedua mata
-      const bx = bridge.x * vw, by = bridge.y * vh;
-      const eyeSpan = Math.hypot((eyeR.x - eyeL.x) * vw, (eyeR.y - eyeL.y) * vh);
-      const span = Math.max(16, eyeSpan * 0.40);
-
-      sctx.drawImage(video, bx - span / 2, by - span / 2, span, span, 0, 0, 32, 32);
-      const d = sctx.getImageData(0, 0, 32, 32).data;
-
-      let lumaMin = 255, lumaMax = 0, edgeDiffSum = 0;
-      for (let i = 0; i < 32 * 32; i++) {
-        const idx = i * 4;
-        const lum = 0.299 * d[idx] + 0.587 * d[idx + 1] + 0.114 * d[idx + 2];
-        if (lum < lumaMin) lumaMin = lum;
-        if (lum > lumaMax) lumaMax = lum;
-        if (i % 32 < 31) {
-          const nextLum = 0.299 * d[idx + 4] + 0.587 * d[idx + 5] + 0.114 * d[idx + 6];
-          edgeDiffSum += Math.abs(lum - nextLum);
-        }
-      }
-      const bridgeContrast = lumaMax - lumaMin;
-      const bridgeEdges = edgeDiffSum / (32 * 31);
-
-      // Zona 2: Bingkai kacamata bawah/samping mata (Cheekbone & Temporal rim)
-      // Ambil sampel area tepi luar mata kiri (lm 226) dan kanan (lm 446)
-      const rimLeft = lm[226] || lm[130];
-      const rimRight = lm[446] || lm[359];
-      let rimDarkEdgeCount = 0;
-
-      if (rimLeft && rimRight) {
-        const checkPoints = [
-          { x: rimLeft.x * vw, y: rimLeft.y * vh },
-          { x: rimRight.x * vw, y: rimRight.y * vh },
-          { x: lm[111].x * vw, y: lm[111].y * vh }, // Bawah mata kiri
-          { x: lm[340].x * vw, y: lm[340].y * vh }  // Bawah mata kanan
-        ];
-
-        for (const pt of checkPoints) {
-          sctx.drawImage(video, pt.x - 10, pt.y - 10, 20, 20, 0, 0, 16, 16);
-          const rimData = sctx.getImageData(0, 0, 16, 16).data;
-          let rMin = 255, rMax = 0;
-          for (let k = 0; k < 16 * 16; k++) {
-            const klum = 0.299 * rimData[k * 4] + 0.587 * rimData[k * 4 + 1] + 0.114 * rimData[k * 4 + 2];
-            if (klum < rMin) rMin = klum;
-            if (klum > rMax) rMax = klum;
-          }
-          if ((rMax - rMin) > 55) rimDarkEdgeCount++;
-        }
-      }
-
-      // Kacamata terdeteksi jika:
-      // a. Jembatan hidung memiliki garis kontras/tepian kacamata (ambang realistis)
-      // b. ATAU terdapat bingkai kacamata tebal di 2 atau lebih titik orbit mata
-      const isBridgeGlasses = (bridgeContrast > 60 && bridgeEdges > 12);
-      const isRimGlasses = (rimDarkEdgeCount >= 2);
-
-      return isBridgeGlasses || isRimGlasses;
-    } catch(e) {
-      return false;
-    }
-  }
-
-  // 2. DETEKSI MASKER / TANGAN PENUTUP WAJAH (Occlusion Guard)
-  // Memvalidasi integritas posisi anatomis bibir atas (13), bawah (14), hidung (1), dan dagu (152)
-  function detectFaceOcclusion(lm) {
-    if (!lm || lm.length < 400) return "Wajah tidak terdeteksi utuh";
-    const noseTip = lm[1], chin = lm[152], forehead = lm[10];
-    const mouthL = lm[61], mouthR = lm[291];
-    const eyeL = lm[133], eyeR = lm[362];
-
-    if (!noseTip || !chin || !forehead || !mouthL || !mouthR || !eyeL || !eyeR) {
-      return "Wajah terhalang atau tidak utuh";
-    }
-
-    const faceH = Math.hypot(forehead.x - chin.x, forehead.y - chin.y);
-    const chinNoseDist = Math.hypot(noseTip.x - chin.x, noseTip.y - chin.y);
-    const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
-    const mouthW = Math.hypot(mouthR.x - mouthL.x, mouthR.y - mouthL.y);
-
-    if (faceH > 0.20) {
-      const lowerRatio = chinNoseDist / faceH;
-      if (lowerRatio < 0.18 || lowerRatio > 0.62) {
-        return "Bagian bawah wajah/dagu tertutup masker atau tangan";
-      }
-      if (eyeDist > 0.05 && (mouthW / eyeDist < 0.32)) {
-        return "Mulut tertutup masker atau tangan";
-      }
-    }
-    return null;
-  }
-
-  // 3. DETEKSI LAYAR DIGITAL / FOTO STATIS (Texture Variance & Screen Glare Analysis)
-  // Layar HP lain memiliki pantulan glare lampu/layar seragam dan varians tekstur mikro yang rendah/artifisial
-  function detectScreenSpoof(lm, vw, vh) {
-    if (!lm || lm.length < 400) return true;
-    try {
-      // Ambil area pipi (cheek patch) antara hidung dan telinga (landmark 117 dan 346)
-      const cheekL = lm[117], cheekR = lm[346];
-      const cx = ((cheekL.x + cheekR.x) / 2) * vw;
-      const cy = ((cheekL.y + cheekR.y) / 2) * vh;
-      const patchSize = 48;
-
-      sctx.drawImage(video, cx - patchSize / 2, cy - patchSize / 2, patchSize, patchSize, 0, 0, 32, 32);
-      const data = sctx.getImageData(0, 0, 32, 32).data;
-
-      let sum = 0, sumSq = 0, glarePixels = 0;
-      const totalPx = 32 * 32;
-
-      for (let i = 0; i < totalPx; i++) {
-        const idx = i * 4;
-        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-        sum += lum;
-        sumSq += lum * lum;
-
-        // Pixel glare layar ponsel (> 245 di semua kanal RGB)
-        if (r > 245 && g > 245 && b > 245) glarePixels++;
-      }
-
-      const mean = sum / totalPx;
-      const variance = (sumSq / totalPx) - (mean * mean);
-      const glareRatio = glarePixels / totalPx;
-
-      // Layar HP lain: glare tinggi karena pantulan kaca layar HP (> 12%) ATAU tekstur terlalu datar/buram (varians < 35)
-      if (glareRatio > 0.12) return "Pantulan layar terdeteksi";
-      if (variance < 32) return "Tekstur terlalu datar (Foto/Layar)";
-      return null;
-    } catch(e) {
-      return null;
-    }
-  }
-
-  // 4. EYE ASPECT RATIO (EAR) & YAW POSE ESTIMATION
-  function getEAR(lm, isLeft = true) {
-    // 6 Landmark per mata untuk menghitung Eye Aspect Ratio
-    // Left eye: 362 (outer), 263 (inner), 386/374, 380/385
-    // Right eye: 33 (outer), 133 (inner), 159/145, 158/153
-    const top1 = isLeft ? lm[386] : lm[159];
-    const bot1 = isLeft ? lm[374] : lm[145];
-    const top2 = isLeft ? lm[385] : lm[158];
-    const bot2 = isLeft ? lm[380] : lm[153];
-    const leftP = isLeft ? lm[362] : lm[33];
-    const rightP = isLeft ? lm[263] : lm[133];
-
-    if (!top1 || !bot1 || !top2 || !bot2 || !leftP || !rightP) return 0.28;
-
-    const v1 = Math.hypot(top1.x - bot1.x, top1.y - bot1.y);
-    const v2 = Math.hypot(top2.x - bot2.x, top2.y - bot2.y);
-    const h = Math.hypot(leftP.x - rightP.x, leftP.y - rightP.y);
-    return (v1 + v2) / (2.0 * (h || 0.001));
-  }
-
-  function getYawDegree(matrix) {
-    if (!matrix || matrix.length < 16) return 0;
-    // Elemen matriks rotasi [0, 8] untuk yaw
-    return Math.atan2(matrix[8], matrix[0]) * (180 / Math.PI);
-  }
-
-  // LOOP UTAMA DETEKSI OTOMATIS (60 FPS, Zero-Lag)
-  let lastDetectTime = 0;
-  async function detectionLoop(now) {
-    if (isCompleted || isAnalyzing) return;
-    rafId = requestAnimationFrame(detectionLoop);
-
-    if (video.readyState < 2 || !landmarker) return;
-    if (now - lastDetectTime < 50) return; // batasi evaluasi setiap 50ms (~20 FPS)
-    lastDetectTime = now;
-
-    let res = null;
-    try {
-      res = landmarker.detectForVideo(video, now);
-    } catch(err) {
-      return;
-    }
-
-    const hasFace = res && res.faceLandmarks && res.faceLandmarks.length > 0;
-    if (!hasFace) {
-      phase = "align";
-      alignHoldStart = 0;
-      scanOval.className = "scan-oval";
-      sensMask.textContent = "Mencari"; sensMask.className = "sensor-status";
-      sensGlasses.textContent = "Mencari"; sensGlasses.className = "sensor-status";
-      sensLive.textContent = "Menunggu"; sensLive.className = "sensor-status";
-      chIcon.textContent = "👤";
-      chText.textContent = "Posisikan wajah di dalam oval";
-      challengeBanner.className = "challenge-banner";
-      liveIcon.textContent = "👤";
-      liveText.textContent = "Wajah belum terdeteksi";
-      livenessBanner.className = "liveness-banner";
-      return;
-    }
-
-    // Jika ada lebih dari 1 wajah (misal seseorang memegang foto orang lain), tolak
-    if (res.faceLandmarks.length > 1) {
-      scanOval.className = "scan-oval warning";
-      sensLive.textContent = "Tolak"; sensLive.className = "sensor-status danger";
-      liveIcon.textContent = "⚠️";
-      liveText.textContent = "Terdeteksi lebih dari 1 wajah! Pastikan hanya 1 orang";
-      livenessBanner.className = "liveness-banner alert";
-      return;
-    }
-
-    const lm = res.faceLandmarks[0];
-    const vw = video.videoWidth || 640;
-    const vh = video.videoHeight || 480;
-
-    // --- CHECK 1: ANTI-SCREEN & PHOTO SPOOF GUARD ---
-    const screenError = detectScreenSpoof(lm, vw, vh);
-    if (screenError) {
-      scanOval.className = "scan-oval warning";
-      sensScreen.textContent = "Terdeteksi Layar"; sensScreen.className = "sensor-status danger";
-      liveIcon.textContent = "📱";
-      liveText.textContent = screenError + "! Hadapkan wajah asli.";
-      livenessBanner.className = "liveness-banner alert";
-      alignHoldStart = 0;
-      return;
-    } else {
-      sensScreen.textContent = "Wajah Nyata"; sensScreen.className = "sensor-status active";
-    }
-
-    // --- CHECK 2: OCCLUSION & MASK GUARD ---
-    const occlusionError = detectFaceOcclusion(lm);
-    if (occlusionError) {
-      scanOval.className = "scan-oval warning";
-      sensMask.textContent = "Tertutup"; sensMask.className = "sensor-status danger";
-      liveIcon.textContent = "🚫";
-      liveText.textContent = occlusionError;
-      livenessBanner.className = "liveness-banner alert";
-      alignHoldStart = 0;
-      return;
-    } else {
-      sensMask.textContent = "Bebas"; sensMask.className = "sensor-status active";
-    }
-
-    // --- CHECK 3: GLASSES GUARD ---
-    const glassesDetected = detectGlasses(lm, vw, vh);
-    if (glassesDetected) {
-      scanOval.className = "scan-oval warning";
-      sensGlasses.textContent = "Terdeteksi"; sensGlasses.className = "sensor-status danger";
-      liveIcon.textContent = "👓";
-      liveText.textContent = "Silakan lepas kacamata untuk akurasi kulit";
-      livenessBanner.className = "liveness-banner alert";
-      alignHoldStart = 0;
-      return;
-    } else {
-      sensGlasses.textContent = "Bebas"; sensGlasses.className = "sensor-status active";
-    }
-
-    // Evaluasi Geometri Posisi di Tengah Oval
-    let minx = 1, maxx = 0, miny = 1, maxy = 0;
-    for (const p of lm) {
-      if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x;
-      if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y;
-    }
-    const cx = (minx + maxx) / 2;
-    const cy = (miny + maxy) / 2;
-    const fh = maxy - miny;
-    const isCentered = Math.abs(cx - 0.5) < 0.22 && Math.abs(cy - 0.48) < 0.22 && fh > 0.28 && fh < 0.90;
-
-    const rotMatrix = res.facialTransformationMatrixes?.[0]?.data || null;
-    const yaw = rotMatrix ? getYawDegree(rotMatrix) : 0;
-    const isFrontal = Math.abs(yaw) < 12;
-
-    // TAHAP 1: PENYESUAIAN POSISI (ALIGNMENT)
-    if (phase === "align") {
-      sensLive.textContent = "Menunggu"; sensLive.className = "sensor-status";
-      challengeBanner.className = "challenge-banner";
-
-      if (isCentered && isFrontal) {
-        scanOval.className = "scan-oval valid";
-        if (!alignHoldStart) alignHoldStart = now;
-        const elapsed = now - alignHoldStart;
-
-        chIcon.textContent = "✅";
-        chText.textContent = "Posisi pas! Siap uji liveness…";
-        liveIcon.textContent = "⏱️";
-        liveText.textContent = "Tahan posisi…";
-        livenessBanner.className = "liveness-banner success";
-
-        if (elapsed >= ALIGN_HOLD_MS) {
-          // Lanjut ke Tantangan Keaktifan 3D Acak
-          phase = "challenge";
-          challengeStart = now;
-          eyeWasClosed = false;
-        }
-      } else {
-        alignHoldStart = 0;
-        scanOval.className = "scan-oval";
-        if (fh <= 0.28) { liveText.textContent = "Dekatkan sedikit wajah ke kamera"; }
-        else if (fh >= 0.90) { liveText.textContent = "Mundur sedikit dari kamera"; }
-        else if (!isCentered) { liveText.textContent = "Pusatkan wajah di dalam oval"; }
-        else { liveText.textContent = "Hadap lurus ke kamera"; }
-        liveIcon.textContent = "👤";
-        livenessBanner.className = "liveness-banner";
-      }
-      return;
-    }
-
-    // TAHAP 2: ACTIVE 3D MICRO-MOTION / CHALLENGE-RESPONSE
-    if (phase === "challenge") {
-      challengeBanner.className = "challenge-banner active-test";
-      chIcon.textContent = currentChallenge.icon;
-      chText.textContent = `Tantangan: ${currentChallenge.label}!`;
-      sensLive.textContent = "Menguji"; sensLive.className = "sensor-status warning";
-
-      const elapsedChallenge = now - challengeStart;
-      const remainSec = Math.max(0, ((CHALLENGE_TIMEOUT_MS - elapsedChallenge) / 1000)).toFixed(1);
-      liveIcon.textContent = "⚡";
-      liveText.textContent = `${currentChallenge.hint} (${remainSec}s)`;
-      livenessBanner.className = "liveness-banner";
-
-      // Evaluasi Respons Berdasarkan Eye Aspect Ratio (EAR) & Dynamic Yaw Shift
-      let challengePassed = false;
-      const earLeft = getEAR(lm, true);
-      const earRight = getEAR(lm, false);
-      const avgEAR = (earLeft + earRight) / 2.0;
-
-      if (currentChallenge.id === "blink") {
-        // Kedipan mata riil: harus benar-benar tertutup (< 0.13) dan membuka kembali (> 0.23)
-        // Gambar 2D tidak bisa melakukan perubahan dinamis bukaan kelopak mata ini
-        if (avgEAR < 0.13) {
-          eyeWasClosed = true;
-        } else if (eyeWasClosed && avgEAR > 0.22) {
-          challengePassed = true;
-        }
-      } else if (currentChallenge.id === "left") {
-        // Harus menoleh signifikan ke kiri (yaw < -15 derajat)
-        if (yaw < -15) challengePassed = true;
-      } else if (currentChallenge.id === "right") {
-        // Harus menoleh signifikan ke kanan (yaw > 15 derajat)
-        if (yaw > 15) challengePassed = true;
-      }
-
-      if (challengePassed) {
-        sensLive.textContent = "Lolos 3D"; sensLive.className = "sensor-status active";
-        chIcon.textContent = "🎉";
-        chText.textContent = "Liveness Berhasil! Memindai kulit…";
-        challengeBanner.className = "challenge-banner";
-        scanOval.className = "scan-oval valid";
-
-        phase = "collect";
-        isAnalyzing = true;
-        cancelAnimationFrame(rafId);
-        executeAutoScanAnalysis(lm);
-        return;
-      }
-
-      // Timeout jika tidak ada gerakan (indikasi foto cetak atau video beku)
-      if (elapsedChallenge > CHALLENGE_TIMEOUT_MS) {
-        sensLive.textContent = "Gagal"; sensLive.className = "sensor-status danger";
-        scanOval.className = "scan-oval warning";
-        chIcon.textContent = "❌";
-        chText.textContent = "Tantangan kadaluarsa. Coba lagi.";
-        liveIcon.textContent = "⚠️";
-        liveText.textContent = "Tidak terdeteksi gerakan wajah asli";
-        livenessBanner.className = "liveness-banner alert";
-
-        // Reset ke align setelah 1 detik
-        setTimeout(() => {
-          phase = "align";
-          alignHoldStart = 0;
-          currentChallenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
-        }, 1200);
-      }
-    }
-  }
-
-  // TAHAP 3: PENGAMBILAN CITRA & INFERENSI MOBILENETV3 SECARA OTOMATIS
-  async function executeAutoScanAnalysis(lm) {
-    viewWrapper.classList.add("is-scanning");
-    liveIcon.textContent = "🔬";
-    liveText.textContent = "Mendiagnosa kulit & memvalidasi BPOM…";
-    livenessBanner.className = "liveness-banner success";
-    try { navigator.vibrate?.([40, 60, 40]); } catch(e){}
-
-    const vw = video.videoWidth || 640;
-    const vh = video.videoHeight || 480;
-
-    // Crop presisi area wajah persegi 224x224
-    let minx = 1, maxx = 0, miny = 1, maxy = 0;
-    for (const p of lm) {
-      if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x;
-      if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y;
-    }
-    const boxW = (maxx - minx) * vw;
-    const boxH = (maxy - miny) * vh;
-    const side = Math.min(Math.max(boxW, boxH) * 1.25, vw, vh);
-    const sx = Math.max(0, Math.min(vw - side, ((minx + maxx) / 2) * vw - side / 2));
-    const sy = Math.max(0, Math.min(vh - side, ((miny + maxy) / 2) * vh - side / 2));
-
-    canvas.width = canvas.height = 224;
-    const ctx = canvas.getContext("2d");
-    ctx.translate(224, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, sx, sy, side, side, 0, 0, 224, 224);
-
-    video.style.display = "none";
-    canvas.style.display = "block";
-    setTimeout(stopCameraStream, 80);
-
-    try {
-      const imgRaw = ctx.getImageData(0, 0, 224, 224).data;
-      const m0 = spec.mean[0], m1 = spec.mean[1], m2 = spec.mean[2];
-      const s0 = spec.std[0], s1 = spec.std[1], s2 = spec.std[2];
-
-      for (let i = 0; i < TENSOR_SIZE; i++) {
-        const idx = i * 4;
-        g_tensorBuffer[i] = (imgRaw[idx] / 255 - m0) / s0;
-        g_tensorBuffer[TENSOR_SIZE + i] = (imgRaw[idx + 1] / 255 - m1) / s1;
-        g_tensorBuffer[2 * TENSOR_SIZE + i] = (imgRaw[idx + 2] / 255 - m2) / s2;
-      }
-
-      const tensor = new ort.Tensor("float32", g_tensorBuffer, [1, 3, 224, 224]);
-      const t0 = performance.now();
-      const output = await session.run({ input: tensor });
-      const duration = (performance.now() - t0).toFixed(0);
-
-      const typeProbs = Array.from(output.type_probs.data);
-      const concernProbs = Array.from(output.concern_probs.data);
-
-      tensor.dispose?.();
-      output.type_probs?.dispose?.();
-      output.concern_probs?.dispose?.();
-
-      viewWrapper.classList.remove("is-scanning");
-      chIcon.textContent = "✅";
-      chText.textContent = "Analisis Selesai";
-      liveIcon.textContent = "✅";
-      liveText.textContent = `Analisis selesai (${duration} ms)`;
-      btnRestartScan.style.display = "inline-flex";
-      isCompleted = true;
-
-      renderClinicalResults(typeProbs, concernProbs);
-    } catch (err) {
-      console.error(err);
-      viewWrapper.classList.remove("is-scanning");
-      liveIcon.textContent = "⚠️";
-      liveText.textContent = "Kendala analisis AI: " + err.message;
-      btnRestartScan.style.display = "inline-flex";
-    }
-  }
-
-  // TAMPILKAN HASIL TERFOKUS: PRODUK PALING COCOK & LISENSI DOKTER
-  function renderClinicalResults(tp, cp) {
-    const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
-    
-    const topTypeIdx = tp.map((p, i) => ({ p, i })).sort((a, b) => b.p - a.p)[0].i;
-    const topType = T[topTypeIdx];
-    const typeConfidence = (tp[topTypeIdx] * 100).toFixed(0);
-
-    const BASE_THRESHOLDS = { jerawat: 0.20, flek_hitam: 0.22, kemerahan: 0.18, pori_besar: 0.20, kerutan: 0.18 };
-    let activeConcerns = C.map((c, i) => ({
-      key: c,
-      name: D[c],
-      prob: cp[i],
-      thresh: Math.min(spec.concern_thresholds?.[c] || 0.35, BASE_THRESHOLDS[c] || 0.20)
-    })).filter(x => x.prob >= x.thresh).sort((a, b) => b.prob - a.prob);
-
-    if (activeConcerns.length === 0) {
-      const best = C.map((c, i) => ({ key: c, name: D[c], prob: cp[i] })).sort((a, b) => b.prob - a.prob)[0];
-      if (best.prob >= 0.14) activeConcerns = [best];
-    }
-
-    const concernMap = Object.fromEntries(activeConcerns.map(x => [x.key, x.prob]));
-    const matchedProducts = calculateProductMatches(topType, concernMap);
-
-    emptyStateView.style.display = "none";
-    activeResultView.style.display = "block";
-
-    const topHeroProduct = matchedProducts[0] || null;
-    const secondaryProducts = matchedProducts.slice(1, 3);
-
-    let html = `
-      <div class="doctor-certificate-card">
-        <div class="doc-seal">🩺</div>
-        <div class="doc-meta">
-          <h4>dr. Amanda Lestari, Sp.D.V.E</h4>
-          <p>Dokter Spesialis Dermatologi, Venereologi & Estetika</p>
-          <div class="sip-tag">SIP: 503/442-DINKES/2023 · Kesepakatan Klinis Cohen's Kappa κ = 0.78</div>
-        </div>
-      </div>
-
-      <div class="diagnosis-summary">
-        <span class="title">Kondisi Klinis Terverifikasi</span>
-        <span class="confidence">Tingkat Keyakinan ${typeConfidence}%</span>
-      </div>
-
-      <div class="detected-pills">
-        <span class="pill skin-type">Tipe Kulit: <b>${D[topType]}</b></span>
-        ${activeConcerns.map(c => `<span class="pill concern">Fokus: <b>${c.name}</b></span>`).join("")}
-      </div>
-
-      <div class="rec-section-title">
-        <span>Produk Paling Cocok Untukmu</span>
-        <span class="badge-star">BPOM Approved</span>
-      </div>
-    `;
-
-    if (topHeroProduct) {
-      html += `
-        <div class="hero-product-card">
-          <div class="prod-category">${esc(topHeroProduct.kat)}</div>
-          <h3 class="prod-name">${esc(topHeroProduct.nama)}</h3>
-          <div class="prod-bpom">
-            <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-            Resmi Terdaftar: ${esc(topHeroProduct.bpom || "BPOM RI")}
-          </div>
-          <div class="clinical-reason">
-            ${topHeroProduct.alasan.length 
-              ? "Diformulasikan khusus untuk mengatasi <b>" + topHeroProduct.alasan.map(esc).join("</b> serta <b>") + "</b> dengan toleransi optimal pada tipe kulit " + esc(D[topType].toLowerCase()) + "."
-              : "Formula esensial harian yang menjaga keseimbangan kelembapan alami kulit " + esc(D[topType].toLowerCase()) + "."}
-          </div>
-          <div class="prod-footer">
-            <div class="prod-price">
-              Rp ${topHeroProduct.harga.toLocaleString("id-ID")}
-              <span>/ botol</span>
-            </div>
-            <button type="button" class="btn-buy-now" data-nama="${esc(topHeroProduct.nama)}">Pilih Produk Ini</button>
-          </div>
-        </div>
-      `;
-    }
-
-    if (secondaryProducts.length > 0) {
-      html += `
-        <div style="font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 18px 0 10px;">
-          Rekomendasi Pendukung Perawatan
-        </div>
-        <div class="secondary-recs">
-          ${secondaryProducts.map(p => `
-            <div class="sub-prod-card">
-              <div>
-                <div style="font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase; margin-bottom: 2px;">${esc(p.kat)}</div>
-                <div class="sub-prod-name">${esc(p.nama)}</div>
-                <div class="sub-prod-reason">${p.alasan.length ? "Sinergi bahan: " + p.alasan.slice(0, 2).map(esc).join(", ") : "Perawatan esensial"}</div>
-              </div>
-              <div class="sub-prod-action">
-                <span class="sub-price">Rp ${p.harga.toLocaleString("id-ID")}</span>
-                <button type="button" class="btn-sub-buy" data-nama="${esc(p.nama)}">Pilih</button>
-              </div>
-            </div>
-          `).join("")}
-        </div>
-      `;
-    }
-
-    html += `
-      <div class="clinical-disclaimer">
-        <strong>Pemberitahuan Medis:</strong> Hasil analisis didukung kecerdasan buatan berbasis pedoman klinis dermatologis dokter spesialis untuk kosmetik bebas (Over-The-Counter) dan bukan pengganti tindakan medis diagnostik invasif.
-      </div>
-    `;
-
-    activeResultView.innerHTML = html;
-  }
-
-  // Pencocokan Bahan Aktif Produk Kosmetik BPOM
-  const INGREDIENT_LOOKUP = {
-    jerawat: ["Salicylic Acid", "Tea Tree", "Centella", "Zinc PCA", "Niacinamide", "Sulfur", "Mugwort"],
-    flek_hitam: ["Niacinamide", "Alpha-Arbutin", "Tranexamic Acid", "Glutathione", "SymWhite 377", "Vitamin C"],
-    kemerahan: ["Panthenol", "Ceramide", "Allantoin", "Centella", "Chamomile", "Madecassoside"],
-    pori_besar: ["Salicylic Acid", "Niacinamide", "Zinc PCA", "Green Tea", "Clay"],
-    kerutan: ["DNA Salmon", "Retinol", "Peptide", "Copper Tripeptide", "Bakuchiol", "Collagen"]
-  };
-
-  function calculateProductMatches(tipe, concernMap) {
-    if (!products || !products.length) return [];
-
-    const scored = products.map(p => {
-      let score = p.tipe.includes(tipe) ? 1.5 : 0.2;
-      const matchedReasons = [];
-
-      for (const [concern, prob] of Object.entries(concernMap)) {
-        if (!p.target.includes(concern)) continue;
-        const weight = p.bobot?.[concern] ?? 1.25;
-        score += prob * weight;
-
-        const foundIngredients = (p.bahan_keywords || []).filter(bk => {
-          const refs = INGREDIENT_LOOKUP[concern] || [];
-          return refs.some(r => r.toLowerCase().includes(bk) || bk.includes(r.toLowerCase()));
-        });
-
-        if (foundIngredients.length) {
-          matchedReasons.push(`${concern.replace('_', ' ')} (${foundIngredients.slice(0, 2).join(', ')})`);
-        } else {
-          matchedReasons.push(concern.replace('_', ' '));
-        }
-      }
-
-      return { ...p, score, alasan: matchedReasons };
-    });
-
-    return scored.sort((a, b) => b.score - a.score);
-  }
-
-  btnRestartScan.onclick = () => {
-    startCameraStream();
-  };
-
-  activeResultView.addEventListener("click", e => {
-    const buyBtn = e.target.closest(".btn-buy-now, .btn-sub-buy");
-    if (buyBtn) {
-      const prodName = buyBtn.dataset.nama || "produk";
-      alert(`✅ Produk [${prodName}] telah berhasil dipilih dan siap dipesan!`);
-    }
-  });
-
-  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-
-  initSystem();
-})();
+import {FaceLandmarker,FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const WASM="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const LM_URL="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const vid=$("vid"),cap=$("cap"),oval=$("oval"),cam=$("cam");
+let session=null,lmk=null,spec=null,products=[],stream=null,raf=0,preview=false;
+let phase="align",holdT=0,chal=null,chalT=0,eyeClosed=false,busy=false,last=0;
+const TS=224*224,buf=new Float32Array(3*TS);       // buffer tensor dipakai ulang
+const sc=document.createElement("canvas");sc.width=sc.height=64;const sx=sc.getContext("2d",{willReadFrequently:true});
+const CH=[{id:"blink",h:"Kedipkan matamu",s:"Tutup lalu buka mata sekali"},{id:"left",h:"Tolehkan kepala ke kiri",s:"Sedikit saja"},{id:"right",h:"Tolehkan kepala ke kanan",s:"Sedikit saja"}];
+const VIRT=["obs","virtual","manycam","droidcam","vcam","fake","iriun","epoccam","snap camera"];
+
+function show(i,lbl){["s0","s1","s2"].forEach((s,k)=>$(s).classList.toggle("on",k===i));$("stepLbl").textContent=lbl;scrollTo(0,0)}
+function chk(id,state,txt){const e=$(id);e.className="chk "+state;if(txt)e.textContent=txt}
+function say(h,s,st){$("mHead").textContent=h;$("mSub").textContent=s;oval.className="oval "+(st||"")}
+
+/* ---------- inisialisasi ---------- */
+async function init(){
+ try{
+  const onnx=(async()=>{
+   const [a,b,c]=await Promise.all([fetch("./labels.json"),fetch("./skin_model.onnx"),fetch("./products.json").catch(()=>null)]);
+   if(!a.ok||!b.ok)throw new Error("model tidak ditemukan");
+   spec=await a.json();if(c&&c.ok)products=await c.json();
+   ort.env.wasm.numThreads=1;ort.env.wasm.simd=true;
+   session=await ort.InferenceSession.create(await b.arrayBuffer(),{executionProviders:["wasm"]});
+   await session.run({input:new ort.Tensor("float32",new Float32Array(3*TS),[1,3,224,224])});
+  })();
+  const mp=(async()=>{
+   const fs=await FilesetResolver.forVisionTasks(WASM),o={runningMode:"VIDEO",numFaces:1,outputFacialTransformationMatrixes:true};
+   try{lmk=await FaceLandmarker.createFromOptions(fs,{...o,baseOptions:{modelAssetPath:LM_URL,delegate:"GPU"}})}
+   catch{lmk=await FaceLandmarker.createFromOptions(fs,{...o,baseOptions:{modelAssetPath:LM_URL,delegate:"CPU"}})}
+  })();
+  await Promise.all([onnx,mp]);$("initMsg").textContent="Siap. Semua proses berjalan di perangkatmu.";
+ }catch(e){
+  console.warn(e);preview=true;
+  spec={type_classes:["berminyak","kering","normal","kombinasi"],concern_classes:["jerawat","flek_hitam","kemerahan","pori_besar","kerutan"],
+   display:{berminyak:"Berminyak",kering:"Kering",normal:"Normal",kombinasi:"Kombinasi",jerawat:"Jerawat",flek_hitam:"Flek hitam",kemerahan:"Kemerahan",pori_besar:"Pori besar",kerutan:"Garis halus"},concern_thresholds:{}};
+  products=[{nama:"Acne Clear Serum",kat:"Serum",bpom:"NA18••••••••• (contoh)",harga:89000,tipe:["berminyak","kombinasi","normal"],target:["jerawat","pori_besar"],bahan_keywords:["salicylic"]},
+   {nama:"Gentle Foam Cleanser",kat:"Pembersih",bpom:"NA18••••••••• (contoh)",harga:45000,tipe:["berminyak","kombinasi","normal","kering"],target:["jerawat","kemerahan"],bahan_keywords:["centella"]},
+   {nama:"Sunscreen Fluid SPF 50",kat:"Tabir surya",bpom:"NA18••••••••• (contoh)",harga:75000,tipe:["berminyak","kombinasi","normal","kering"],target:["flek_hitam","kerutan"],bahan_keywords:["niacinamide"]}];
+  $("initMsg").textContent="Mode pratinjau: model AI belum ditemukan, hasil disimulasikan.";
+ }
+ $("start").disabled=false;
+}
+
+/* ---------- kamera ---------- */
+async function openCam(){
+ stopCam();busy=false;phase="align";holdT=0;eyeClosed=false;chal=CH[Math.random()*3|0];
+ vid.style.display="block";cap.style.display="none";cam.classList.remove("busy");
+ ["cScreen","cMask","cGlass","cLive"].forEach(i=>chk(i,""));
+ show(1,"Pindai wajah");
+ try{
+  const dv=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");
+  if(dv.some(d=>VIRT.some(v=>(d.label||"").toLowerCase().includes(v)))){chk("cScreen","no","Kamera virtual");say("Kamera virtual terdeteksi","Gunakan kamera bawaan perangkat","no");return}
+ }catch{}
+ try{
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false})}
+  catch{stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
+  vid.srcObject=stream;await vid.play();say("Posisikan wajah di oval","Hadap lurus ke kamera");
+  raf=requestAnimationFrame(loop);
+ }catch{say("Izin kamera diperlukan","Aktifkan kamera di pengaturan browser","no")}
+}
+function stopCam(){cancelAnimationFrame(raf);stream?.getTracks().forEach(t=>t.stop());stream=null}
+
+/* ---------- pemeriksaan keamanan (dari logika asli) ---------- */
+const lum=(d,i)=>.299*d[i]+.587*d[i+1]+.114*d[i+2];
+function patch(cx,cy,sz){sx.drawImage(vid,cx-sz/2,cy-sz/2,sz,sz,0,0,32,32);return sx.getImageData(0,0,32,32).data}
+function screenSpoof(l,w,h){
+ const d=patch(((l[117].x+l[346].x)/2)*w,((l[117].y+l[346].y)/2)*h,48);let s=0,q=0,g=0;
+ for(let i=0;i<1024;i++){const v=lum(d,i*4);s+=v;q+=v*v;if(d[i*4]>245&&d[i*4+1]>245&&d[i*4+2]>245)g++}
+ const m=s/1024;if(g/1024>.12)return"Pantulan layar terdeteksi";if(q/1024-m*m<32)return"Tekstur terlalu datar (foto/layar)";return null}
+function occlusion(l){
+ const nose=l[1],chin=l[152],fh=l[10],mL=l[61],mR=l[291],eL=l[133],eR=l[362];
+ const H=Math.hypot(fh.x-chin.x,fh.y-chin.y);if(H<.2)return null;
+ const r=Math.hypot(nose.x-chin.x,nose.y-chin.y)/H,eD=Math.hypot(eR.x-eL.x,eR.y-eL.y),mW=Math.hypot(mR.x-mL.x,mR.y-mL.y);
+ if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
+function glasses(l,w,h){
+ const span=Math.max(16,Math.hypot((l[362].x-l[133].x)*w,(l[362].y-l[133].y)*h)*.4),b=l[168];
+ const d=patch(b.x*w,b.y*h,span);let mn=255,mx=0,e=0;
+ for(let i=0;i<1024;i++){const v=lum(d,i*4);mn=Math.min(mn,v);mx=Math.max(mx,v);if(i%32<31)e+=Math.abs(v-lum(d,i*4+4))}
+ let rim=0;for(const k of[226,446,111,340]){const p=l[k];sx.drawImage(vid,p.x*w-10,p.y*h-10,20,20,0,0,16,16);
+  const r=sx.getImageData(0,0,16,16).data;let a=255,z=0;for(let j=0;j<256;j++){const v=lum(r,j*4);a=Math.min(a,v);z=Math.max(z,v)}if(z-a>55)rim++}
+ return(mx-mn>60&&e/992>12)||rim>=2}
+function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
+ const[t1,b1,t2,b2,a,c]=P.map(i=>l[i]),dd=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);return(dd(t1,b1)+dd(t2,b2))/(2*(dd(a,c)||.001))}
+const yawOf=m=>m&&m.length>=16?Math.atan2(m[8],m[0])*180/Math.PI:0;
+
+/* ---------- loop deteksi ---------- */
+function loop(now){
+ if(busy)return;raf=requestAnimationFrame(loop);
+ if(vid.readyState<2||now-last<50)return;last=now;
+ if(preview){previewStep(now);return}
+ let r;try{r=lmk.detectForVideo(vid,now)}catch{return}
+ const n=r?.faceLandmarks?.length||0;
+ if(!n){phase="align";holdT=0;say("Wajah belum terdeteksi","Posisikan wajah di oval");return}
+ if(n>1){say("Terdeteksi lebih dari satu wajah","Pastikan hanya kamu di depan kamera","no");return}
+ const l=r.faceLandmarks[0],w=vid.videoWidth,h=vid.videoHeight;
+ const sp=screenSpoof(l,w,h);if(sp){chk("cScreen","no","Layar?");say(sp,"Hadapkan wajah asli ke kamera","no");holdT=0;return}chk("cScreen","ok");
+ const oc=occlusion(l);if(oc){chk("cMask","no","Tertutup");say("Wajah tertutup",oc,"no");holdT=0;return}chk("cMask","ok");
+ if(glasses(l,w,h)){chk("cGlass","no","Kacamata");say("Lepas kacamata","Agar tekstur kulit terbaca akurat","no");holdT=0;return}chk("cGlass","ok");
+ let a=1,b=0,c=1,d=0;for(const p of l){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y)}
+ const fh=d-c,ctr=Math.abs((a+b)/2-.5)<.22&&Math.abs((c+d)/2-.48)<.22&&fh>.28&&fh<.9;
+ const yaw=yawOf(r.facialTransformationMatrixes?.[0]?.data);
+ if(phase==="align"){
+  if(ctr&&Math.abs(yaw)<12){say("Posisi pas","Tahan sebentar…","ok");holdT||=now;if(now-holdT>600){phase="challenge";chalT=now;eyeClosed=false}}
+  else{holdT=0;say(fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah","Hadap lurus ke kamera")}
+  return}
+ if(phase==="challenge"){
+  const t=((3500-(now-chalT))/1000).toFixed(1);say(chal.h,chal.s+" · "+t+" dtk","ok");chk("cLive","","Menguji…");
+  const e=(ear(l,true)+ear(l,false))/2;let pass=false;
+  if(chal.id==="blink"){if(e<.13)eyeClosed=true;else if(eyeClosed&&e>.22)pass=true}
+  else if(chal.id==="left")pass=yaw<-15;else pass=yaw>15;
+  if(pass){chk("cLive","ok","Gerakan asli");analyze(l)}
+  else if(now-chalT>3500){chk("cLive","no","Gagal");say("Gerakan tidak terdeteksi","Mengulang tantangan…","no");phase="align";holdT=0;chal=CH[Math.random()*3|0]}
+ }
+}
+function previewStep(now){ // tanpa model: simulasi alur
+ if(!holdT)holdT=now;const e=now-holdT;
+ if(e<1200)say("Posisikan wajah di oval","Mode pratinjau");else if(e<2800){say(chal.h,chal.s,"ok");chk("cScreen","ok");chk("cMask","ok");chk("cGlass","ok")}
+ else{chk("cLive","ok","Gerakan asli");analyze(null)}}
+
+/* ---------- ambil gambar + inferensi ---------- */
+async function analyze(l){
+ busy=true;cancelAnimationFrame(raf);cam.classList.add("busy");say("Memetakan wajah…","Menganalisis tekstur kulit","ok");navigator.vibrate?.([40,60,40]);
+ const vw=vid.videoWidth,vh=vid.videoHeight;let sxp=0,syp=0,side=Math.min(vw,vh);
+ if(l){let a=1,b=0,c=1,d=0;for(const p of l){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y)}
+  side=Math.min(Math.max((b-a)*vw,(d-c)*vh)*1.25,vw,vh);
+  sxp=Math.max(0,Math.min(vw-side,((a+b)/2)*vw-side/2));syp=Math.max(0,Math.min(vh-side,((c+d)/2)*vh-side/2))}
+ else{sxp=(vw-side)/2}
+ cap.width=cap.height=224;const x=cap.getContext("2d");x.translate(224,0);x.scale(-1,1);x.drawImage(vid,sxp,syp,side,side,0,0,224,224);
+ vid.style.display="none";cap.style.display="block";setTimeout(stopCam,80);
+ let tp,cp;
+ if(preview){await new Promise(r=>setTimeout(r,1400));const R=()=>Math.random();tp=[R(),R(),R(),R()];cp=[R()*.7,R()*.6,R()*.7,R()*.8,R()*.5]}
+ else{
+  const im=x.getImageData(0,0,224,224).data;
+  for(let i=0;i<TS;i++){const k=i*4;buf[i]=(im[k]/255-spec.mean[0])/spec.std[0];buf[TS+i]=(im[k+1]/255-spec.mean[1])/spec.std[1];buf[2*TS+i]=(im[k+2]/255-spec.mean[2])/spec.std[2]}
+  const t=new ort.Tensor("float32",buf,[1,3,224,224]),o=await session.run({input:t});
+  tp=Array.from(o.type_probs.data);cp=Array.from(o.concern_probs.data);t.dispose?.();o.type_probs?.dispose?.();o.concern_probs?.dispose?.()}
+ render(tp,cp)}
+
+/* ---------- pencocokan produk ---------- */
+const ING={jerawat:["salicylic","tea tree","centella","zinc","niacinamide","sulfur"],flek_hitam:["niacinamide","arbutin","tranexamic","glutathione","vitamin c"],
+ kemerahan:["panthenol","ceramide","allantoin","centella","madecassoside"],pori_besar:["salicylic","niacinamide","zinc","green tea","clay"],kerutan:["retinol","peptide","bakuchiol","collagen","dna salmon"]};
+function match(tipe,cm){return products.map(p=>{let s=p.tipe.includes(tipe)?1.5:.2;const why=[];
+ for(const[c,pr]of Object.entries(cm)){if(!p.target.includes(c))continue;s+=pr*(p.bobot?.[c]??1.25);
+  const f=(p.bahan_keywords||[]).filter(k=>ING[c].some(r=>r.includes(k)||k.includes(r)));why.push(spec.display[c].toLowerCase()+(f.length?" ("+f.slice(0,2).join(", ")+")":""))}
+ return{...p,s,why}}).sort((a,b)=>b.s-a.s)}
+
+/* ---------- tampilan hasil ---------- */
+function level(p){return p<.25?"Rendah":p<.5?"Sedang":"Perlu perhatian"}
+function render(tp,cp){
+ const T=spec.type_classes,C=spec.concern_classes,D=spec.display,ti=tp.indexOf(Math.max(...tp)),tipe=T[ti];
+ const avg=cp.reduce((a,b)=>a+b,0)/cp.length,score=Math.round(100-avg*70);
+ const cm={};C.forEach((c,i)=>{if(cp[i]>=(spec.concern_thresholds?.[c]??.2))cm[c]=cp[i]});
+ if(!Object.keys(cm).length){const j=cp.indexOf(Math.max(...cp));if(cp[j]>=.14)cm[C[j]]=cp[j]}
+ const m=match(tipe,cm),hp=m[0],sub=m.slice(1,3);
+ const pins=[[".5",".3","Dahi"],[".28",".55","Pipi"],[".72",".55","Pipi"],[".5",".58","Hidung"]];
+ $("res").innerHTML=`
+ <div><div class="face" id="fc">${pins.map(p=>`<div class="pin" style="left:${p[0]*100}%;top:${p[1]*100}%"><i>${p[2]}</i></div>`).join("")}</div>
+  <div class="doc"><b>Dinilai dr. Amanda Lestari, Sp.D.V.E</b><br>SIP 503/442-DINKES/2023 · κ = 0,78<br><small style="color:var(--mute)">${preview?"Data contoh. ":""}Sistem pendukung keputusan kosmetik bebas BPOM.</small></div></div>
+ <div>
+  <div class="score"><div class="n">${score}</div><div><div class="l">Skor kulit dari 100</div><h2>Kulit ${esc(D[tipe].toLowerCase())}</h2></div></div>
+  ${C.map((c,i)=>`<div class="dim"><span>${esc(D[c])}</span><span class="lv">${level(cp[i])}</span><div class="bar"><i style="width:${Math.round(cp[i]*100)}%"></i></div></div>`).join("")}
+ </div>
+ <h2 class="rt">Rutinitas untukmu</h2>
+ <div class="routine">
+  ${hp?`<div class="hero-p"><small>Paling cocok</small><h3>${esc(hp.nama)}</h3>
+   <p>${hp.why.length?"Menargetkan "+hp.why.map(esc).join(" dan ")+" pada kulit "+esc(D[tipe].toLowerCase())+".":"Perawatan esensial untuk kulit "+esc(D[tipe].toLowerCase())+"."}</p>
+   <div class="bp">No. BPOM: ${esc(hp.bpom||"BPOM RI")}</div>
+   <div class="row"><b>Rp ${hp.harga.toLocaleString("id-ID")}</b><button class="btn" data-n="${esc(hp.nama)}">Pilih produk</button></div></div>`:""}
+  <div>${sub.map(p=>`<div class="sub"><small>${esc(p.kat)}</small><h4>${esc(p.nama)}</h4><p>${p.why.length?"Cocok untuk "+p.why.slice(0,2).map(esc).join(", "):"Pelengkap rutinitas harian"} · Rp ${p.harga.toLocaleString("id-ID")}</p><button data-n="${esc(p.nama)}">Pilih</button></div>`).join("")}
+   <div style="padding-top:18px"><button class="btn ghost" id="again">Pindai ulang</button></div></div>
+ </div>
+ <p class="disc">Hasil analisis berbasis AI untuk kosmetik bebas (OTC) dan bukan pengganti pemeriksaan medis. Jika kulit terasa sakit, meradang berat, atau tidak membaik, temui dokter.</p>`;
+ const fc=$("fc"),cv=document.createElement("canvas");cv.width=cv.height=224;cv.getContext("2d").drawImage(cap,0,0);fc.prepend(cv);
+ $("again").onclick=openCam;show(2,"Hasil analisis")}
+
+$("res").addEventListener("click",e=>{const b=e.target.closest("[data-n]");if(b)alert("Produk “"+b.dataset.n+"” dipilih.")});
+$("start").onclick=openCam;
+init();
 </script>
 </body>
 </html>
