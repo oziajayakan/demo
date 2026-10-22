@@ -6,10 +6,12 @@ Aplikasi web pemindaian wajah cerdas berbasis **Deep Learning (MobileNetV3 ONNX 
 
 ## 🌟 Fitur Utama
 
-### 1. Sistem Anti-Manipulasi (*Spoof-Proof & Liveness Guard*)
-- **Deteksi Hardware Kamera Fisik**: Memeriksa perangkat input video dan memblokir perangkat lunak kamera virtual (*OBS Virtual Cam, ManyCam, DroidCam*).
-- **Analisis Spektrum Optik Kulit**: Memvalidasi spektrum kromatisitas kulit manusia dan distribusi luminansi untuk menangkal serangan foto statis (*printed photo*) atau manipulasi layar monitor/HP (*screen glare & moiré artifacts*).
-- **Active 3D Micro-Motion & Stability Check**: Menguji kestabilan posisi wajah selama 1 detik penuh sebelum pemindaian otomatis dieksekusi.
+### 1. Sistem Anti-Manipulasi Berlapis (*Multi-Layer Presentation Attack Detection*)
+- **Screen-Flash Challenge (Chromaticity Reflection)**: Layar memancarkan sekuens kilatan warna acak (*Cyan* lalu *Magenta*) untuk mengukur respon kromatik dan penyerapan cahaya pada lapisan epidermis kulit. Foto cetak atau layar HP replay tidak dapat memantulkan spektrum ini secara sinkron.
+- **Analisis Frekuensi Tinggi & Moiré Pattern**: High-pass filtering pada patch kulit wajah untuk mendeteksi kisi piksel periodik (*pixel grid*) dan artefak interferensi Moiré khas display LCD/OLED HP.
+- **Konsistensi Temporal & 3D Motion Parallax**: Memeriksa diferensial vektor pergerakan antara ujung hidung (*nose tip*) dan sumbu lateral telinga/pelipis selama tantangan gerakan. Foto atau benda datar bergerak sebagai satu bidang kaku (*planar rigid*), sedangkan wajah 3D nyata menghasilkan paralaks gerak non-linear.
+- **Multi-Step Randomized Challenge (2 Langkah Dinamis)**: Urutan tantangan acak (kombinasi toleh kiri, kanan, kedip riil dengan EAR threshold) dengan batas waktu ketat (*strict timing window*).
+- **Deteksi Hardware Kamera Fisik**: Menolak virtual driver (*OBS, ManyCam, DroidCam*) dan mengunci ke sensor kamera fisik asli.
 
 ### 2. Sertifikasi Klinis Dermatologi
 - **Lisensi Dokter Penilai**: Tervalidasi oleh **dr. Amanda Lestari, Sp.D.V.E** (SIP: `503/442-DINKES/2023`).

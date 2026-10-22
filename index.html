@@ -41,7 +41,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 #vid{transform:scaleX(-1)}#cap{display:none}
 .oval{position:absolute;left:50%;top:50%;width:68%;height:74%;transform:translate(-50%,-50%);border-radius:50%/46%;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 0 999px rgba(0,0,0,.5);transition:border-color .25s}
 .oval.ok{border-color:#7BE0B4}.oval.no{border-color:#FF6B7F}
-.laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#E8C98F,transparent);top:12%;opacity:0}
+.flash-box{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .08s ease,background-color .08s ease;z-index:10}
+.laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#E8C98F,transparent);top:12%;opacity:0;z-index:5}
 .busy .laser{opacity:1;animation:sw 1.2s ease-in-out infinite alternate}
 @keyframes sw{to{top:86%}}
 .msg{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;padding:40px 20px 18px;text-align:center}
@@ -103,10 +104,10 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 <section class="scr" id="s1"><div class="wrap">
  <div class="cam" id="cam">
   <video id="vid" playsinline muted autoplay></video><canvas id="cap"></canvas>
-  <div class="oval" id="oval"></div><div class="laser"></div>
+  <div class="oval" id="oval"></div><div class="flash-box" id="flashBox"></div><div class="laser"></div>
   <div class="msg"><b id="mHead">Posisikan wajah di oval</b><span id="mSub">Hadap lurus ke kamera</span></div>
  </div>
- <div class="checks"><span class="chk" id="cScreen">Wajah asli</span><span class="chk" id="cMask">Wajah terbuka</span><span class="chk" id="cGlass">Tanpa kacamata</span><span class="chk" id="cLive">Gerakan</span></div>
+ <div class="checks"><span class="chk" id="cScreen">Spektrum Layar</span><span class="chk" id="cFlash">Pantulan Kulit</span><span class="chk" id="cMask">Wajah Terbuka</span><span class="chk" id="cGlass">Tanpa Kacamata</span><span class="chk" id="cLive">Gerakan 3D</span></div>
 </div></section>
 
 <!-- 3. Hasil -->
@@ -118,13 +119,27 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const WASM="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
 const LM_URL="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-const vid=$("vid"),cap=$("cap"),oval=$("oval"),cam=$("cam");
+const vid=$("vid"),cap=$("cap"),oval=$("oval"),cam=$("cam"),flashBox=$("flashBox");
 let session=null,lmk=null,spec=null,products=[],stream=null,raf=0,preview=false;
-let phase="align",holdT=0,chal=null,chalT=0,eyeClosed=false,busy=false,last=0;
+let phase="align",holdT=0,chalSeq=[],chalIdx=0,chalT=0,eyeClosed=false,busy=false,last=0;
+let prevNoseX=null,prevEarX=null,parallaxScore=0,parallaxFrames=0;
+let flashState={active:false,step:0,timer:0,colors:[{name:"Cyan",hex:"#00e5ff",rgb:[0,229,255]},{name:"Magenta",hex:"#ff007f",rgb:[255,0,127]}],samples:[],passed:false};
 const TS=224*224,buf=new Float32Array(3*TS);       // buffer tensor dipakai ulang
 const sc=document.createElement("canvas");sc.width=sc.height=64;const sx=sc.getContext("2d",{willReadFrequently:true});
-const CH=[{id:"blink",h:"Kedipkan matamu",s:"Tutup lalu buka mata sekali"},{id:"left",h:"Tolehkan kepala ke kiri",s:"Sedikit saja"},{id:"right",h:"Tolehkan kepala ke kanan",s:"Sedikit saja"}];
 const VIRT=["obs","virtual","manycam","droidcam","vcam","fake","iriun","epoccam","snap camera"];
+
+function generateChallengeSequence(){
+ // Challenge multi-step acak (2 langkah terikat sesi)
+ const pool=[
+  {id:"left",h:"Tolehkan kepala sedikit ke kiri",s:"Gerakkan kepala perlahan"},
+  {id:"right",h:"Tolehkan kepala sedikit ke kanan",s:"Gerakkan kepala perlahan"},
+  {id:"blink",h:"Kedipkan matamu",s:"Tutup lalu buka mata sekali"}
+ ];
+ const first=pool[Math.random()*pool.length|0];
+ const secondPool=pool.filter(p=>p.id!==first.id);
+ const second=secondPool[Math.random()*secondPool.length|0];
+ return [first,second];
+}
 
 function show(i,lbl){["s0","s1","s2"].forEach((s,k)=>$(s).classList.toggle("on",k===i));$("stepLbl").textContent=lbl;scrollTo(0,0)}
 function chk(id,state,txt){const e=$(id);e.className="chk "+state;if(txt)e.textContent=txt}
@@ -161,22 +176,22 @@ async function init(){
 
 /* ---------- kamera ---------- */
 async function openCam(){
- stopCam();busy=false;phase="align";holdT=0;eyeClosed=false;chal=CH[Math.random()*3|0];
+ stopCam();busy=false;phase="align";holdT=0;eyeClosed=false;
+ chalSeq=generateChallengeSequence();chalIdx=0;
+ prevNoseX=null;prevEarX=null;parallaxScore=0;parallaxFrames=0;
+ flashState={active:false,step:0,timer:0,colors:[{name:"Cyan",hex:"#00e5ff",rgb:[0,229,255]},{name:"Magenta",hex:"#ff007f",rgb:[255,0,127]}],samples:[],passed:false};
+ flashBox.style.opacity="0";
  vid.style.display="block";cap.style.display="none";cam.classList.remove("busy");
- ["cScreen","cMask","cGlass","cLive"].forEach(i=>chk(i,""));
+ ["cScreen","cFlash","cMask","cGlass","cLive"].forEach(i=>chk(i,""));
  show(1,"Pindai wajah");
  try{
-  // Cari kamera fisik nyata bawaan perangkat, hindari kamera virtual jika ada pilihan lain
   const dv = (await navigator.mediaDevices.enumerateDevices().catch(()=>[])).filter(d=>d.kind==="videoinput");
   const physicalCams = dv.filter(d => !VIRT.some(v => (d.label||"").toLowerCase().includes(v)));
   
   let videoConstraints = { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } };
-  
   if (physicalCams.length > 0 && physicalCams[0].deviceId) {
-    // Paksa gunakan kamera fisik asli jika terdeteksi
     videoConstraints = { deviceId: { exact: physicalCams[0].deviceId }, width: { ideal: 640 }, height: { ideal: 480 } };
   } else if (dv.length > 0 && physicalCams.length === 0) {
-    // Hanya ada kamera virtual (tidak ada webcam fisik sama sekali)
     chk("cScreen", "no", "Kamera virtual");
     say("Kamera virtual terdeteksi", "Hubungkan webcam fisik asli perangkatmu", "no");
     return;
@@ -198,48 +213,85 @@ async function openCam(){
   say("Izin kamera diperlukan", "Aktifkan kamera di pengaturan browser", "no");
  }
 }
-function stopCam(){cancelAnimationFrame(raf);stream?.getTracks().forEach(t=>t.stop());stream=null}
+function stopCam(){
+ cancelAnimationFrame(raf);
+ flashBox.style.opacity="0";
+ stream?.getTracks().forEach(t=>t.stop());
+ stream=null;
+}
 
-/* ---------- pemeriksaan keamanan (dari logika asli) ---------- */
+/* ---------- pemeriksaan keamanan & liveness tingkat tinggi ---------- */
 const lum=(d,i)=>.299*d[i]+.587*d[i+1]+.114*d[i+2];
 function patch(cx,cy,sz){sx.drawImage(vid,cx-sz/2,cy-sz/2,sz,sz,0,0,32,32);return sx.getImageData(0,0,32,32).data}
-function screenSpoof(l,w,h){
+
+// Analisis Frekuensi Tinggi & Moiré Spektrum Layar HP
+function screenFrequencySpoof(l,w,h){
  if(!l||l.length<400)return"Wajah tidak terdeteksi utuh";
- // 1. Analisis Tekstur & Glare Layar HP pada Pipi Kiri & Kanan
  const pts=[{x:l[117].x*w,y:l[117].y*h},{x:l[346].x*w,y:l[346].y*h}];
- let totalGlare=0,totalVar=0;
+ let totalGlare=0,totalVar=0,highFreqEnergy=0;
  for(const pt of pts){
-  const d=patch(pt.x,pt.y,48);let s=0,q=0,g=0;
-  for(let i=0;i<1024;i++){
-   const r=d[i*4],gn=d[i*4+1],b=d[i*4+2];
-   const v=.299*r+.587*gn+.114*b;
-   s+=v;q+=v*v;
-   if(r>240&&gn>240&&b>240)g++; // Pantulan kaca LCD/OLED
+  const d=patch(pt.x,pt.y,48);let s=0,q=0,g=0,hf=0;
+  for(let y=0;y<31;y++){
+   for(let x=0;x<31;x++){
+    const idx=(y*32+x)*4;
+    const v=lum(d,idx);
+    s+=v;q+=v*v;
+    if(d[idx]>242&&d[idx+1]>242&&d[idx+2]>242)g++;
+    // Laplacien / high-pass filter untuk mendeteksi kisi moiré / piksel display gadget
+    const right=lum(d,idx+4),down=lum(d,idx+128);
+    const grad=Math.abs(v-right)+Math.abs(v-down);
+    if(grad>35)hf++;
+   }
   }
-  const m=s/1024;
-  totalVar+=(q/1024-m*m);
-  totalGlare+=g/1024;
+  const m=s/961;
+  totalVar+=(q/961-m*m);
+  totalGlare+=g/961;
+  highFreqEnergy+=hf/961;
  }
  const avgVar=totalVar/2;
  const avgGlare=totalGlare/2;
+ const avgHf=highFreqEnergy/2;
 
- // Foto layar HP / cetak: glare kaca tinggi (> 0.08) ATAU tekstur terlalu datar/halus (varians < 45)
- if(avgGlare>.08)return"Pantulan layar HP/Monitor terdeteksi";
- if(avgVar<45)return"Foto/layar terdeteksi (tekstur tidak alami)";
+ // 1. Pantulan kaca layar HP / Tablet
+ if(avgGlare>.08)return"Pantulan kaca layar HP terdeteksi";
+ // 2. Tekstur gambar datar/blur (foto kertas/layar buram)
+ if(avgVar<40)return"Foto/layar terdeteksi (tekstur kulit tidak terbaca)";
+ // 3. Kisi piksel repetitif / moiré frekuensi tinggi khas layar LCD/OLED
+ if(avgHf>.28)return"Pola piksel layar gadget (Moiré) terdeteksi";
 
- // 2. Periksa variasi mikroskopis kedalaman 3D (Landmark Z-Depth)
- // Pada foto datar, kedalaman hidung ke telinga relatif seragam/datar
+ // 4. Kedalaman 3D statis (Z-Depth)
  const noseZ=l[1].z||0,earLZ=l[234]?.z||0,earRZ=l[454]?.z||0;
  const zDepth=Math.abs(noseZ-(earLZ+earRZ)/2);
  if(zDepth<.025)return"Foto 2D terdeteksi (tidak ada kedalaman 3D)";
 
  return null;
 }
+
+// Analisis Motion Parallax 3D (Hidung vs Telinga)
+function updateMotionParallax(l,w,h){
+ const noseX=l[1].x*w;
+ const earMidX=((l[234].x+l[454].x)/2)*w;
+ if(prevNoseX!==null&&prevEarX!==null){
+  const dNose=Math.abs(noseX-prevNoseX);
+  const dEar=Math.abs(earMidX-prevEarX);
+  // Pada rotasi 3D asli, hidung (lebih dekat kamera) memiliki proyeksi displacement yang berbeda dari sumbu telinga
+  if(dNose>1.2||dEar>1.2){
+   const parallaxRatio=Math.abs(dNose-dEar)/(Math.max(dNose,dEar)+0.01);
+   if(parallaxRatio>0.15){
+    parallaxScore+=1;
+   }
+   parallaxFrames+=1;
+  }
+ }
+ prevNoseX=noseX;prevEarX=earMidX;
+}
+
 function occlusion(l){
  const nose=l[1],chin=l[152],fh=l[10],mL=l[61],mR=l[291],eL=l[133],eR=l[362];
  const H=Math.hypot(fh.x-chin.x,fh.y-chin.y);if(H<.2)return null;
  const r=Math.hypot(nose.x-chin.x,nose.y-chin.y)/H,eD=Math.hypot(eR.x-eL.x,eR.y-eL.y),mW=Math.hypot(mR.x-mL.x,mR.y-mL.y);
  if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
+
 function glasses(l,w,h){
  const span=Math.max(16,Math.hypot((l[362].x-l[133].x)*w,(l[362].y-l[133].y)*h)*.4),b=l[168];
  const d=patch(b.x*w,b.y*h,span);let mn=255,mx=0,e=0;
@@ -247,6 +299,7 @@ function glasses(l,w,h){
  let rim=0;for(const k of[226,446,111,340]){const p=l[k];sx.drawImage(vid,p.x*w-10,p.y*h-10,20,20,0,0,16,16);
   const r=sx.getImageData(0,0,16,16).data;let a=255,z=0;for(let j=0;j<256;j++){const v=lum(r,j*4);a=Math.min(a,v);z=Math.max(z,v)}if(z-a>55)rim++}
  return(mx-mn>60&&e/992>12)||rim>=2}
+
 function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
  const[t1,b1,t2,b2,a,c]=P.map(i=>l[i]),dd=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);return(dd(t1,b1)+dd(t2,b2))/(2*(dd(a,c)||.001))}
 const yawOf=m=>m&&m.length>=16?Math.atan2(m[8],m[0])*180/Math.PI:0;
@@ -254,36 +307,135 @@ const yawOf=m=>m&&m.length>=16?Math.atan2(m[8],m[0])*180/Math.PI:0;
 /* ---------- loop deteksi ---------- */
 function loop(now){
  if(busy)return;raf=requestAnimationFrame(loop);
- if(vid.readyState<2||now-last<50)return;last=now;
+ if(vid.readyState<2||now-last<45)return;last=now;
  if(!lmk){say("Menunggu model 3D…","Sedang memuat MediaPipe");return}
  let r;try{r=lmk.detectForVideo(vid,now)}catch{return}
  const n=r?.faceLandmarks?.length||0;
- if(!n){phase="align";holdT=0;say("Wajah belum terdeteksi","Posisikan wajah di oval");return}
+ if(!n){
+  phase="align";holdT=0;flashState.active=false;flashBox.style.opacity="0";
+  say("Wajah belum terdeteksi","Posisikan wajah di oval");
+  return}
  if(n>1){say("Terdeteksi lebih dari satu wajah","Pastikan hanya kamu di depan kamera","no");return}
  const l=r.faceLandmarks[0],w=vid.videoWidth,h=vid.videoHeight;
- const sp=screenSpoof(l,w,h);if(sp){chk("cScreen","no","Layar?");say(sp,"Hadapkan wajah asli fisikmu","no");holdT=0;return}chk("cScreen","ok","Wajah asli");
- const oc=occlusion(l);if(oc){chk("cMask","no","Tertutup");say("Wajah tertutup",oc,"no");holdT=0;return}chk("cMask","ok","Wajah terbuka");
- if(glasses(l,w,h)){chk("cGlass","no","Kacamata");say("Lepas kacamata","Agar tekstur kulit terbaca akurat","no");holdT=0;return}chk("cGlass","ok","Tanpa kacamata");
+
+ // 1. Analisis Spektrum Frekuensi & Anti-Moiré
+ const sp=screenFrequencySpoof(l,w,h);
+ if(sp){
+  chk("cScreen","no","Layar?");
+  say(sp,"Hadapkan wajah asli fisikmu","no");
+  holdT=0;flashState.active=false;flashBox.style.opacity="0";
+  return;
+ }
+ chk("cScreen","ok","Spektrum Alami");
+
+ // 2. Oklusi & Kacamata
+ const oc=occlusion(l);if(oc){chk("cMask","no","Tertutup");say("Wajah tertutup",oc,"no");holdT=0;return}chk("cMask","ok","Wajah Terbuka");
+ if(glasses(l,w,h)){chk("cGlass","no","Kacamata");say("Lepas kacamata","Agar tekstur kulit terbaca akurat","no");holdT=0;return}chk("cGlass","ok","Tanpa Kacamata");
+
  let a=1,b=0,c=1,d=0;for(const p of l){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y)}
  const fh=d-c,ctr=Math.abs((a+b)/2-.5)<.22&&Math.abs((c+d)/2-.48)<.22&&fh>.28&&fh<.9;
  const yaw=yawOf(r.facialTransformationMatrixes?.[0]?.data);
+
+ // --- Fase 1: Posisi & Framing ---
  if(phase==="align"){
-  if(ctr&&Math.abs(yaw)<12){say("Posisi pas","Tahan sebentar…","ok");holdT||=now;if(now-holdT>600){phase="challenge";chalT=now;eyeClosed=false}}
-  else{holdT=0;say(fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah","Hadap lurus ke kamera")}
-  return}
- if(phase==="challenge"){
-  const t=((3500-(now-chalT))/1000).toFixed(1);say(chal.h,chal.s+" · "+t+" dtk","ok");chk("cLive","","Menguji…");
-  const e=(ear(l,true)+ear(l,false))/2;let pass=false;
-  if(chal.id==="blink"){
-   // Kedipan fisik riil: mata harus benar-benar terpejam (< 0.12) lalu terbuka (> 0.23)
-   if(e<.12)eyeClosed=true;
-   else if(eyeClosed&&e>.23)pass=true;
+  if(ctr&&Math.abs(yaw)<12){
+   say("Posisi pas","Tahan sebentar…","ok");holdT||=now;
+   if(now-holdT>600){
+    phase="flash";
+    flashState={active:true,step:0,timer:now,colors:[{name:"Cyan",hex:"#00e5ff",rgb:[0,229,255]},{name:"Magenta",hex:"#ff007f",rgb:[255,0,127]}],samples:[],passed:false};
+    flashBox.style.backgroundColor=flashState.colors[0].hex;
+    flashBox.style.opacity="0.85";
+   }
+  }else{
+   holdT=0;say(fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah","Hadap lurus ke kamera");
   }
-  else if(chal.id==="left")pass=yaw<-16;
-  else pass=yaw>16;
+  return;
+ }
+
+ // --- Fase 2: Screen-Flash Challenge (Uji Pantulan Spektral Kulit) ---
+ if(phase==="flash"){
+  say("Verifikasi pantulan kulit…","Layar menyinari wajahmu","ok");
+  chk("cFlash","","Uji pantulan…");
+  const elapsed=now-flashState.timer;
   
-  if(pass){chk("cLive","ok","Gerakan asli");analyze(l)}
-  else if(now-chalT>3500){chk("cLive","no","Gagal");say("Gerakan tidak terdeteksi","Mengulang tantangan…","no");phase="align";holdT=0;chal=CH[Math.random()*3|0]}
+  if(elapsed>350&&flashState.step===0){
+   // Ambil sampel kulit saat warna Cyan
+   const d=patch(l[1].x*w,l[1].y*h,40);let rS=0,gS=0,bS=0;
+   for(let i=0;i<1024;i++){rS+=d[i*4];gS+=d[i*4+1];bS+=d[i*4+2]}
+   flashState.samples.push({r:rS/1024,g:gS/1024,b:bS/1024});
+   flashState.step=1;flashState.timer=now;
+   flashBox.style.backgroundColor=flashState.colors[1].hex;
+  }else if(elapsed>350&&flashState.step===1){
+   // Ambil sampel kulit saat warna Magenta
+   const d=patch(l[1].x*w,l[1].y*h,40);let rS=0,gS=0,bS=0;
+   for(let i=0;i<1024;i++){rS+=d[i*4];gS+=d[i*4+1];bS+=d[i*4+2]}
+   flashState.samples.push({r:rS/1024,g:gS/1024,b:bS/1024});
+   
+   // Matikan flash
+   flashBox.style.opacity="0";
+   
+   // Analisis korelasi kromatik pantulan kulit
+   const s1=flashState.samples[0]; // Saat disinari Cyan (Tinggi Blue/Green)
+   const s2=flashState.samples[1]; // Saat disinari Magenta (Tinggi Red/Blue)
+   const blueShift=s1.b-s2.b;
+   const redShift=s2.r-s1.r;
+   
+   // Kulit 3D yang diterangi flash layar akan mengalami pergeseran chromaticity
+   // Layar HP lain yang mereplay video atau gambar kertas tidak sinkron dengan flash acak ini
+   if(redShift>-5||blueShift>-5){
+    chk("cFlash","ok","Pantulan Valid");
+    phase="challenge";chalT=now;eyeClosed=false;
+    prevNoseX=null;prevEarX=null;parallaxScore=0;parallaxFrames=0;
+   }else{
+    chk("cFlash","no","Pantulan Palsu");
+    say("Pantulan kulit tidak terdeteksi","Layar tidak memantulkan cahaya alami kulit","no");
+    phase="align";holdT=0;
+   }
+  }
+  return;
+ }
+
+ // --- Fase 3: Multi-Step Random Challenge & Motion Parallax ---
+ if(phase==="challenge"){
+  updateMotionParallax(l,w,h);
+  const currentChal=chalSeq[chalIdx];
+  const stepNum=chalIdx+1;
+  const t=((3800-(now-chalT))/1000).toFixed(1);
+  say(`[${stepNum}/2] ${currentChal.h}`,`${currentChal.s} · ${t}s`,"ok");
+  chk("cLive","","Menguji gerakan 3D…");
+  
+  const e=(ear(l,true)+ear(l,false))/2;let passStep=false;
+  if(currentChal.id==="blink"){
+   if(e<.12)eyeClosed=true;
+   else if(eyeClosed&&e>.23)passStep=true;
+  }else if(currentChal.id==="left"){
+   passStep=yaw<-16;
+  }else if(currentChal.id==="right"){
+   passStep=yaw>16;
+  }
+  
+  if(passStep){
+   if(chalIdx+1<chalSeq.length){
+    // Lanjut ke langkah tantangan kedua
+    chalIdx++;chalT=now;eyeClosed=false;
+    navigator.vibrate?.(30);
+   }else{
+    // Cek apakah motion parallax 3D terpenuhi (bukan foto kaku yang digeser)
+    const validParallax = parallaxFrames<4 || (parallaxScore/Math.max(1,parallaxFrames) > 0.20);
+    if(validParallax){
+     chk("cLive","ok","Gerakan 3D Alami");
+     analyze(l);
+    }else{
+     chk("cLive","no","Gerakan Kaku 2D");
+     say("Gerakan tidak alami","Terdeteksi objek datar 2D yang digerakkan","no");
+     phase="align";holdT=0;chalSeq=generateChallengeSequence();chalIdx=0;
+    }
+   }
+  }else if(now-chalT>3800){
+   chk("cLive","no","Waktu Habis");
+   say("Tantangan tidak selesai tepat waktu","Mengulang tantangan acak…","no");
+   phase="align";holdT=0;chalSeq=generateChallengeSequence();chalIdx=0;
+  }
  }
 }
 
