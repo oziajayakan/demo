@@ -166,15 +166,37 @@ async function openCam(){
  ["cScreen","cMask","cGlass","cLive"].forEach(i=>chk(i,""));
  show(1,"Pindai wajah");
  try{
-  const dv=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");
-  if(dv.some(d=>VIRT.some(v=>(d.label||"").toLowerCase().includes(v)))){chk("cScreen","no","Kamera virtual");say("Kamera virtual terdeteksi","Gunakan kamera bawaan perangkat","no");return}
- }catch{}
- try{
-  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false})}
-  catch{stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
-  vid.srcObject=stream;await vid.play();say("Posisikan wajah di oval","Hadap lurus ke kamera");
-  raf=requestAnimationFrame(loop);
- }catch{say("Izin kamera diperlukan","Aktifkan kamera di pengaturan browser","no")}
+  // Cari kamera fisik nyata bawaan perangkat, hindari kamera virtual jika ada pilihan lain
+  const dv = (await navigator.mediaDevices.enumerateDevices().catch(()=>[])).filter(d=>d.kind==="videoinput");
+  const physicalCams = dv.filter(d => !VIRT.some(v => (d.label||"").toLowerCase().includes(v)));
+  
+  let videoConstraints = { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } };
+  
+  if (physicalCams.length > 0 && physicalCams[0].deviceId) {
+    // Paksa gunakan kamera fisik asli jika terdeteksi
+    videoConstraints = { deviceId: { exact: physicalCams[0].deviceId }, width: { ideal: 640 }, height: { ideal: 480 } };
+  } else if (dv.length > 0 && physicalCams.length === 0) {
+    // Hanya ada kamera virtual (tidak ada webcam fisik sama sekali)
+    chk("cScreen", "no", "Kamera virtual");
+    say("Kamera virtual terdeteksi", "Hubungkan webcam fisik asli perangkatmu", "no");
+    return;
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+  } catch {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  }
+
+  vid.srcObject = stream;
+  await vid.play();
+  chk("cScreen", "ok", "Kamera fisik");
+  say("Posisikan wajah di oval", "Hadap lurus ke kamera");
+  raf = requestAnimationFrame(loop);
+ }catch(err){
+  console.warn("Camera error:", err);
+  say("Izin kamera diperlukan", "Aktifkan kamera di pengaturan browser", "no");
+ }
 }
 function stopCam(){cancelAnimationFrame(raf);stream?.getTracks().forEach(t=>t.stop());stream=null}
 
