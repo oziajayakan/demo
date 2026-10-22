@@ -55,10 +55,16 @@ h2{font-family:'Playfair Display',serif;font-size:23px;font-weight:600}
 .tags{display:flex;flex-wrap:wrap;gap:7px}
 .tag{padding:6px 13px;border-radius:999px;font-size:12.5px;background:var(--lilac);border:1px solid rgba(194,107,208,.5);color:var(--a2)}
 .tag.good{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.4);color:var(--ok)}
-.rec{border:1px solid var(--line);border-radius:18px;padding:13px 15px;margin-top:10px;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(194,107,208,.12))}
-.rec .n{display:flex;justify-content:space-between;gap:10px;font-weight:600;font-size:14.5px}
-.rec .n em{font-style:normal;font-size:10.5px;background:var(--grad);border-radius:999px;padding:3px 9px;white-space:nowrap;align-self:flex-start}
-.rec p{font-size:12px;color:var(--mute);margin-top:5px;line-height:1.5}.rec b{color:var(--a2)}
+.rec{border:1px solid var(--line);border-radius:18px;padding:15px;margin-top:12px;background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(194,107,208,.13));transition:transform .2s,border-color .2s}
+.rec:hover{transform:translateY(-2px);border-color:var(--a1)}
+.rec.first{border:1px solid var(--a1);background:linear-gradient(135deg,rgba(194,107,208,.18),rgba(240,182,255,.08));box-shadow:0 8px 24px rgba(142,47,148,.25)}
+.rec .n{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;font-weight:600;font-size:14.5px}
+.rec .n em{font-style:normal;font-size:11px;font-weight:600;background:var(--grad);color:#fff;border-radius:999px;padding:4px 10px;white-space:nowrap;letter-spacing:.3px}
+.rec .meta{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:12.5px}
+.rec .meta .kat{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;background:rgba(255,255,255,.07);color:var(--a2);font-size:11.5px;font-weight:500}
+.rec .meta .price{font-weight:700;color:var(--ok);font-size:13.5px}
+.rec p.reason{font-size:12px;color:var(--mute);margin-top:7px;line-height:1.5}
+.rec p.reason b{color:var(--a2)}
 .note{font-size:11.5px;color:var(--mute);margin-top:14px;line-height:1.5;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
 .note.warn{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.35);color:var(--warn)}
 footer{text-align:center;color:var(--mute);font-size:12px}
@@ -1134,9 +1140,17 @@ function showResults(tp, cp, meta) {
 
   html += '<div class="sec">Rekomendasi Produk Paling Cocok (Top 3)</div>';
   html += recommend(tipeAI, mp).map((r, i) => `
-    <div class="rec"><div class="n"><span>${esc(r.nama)}</span><em>${i === 0 ? "★ Paling Cocok" : i === 1 ? "Pilihan Utama #2" : "Pilihan Utama #3"}</em></div>
-    <p>${esc(r.kat)}${r.spf ? " · " + esc(r.spf) : ""} · Rp ${r.harga.toLocaleString("id-ID")}</p>
-    <p>${r.alasan.length ? "Formula aktif untuk: <b>" + r.alasan.map(esc).join("</b>; <b>") + "</b>" : "Perawatan harian untuk kulit " + esc(D[tipeAI].toLowerCase())}</p></div>`).join("");
+    <div class="rec ${i === 0 ? "first" : ""}">
+      <div class="n">
+        <span>${esc(r.nama)}</span>
+        <em>${i === 0 ? "★ Paling Cocok" : i === 1 ? "Pilihan Utama #2" : "Pilihan Utama #3"}</em>
+      </div>
+      <div class="meta">
+        <span class="kat">🏷️ ${esc(r.kat)}${r.spf ? " · " + esc(r.spf) : ""}</span>
+        <span class="price">Rp ${r.harga.toLocaleString("id-ID")}</span>
+      </div>
+      <p class="reason">${r.alasan.length ? "Bahan aktif cocok untuk: <b>" + r.alasan.map(esc).join("</b>; <b>") + "</b>" : "Perawatan harian untuk tipe kulit " + esc(D[tipeAI].toLowerCase())}</p>
+    </div>`).join("");
 
   html += `<div class="note">Dihitung dari <b>${meta.n} frame</b> berkualitas (tajam, terang, wajah lurus), masing-masing dianalisis 2x lalu dirata-rata. Konsistensi tipe kulit antar-frame: <b>${(meta.agree * 100).toFixed(0)}%</b> (simpangan ±${(meta.sd * 100).toFixed(0)}%). Masalah kulit hanya ditampilkan jika muncul di minimal separuh frame.</div>`;
   if (tp.filter(p => p >= .99).length && cp.filter(p => p >= .99).length >= 2) html += '<div class="note warn">Keyakinan model sangat ekstrem pada beberapa kelas. Hasil perlu dikonfirmasi, coba ulang dengan cahaya merata.</div>';
