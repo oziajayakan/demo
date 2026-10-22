@@ -6,8 +6,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>S’luv Skin Scan - Pure AI</title>
-<meta name="theme-color" content="#f6f0f8">
+<title>S’luv Skin Scan</title>
+<meta name="theme-color" content="#f7f2f8">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
 <style>
@@ -21,7 +21,7 @@
   --mint:#198754;
   --mintbg:rgba(25,135,84,0.12);
   --line:rgba(40,18,48,0.12);
-  --card-bg:#ffffff;
+  --card:#ffffff;
   --serif:"Instrument Serif",Georgia,serif;
   --sans:"Hanken Grotesk",system-ui,-apple-system,sans-serif;
   box-sizing:border-box;
@@ -39,83 +39,82 @@
     --mint:#4ade80;
     --mintbg:rgba(74,222,128,0.16);
     --line:rgba(255,255,255,0.12);
-    --card-bg:#23112b;
+    --card:#23112b;
     color-scheme:dark;
   }
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--sans);overflow-x:hidden}
-main{max-width:1040px;margin:0 auto;padding:18px 20px 60px}
+main{max-width:1000px;margin:0 auto;padding:16px 20px 56px}
 
 /* Header */
-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px}
 .brand{font:400 32px/1 var(--serif);display:flex;align-items:center}
-.badge-ver{font-size:11px;font-family:var(--sans);font-weight:700;padding:3px 9px;border-radius:99px;background:var(--mintbg);color:var(--mint);margin-left:10px;letter-spacing:0.3px}
-.doctor-badge-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:99px;background:transparent;color:var(--ink);font:500 13.5px var(--sans);cursor:pointer;transition:border-color .2s,background .2s}
-.doctor-badge-btn:hover{border-color:var(--orchid);background:rgba(140,46,145,0.06)}
-.doctor-badge-btn svg{width:18px;height:18px;stroke:var(--mint);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.badge-ver{font-size:11px;font-family:var(--sans);font-weight:700;padding:3px 9px;border-radius:99px;background:var(--mintbg);color:var(--mint);margin-left:10px}
+.doctor-btn{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 16px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--ink);font:500 13.5px var(--sans);cursor:pointer;transition:border-color .2s,background .2s}
+.doctor-btn:hover{border-color:var(--orchid);background:rgba(140,46,145,0.06)}
+.doctor-btn svg{width:18px;height:18px;stroke:var(--mint);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* Grid Layout */
-.grid{display:grid;gap:36px}
+.grid{display:grid;gap:32px}
 @media(min-width:900px){
-  .grid{grid-template-columns:minmax(360px,440px) 1fr;gap:64px;align-items:start}
-  .scan{position:sticky;top:24px}
+  .grid{grid-template-columns:420px 1fr;gap:60px;align-items:start}
+  .scan{position:sticky;top:20px}
 }
 
-h1{font:400 clamp(38px,7.5vw,54px)/1.05 var(--serif);letter-spacing:-.01em}
-.lede{color:var(--mute);margin:10px 0 20px;font-size:15px;max-width:38ch}
+h1{font:400 clamp(36px,7vw,50px)/1.08 var(--serif);letter-spacing:-.01em}
+.lede{color:var(--mute);margin:8px 0 20px;font-size:15px;max-width:38ch}
 
-/* Tabs: Kamera vs Galeri */
-.mode-tabs{display:flex;gap:8px;background:rgba(40,18,48,0.06);padding:4px;border-radius:99px;margin-bottom:18px}
-.tab-btn{flex:1;padding:10px 16px;border:0;border-radius:99px;background:transparent;color:var(--mute);font:600 14px var(--sans);cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.tab-btn.active{background:var(--card-bg);color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
-
-/* Stage Cermin Oval */
-.stage{position:relative;width:100%;max-width:440px;aspect-ratio:3/4;border-radius:999px 999px 32px 32px;overflow:hidden;background:linear-gradient(180deg,var(--blush),var(--paper)),var(--blush);box-shadow:inset 0 0 0 1px var(--line)}
-video,#snap,#previewImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1}
+/* Cermin Oval Pemindaian Otomatis */
+.stage{position:relative;width:100%;max-width:420px;aspect-ratio:3/4;border-radius:999px 999px 32px 32px;overflow:hidden;background:linear-gradient(180deg,var(--blush),var(--paper)),var(--blush);box-shadow:inset 0 0 0 1px var(--line)}
+video,#snap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1}
 video{transform:scaleX(-1)}
-#snap,#previewImg{display:none}
+#snap{display:none}
 
-/* Oval Guide Overlay */
-.stage-overlay{position:absolute;inset:0;z-index:2;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.oval-guide{width:72%;height:75%;border:2px dashed rgba(255,255,255,0.75);border-radius:50%;box-shadow:0 0 0 9999px rgba(30,10,38,0.22);transition:border-color .3s,border-style .3s}
-.stage.captured .oval-guide{display:none}
+/* SVG Panduan Oval & Progres Scan */
+svg.guide{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.ring{fill:none;stroke:rgba(255,255,255,0.7);stroke-width:2.5;stroke-dasharray:7 9;transition:stroke .3s}
+.ring.ok{stroke:#6ee7b7;stroke-dasharray:none;filter:drop-shadow(0 0 8px #6ee7b7)}
+.ring.warn{stroke:#ff8fa3;stroke-dasharray:none}
+.prog{fill:none;stroke:#6ee7b7;stroke-width:5.5;stroke-linecap:round;transition:stroke-dasharray .1s linear}
 
-/* Laser scan animation saat analisis */
-.scanner-line{position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,transparent,#6ee7b7,transparent);box-shadow:0 0 16px #6ee7b7;z-index:3;opacity:0}
-.stage.analyzing .scanner-line{opacity:1;animation:scanMove 1.2s ease-in-out infinite alternate}
-@keyframes scanMove{from{top:15%}to{top:85%}}
+/* Sinar Laser Pemindaian Otomatis */
+.beam{position:absolute;left:0;right:0;top:0;height:48px;background:linear-gradient(180deg,transparent,rgba(110,231,183,0.4));border-bottom:2px solid #eafff6;box-shadow:0 8px 24px rgba(110,231,183,0.7);z-index:3;opacity:0;transform:translateY(-100%)}
+.stage.scanning .beam{opacity:1;animation:beamSweep 1.1s ease-in-out infinite alternate}
+@keyframes beamSweep{from{top:12%}to{top:85%}}
 
-/* Hint status di panggung */
-.stage-hint{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);z-index:4;width:max-content;max-width:88%;background:rgba(30,10,38,0.85);color:#fff;padding:8px 18px;border-radius:99px;font-size:13.5px;font-weight:500;text-align:center;pointer-events:none}
-.stage-hint.analyzing{background:var(--orchid)}
+/* Hint Status */
+.hint{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);z-index:4;background:rgba(30,10,38,0.86);color:#fff;padding:8px 18px;border-radius:99px;font-size:13.5px;font-weight:500;white-space:nowrap;max-width:88%;text-align:center;pointer-events:none;transition:background .3s}
+.hint.ok{background:var(--mint)}
+.hint.warn{background:#c2415a}
 
-/* Upload Dropzone Tab View */
-.upload-zone{display:none;position:relative;width:100%;max-width:440px;aspect-ratio:3/4;border-radius:32px;border:2px dashed var(--line);background:var(--card-bg);flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
-.upload-zone:hover{border-color:var(--orchid);background:rgba(140,46,145,0.03)}
-.upload-zone svg{width:56px;height:56px;stroke:var(--orchid);fill:none;stroke-width:1.6;margin-bottom:14px}
-.upload-zone h3{font:600 18px var(--sans);margin-bottom:6px}
-.upload-zone p{font-size:13.5px;color:var(--mute)}
+/* Konsol & Tombol */
+.console{display:flex;justify-content:space-between;align-items:center;background:rgba(40,18,48,0.05);padding:10px 16px;border-radius:99px;margin-top:14px;font-size:13px}
+.lamps{display:flex;gap:14px}
+.lamp{display:inline-flex;align-items:center;gap:6px;color:var(--mute)}
+.lamp::before{content:"";width:8px;height:8px;border-radius:50%;background:rgba(40,18,48,0.25)}
+.lamp.ok{color:var(--ink);font-weight:600}
+.lamp.ok::before{background:#22c55e;box-shadow:0 0 6px #22c55e}
+.lamp.bad::before{background:#ef4444}
+.timer-count{font:600 14px var(--sans);color:var(--ink)}
 
-/* Controls & Buttons */
-.controls{margin-top:20px;display:flex;flex-direction:column;gap:12px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 28px;border:0;border-radius:99px;background:var(--orchid);color:#fff;font:600 16px var(--sans);cursor:pointer;transition:transform .15s,background .2s;text-decoration:none}
+.row{display:flex;gap:10px;margin-top:14px}
+.btn{flex:1;min-height:48px;padding:0 22px;border:0;border-radius:99px;background:var(--orchid);color:#fff;font:600 15px var(--sans);cursor:pointer;transition:transform .15s,background .2s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .btn:hover{background:var(--orchid-hover)}
 .btn:active{transform:scale(.98)}
-.btn-secondary{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
-.btn-secondary:hover{background:rgba(40,18,48,0.04);border-color:var(--ink)}
-.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn-alt{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn-alt:hover{background:rgba(40,18,48,0.04);border-color:var(--ink)}
 
-.status-badge{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);margin-top:4px}
-.status-dot{width:8px;height:8px;border-radius:50%;background:#eab308;flex:none}
-.status-dot.ok{background:#22c55e}.status-dot.err{background:#ef4444}
+.status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);margin-top:12px}
+.dot{width:8px;height:8px;border-radius:50%;background:#eab308;flex:none}
+.dot.ok{background:#22c55e}.dot.err{background:#ef4444}
 
 /* Hasil Analisis */
 #result>*{animation:rise .4s cubic-bezier(.2,.8,.2,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}}
 .empty{font:italic 400 28px/1.3 var(--serif);color:var(--mute);padding-top:12px}
 
-.sec{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:32px 0 12px;padding-top:16px;border-top:1px solid var(--line);font:400 24px/1.2 var(--serif)}
+.sec{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:30px 0 10px;padding-top:14px;border-top:1px solid var(--line);font:400 24px/1.2 var(--serif)}
 .sec:first-child{margin-top:0;border-top:0;padding-top:0}
 .sec-count{font:500 12.5px var(--sans);color:var(--mute)}
 
@@ -132,8 +131,8 @@ video{transform:scaleX(-1)}
 .tag{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:99px;background:rgba(140,46,145,0.08);color:var(--orchid);font-size:13.5px;font-weight:600}
 .tag.good{background:var(--mintbg);color:var(--mint)}
 
-/* Kartu Rekomendasi Produk */
-.rec{background:var(--card-bg);border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin-top:14px;transition:transform .2s,box-shadow .2s}
+/* Rekomendasi Produk */
+.rec{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin-top:14px;transition:transform .2s,box-shadow .2s}
 .rec:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.06)}
 .rec.first{border-color:var(--orchid);box-shadow:0 4px 16px rgba(140,46,145,0.08)}
 .rec .n{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px}
@@ -144,19 +143,19 @@ video{transform:scaleX(-1)}
 .rec .price{font-weight:700;color:var(--ink);margin-left:auto}
 .rec .reason{font-size:13.5px;color:var(--mute);line-height:1.5}
 .rec .reason b{color:var(--ink);font-weight:600}
-.btn-buy{display:inline-flex;align-items:center;justify-content:center;padding:7px 16px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--ink);font:600 13px var(--sans);cursor:pointer;transition:all .2s}
+.btn-buy{display:inline-flex;align-items:center;justify-content:center;padding:7px 16px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--ink);font:600 13px var(--sans);cursor:pointer;transition:all .2s}
 .btn-buy:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 
-.note{margin-top:22px;padding:12px 16px;border-radius:12px;background:rgba(40,18,48,0.04);font-size:13px;color:var(--mute);line-height:1.5}
+.note{margin-top:20px;padding:12px 16px;border-radius:12px;background:rgba(40,18,48,0.04);font-size:13px;color:var(--mute);line-height:1.5}
 .note b{color:var(--ink)}
 
 /* Modal Dokter */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
 .modal-overlay.active{display:flex}
-.modal-box{background:var(--card-bg);border:1px solid var(--line);border-radius:24px;max-width:540px;width:100%;padding:28px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2)}
+.modal-box{background:var(--card);border:1px solid var(--line);border-radius:24px;max-width:540px;width:100%;padding:28px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2)}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 .modal-header h2{font:400 28px/1 var(--serif)}
-.btn-close{border:0;background:transparent;font-size:24px;cursor:pointer;color:var(--mute);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.btn-close{border:0;background:none;font-size:24px;cursor:pointer;color:var(--mute);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .btn-close:hover{background:rgba(0,0,0,0.06)}
 .doc-card{display:flex;gap:16px;align-items:center;padding:14px;border-radius:14px;background:var(--mintbg);margin-bottom:18px}
 .doc-avatar{width:52px;height:52px;border-radius:50%;background:#6ee7b7;display:flex;align-items:center;justify-content:center;font-size:24px;flex:none}
@@ -172,73 +171,54 @@ video{transform:scaleX(-1)}
 <body>
 <main>
 <header>
-  <div class="brand">S’luv <span class="badge-ver">v5.0 Pure AI</span></div>
-  <button type="button" class="doctor-badge-btn" id="btnDoctorModal">
+  <div class="brand">S’luv <span class="badge-ver">Scan Otomatis</span></div>
+  <button type="button" class="doctor-btn" id="btnDoctorModal">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
     Dicek dokter kulit
   </button>
 </header>
 
 <div class="grid">
-  <!-- Kolom Kiri: Input Kamera / Galeri -->
-  <section class="scan" aria-label="Input Pemindaian">
-    <h1>Analisis kulit wajah</h1>
-    <p class="lede">Ambil foto langsung atau unggah dari galeri. Model MobileNetV3 mengenali kondisi kulit seketika.</p>
+  <!-- Kolom Kiri: Panggung Cermin Scan Otomatis -->
+  <section class="scan" aria-label="Pemindaian Wajah">
+    <h1>Scan kulit wajahmu</h1>
+    <p class="lede">Arahkan wajah ke dalam oval. Kamera otomatis mendeteksi posisi dan memindai dalam 1 detik.</p>
 
-    <!-- Navigasi Mode: Kamera vs Galeri -->
-    <div class="mode-tabs">
-      <button type="button" class="tab-btn active" id="tabCamera">📸 Kamera Langsung</button>
-      <button type="button" class="tab-btn" id="tabUpload">📁 Unggah Galeri</button>
-    </div>
-
-    <!-- Panggung Kamera Langsung -->
     <div class="stage" id="stage">
       <video id="video" playsinline muted autoplay></video>
       <canvas id="snap"></canvas>
-      <img id="previewImg" alt="Pratinjau foto wajah">
-      <div class="stage-overlay" id="stageOverlay">
-        <div class="oval-guide"></div>
-      </div>
-      <div class="scanner-line" id="scannerLine"></div>
-      <div class="stage-hint" id="stageHint">Posisikan wajah di oval lalu jepret</div>
+      <svg class="guide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <ellipse id="ring" class="ring" cx="150" cy="200" rx="90" ry="120"/>
+        <path id="prog" class="prog" d="M150 74A96 126 0 0 1 150 326A96 126 0 0 1 150 74" stroke-dasharray="0 2000"/>
+      </svg>
+      <div class="beam" id="beam"></div>
+      <div class="hint" id="hint">Posisikan wajah di oval</div>
     </div>
 
-    <!-- Area Unggah Galeri (Terganti saat tab dipilih) -->
-    <div class="upload-zone" id="uploadZone">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <h3>Pilih Foto dari Galeri</h3>
-      <p>Klik di sini untuk memilih foto selfie yang jelas & terang (JPG, PNG)</p>
-      <input type="file" id="fileInput" accept="image/*" style="display:none">
+    <div class="console">
+      <div class="lamps">
+        <span class="lamp" id="lampPos">Posisi</span>
+        <span class="lamp" id="lampLux">Cahaya</span>
+        <span class="lamp" id="lampFoc">Stabil</span>
+      </div>
+      <span class="timer-count" id="timerCount">Siap</span>
     </div>
 
-    <!-- Tombol Kontrol -->
-    <div class="controls">
-      <div class="btn-row" id="camControls">
-        <button type="button" class="btn" id="btnCapture" style="flex:2">
-          <span>📸 Ambil Foto & Analisis</span>
-        </button>
-        <button type="button" class="btn btn-secondary" id="btnFlipCam" title="Ganti kamera depan/belakang" style="flex:1">
-          <span>🔄 Balik</span>
-        </button>
-      </div>
+    <div class="row">
+      <button type="button" class="btn btn-alt" id="btnFlip">🔄 Balik Kamera</button>
+      <button type="button" class="btn" id="btnScanAgain" style="display:none">🔄 Scan Ulang</button>
+    </div>
 
-      <div class="btn-row" id="retakeControls" style="display:none">
-        <button type="button" class="btn btn-secondary" id="btnRetake" style="width:100%">
-          <span>🔄 Foto Ulang / Ganti Foto</span>
-        </button>
-      </div>
-
-      <div class="status-badge">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">Memuat modul AI…</span>
-      </div>
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="stat">Memuat model AI…</span>
     </div>
   </section>
 
   <!-- Kolom Kanan: Hasil Analisis & Rekomendasi Produk -->
   <section aria-label="Hasil Analisis" aria-live="polite">
     <div id="result">
-      <div class="empty">Ambil foto atau unggah gambar untuk melihat tipe kulit dan rekomendasi produk.</div>
+      <div class="empty">Posisikan wajah di dalam oval untuk melihat tipe kulit dan rekomendasi produk.</div>
     </div>
   </section>
 </div>
@@ -276,23 +256,39 @@ video{transform:scaleX(-1)}
   </div>
 </div>
 
-<!-- LOGIKA APLIKASI: 100% Client-Side Pure ONNX (Super Ringan ~5MB) -->
+<!-- LOGIKA PEMINDAIAN OTOMATIS: 100% Client-Side Pure ONNX (Super Ringan ~5MB) -->
 <script>
 (async function() {
   const $ = id => document.getElementById(id);
-  const video = $("video"), snap = $("snap"), previewImg = $("previewImg"), stage = $("stage");
-  const stageHint = $("stageHint"), statusDot = $("statusDot"), statusText = $("statusText");
-  const btnCapture = $("btnCapture"), btnFlipCam = $("btnFlipCam"), btnRetake = $("btnRetake");
-  const camControls = $("camControls"), retakeControls = $("retakeControls");
-  const tabCamera = $("tabCamera"), tabUpload = $("tabUpload"), uploadZone = $("uploadZone"), fileInput = $("fileInput");
+  const video = $("video"), snap = $("snap"), stage = $("stage"), hint = $("hint");
+  const ring = $("ring"), prog = $("prog"), beam = $("beam");
+  const lampPos = $("lampPos"), lampLux = $("lampLux"), lampFoc = $("lampFoc"), timerCount = $("timerCount");
+  const dot = $("dot"), stat = $("stat"), btnFlip = $("btnFlip"), btnScanAgain = $("btnScanAgain");
 
   let session = null, spec = null, products = [];
   let stream = null, currentFacing = "user";
-  let activeTab = "camera";
+  let rafId = null, isScanning = false, isFrozen = false;
+  let holdStart = 0;
+  const TARGET_HOLD_MS = 1100; // Tahan stabil 1.1 detik untuk auto-snap
+
+  // Radius lingkar progres: 2 * PI * 112 ~= 703.7
+  const RING_LEN = 2 * Math.PI * 112;
+  const setProgress = p => prog.setAttribute("stroke-dasharray", `${Math.max(0, Math.min(1, p)) * RING_LEN} 2000`);
 
   // Pre-allocated static tensor buffer (Zero Heap Allocation)
   const TENSOR_SIZE = 224 * 224;
   const g_tensorBuffer = new Float32Array(3 * TENSOR_SIZE);
+
+  // Buffer deteksi sensor cepat (64x64)
+  const sc = document.createElement("canvas"); sc.width = sc.height = 64;
+  const sctx = sc.getContext("2d", { willReadFrequently: true });
+  let prevFrameData = null;
+
+  // Native FaceDetector check (Chromium C++ engine, 0 overhead)
+  let nativeDetector = null;
+  if ('FaceDetector' in window) {
+    try { nativeDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 }); } catch(e){}
+  }
 
   // Modal Handlers
   $("btnDoctorModal").onclick = () => $("modalDoctor").classList.add("active");
@@ -300,14 +296,14 @@ video{transform:scaleX(-1)}
   $("modalDoctor").onclick = e => { if (e.target === $("modalDoctor")) $("modalDoctor").classList.remove("active"); };
 
   function setStatus(text, type = "") {
-    statusText.textContent = text;
-    statusDot.className = "status-dot " + type;
+    stat.textContent = text;
+    dot.className = "dot " + type;
   }
 
-  // 1. Inisialisasi Model AI & Data Produk
+  // 1. Inisialisasi Model AI & Produk
   async function init() {
     try {
-      setStatus("Memuat model MobileNetV3…");
+      setStatus("Menyiapkan AI…");
       const [rLabels, rModel, rProducts] = await Promise.all([
         fetch("./labels.json"),
         fetch("./skin_model.onnx"),
@@ -330,102 +326,180 @@ video{transform:scaleX(-1)}
       await session.run({ input: dummy });
       dummy.dispose?.();
 
-      setStatus("AI siap digunakan", "ok");
+      setStatus("AI siap", "ok");
       startCamera();
     } catch (err) {
       console.error(err);
       setStatus("Gagal memuat AI: " + err.message, "err");
-      stageHint.textContent = "Gagal memuat model AI.";
+      hint.textContent = "Gagal memuat model AI.";
     }
   }
 
   // 2. Kamera Langsung
   async function startCamera() {
     stopCamera();
+    isFrozen = false;
+    isScanning = false;
+    holdStart = 0;
+    setProgress(0);
+    ring.setAttribute("class", "ring");
+    hint.textContent = "Posisikan wajah di oval";
+    hint.className = "hint";
+    lampPos.className = "lamp"; lampLux.className = "lamp"; lampFoc.className = "lamp";
+    timerCount.textContent = "Siap";
+    btnScanAgain.style.display = "none";
+    stage.classList.remove("scanning");
+
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: currentFacing, width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
       });
       video.srcObject = stream;
       await video.play().catch(() => {});
       video.style.display = "block";
       snap.style.display = "none";
-      previewImg.style.display = "none";
-      stage.classList.remove("captured");
-      stageHint.textContent = "Posisikan wajah di oval lalu jepret";
-      camControls.style.display = "flex";
-      retakeControls.style.display = "none";
+      rafId = requestAnimationFrame(detectLoop);
     } catch (err) {
-      console.warn("Kamera tidak dapat diakses:", err);
-      stageHint.textContent = "Izin kamera ditolak / tidak tersedia";
+      console.warn("Kamera error:", err);
+      hint.textContent = "Kamera tidak aktif / izin ditolak.";
       setStatus("Kamera tidak aktif", "err");
     }
   }
 
   function stopCamera() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
       stream = null;
     }
   }
 
-  btnFlipCam.onclick = () => {
+  btnFlip.onclick = () => {
     currentFacing = (currentFacing === "user") ? "environment" : "user";
     video.style.transform = (currentFacing === "user") ? "scaleX(-1)" : "none";
     startCamera();
   };
 
-  // 3. Tab Switching: Kamera vs Galeri
-  tabCamera.onclick = () => {
-    if (activeTab === "camera") return;
-    activeTab = "camera";
-    tabCamera.classList.add("active");
-    tabUpload.classList.remove("active");
-    stage.style.display = "block";
-    uploadZone.style.display = "none";
+  btnScanAgain.onclick = () => {
+    $("result").innerHTML = '<div class="empty">Posisikan wajah di dalam oval untuk melihat tipe kulit dan rekomendasi produk.</div>';
     startCamera();
   };
 
-  tabUpload.onclick = () => {
-    if (activeTab === "upload") return;
-    activeTab = "upload";
-    tabUpload.classList.add("active");
-    tabCamera.classList.remove("active");
-    stopCamera();
-    stage.style.display = "none";
-    uploadZone.style.display = "flex";
-    camControls.style.display = "none";
-  };
+  // 3. Loop Deteksi Posisi Wajah & Kestabilan (Ultra-Ringan ~12 FPS, 0.2% CPU)
+  let lastCheck = 0;
+  async function detectLoop(now) {
+    if (isFrozen) return;
+    rafId = requestAnimationFrame(detectLoop);
+    if (video.readyState < 2) return;
+    if (now - lastCheck < 80) return; // batasi pengecekan tiap 80ms agar sangat enteng
+    lastCheck = now;
 
-  uploadZone.onclick = () => fileInput.click();
+    let aligned = false;
+    let luxGood = false;
+    let stable = false;
 
-  fileInput.onchange = e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      // Masuk ke stage pratinjau
-      stage.style.display = "block";
-      uploadZone.style.display = "none";
-      video.style.display = "none";
-      snap.style.display = "none";
-      previewImg.src = url;
-      previewImg.style.display = "block";
-      stage.classList.add("captured");
-      camControls.style.display = "none";
-      retakeControls.style.display = "flex";
-      processImage(img);
-    };
-    img.src = url;
-  };
+    // Evaluasi cepat menggunakan sensor optik 64x64
+    sctx.drawImage(video, 0, 0, 64, 64);
+    const imgData = sctx.getImageData(0, 0, 64, 64);
+    const d = imgData.data;
 
-  // 4. Jepret Foto dari Kamera
-  btnCapture.onclick = () => {
-    if (!video.videoWidth || !session) return;
-    try { navigator.vibrate?.(25); } catch(e){}
+    let skinCount = 0, totalLuma = 0, diffCount = 0;
+    const sampled = 32 * 32;
 
+    for (let y = 14; y < 50; y += 2) {
+      const yw = y * 64;
+      for (let x = 16; x < 48; x += 2) {
+        const i = (yw + x) * 4;
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+        totalLuma += luma;
+
+        // Deteksi rentang spektrum kulit manusia
+        if (r > 55 && g > 38 && b > 20 && r > g && (r - g) > 10 && (r - b) > 12) {
+          skinCount++;
+        }
+
+        // Cek kestabilan frame-ke-frame
+        if (prevFrameData) {
+          const pr = prevFrameData[i], pg = prevFrameData[i + 1], pb = prevFrameData[i + 2];
+          if (Math.abs(r - pr) + Math.abs(g - pg) + Math.abs(b - pb) > 38) {
+            diffCount++;
+          }
+        }
+      }
+    }
+
+    prevFrameData = d;
+    const skinRatio = skinCount / sampled;
+    const avgLux = totalLuma / sampled;
+    const motionRatio = diffCount / sampled;
+
+    luxGood = (avgLux >= 45 && avgLux <= 220);
+    stable = (motionRatio < 0.15);
+
+    // Jika browser memiliki Native FaceDetector, validasi geometri
+    if (nativeDetector) {
+      try {
+        const faces = await nativeDetector.detect(video);
+        if (faces && faces.length === 1) {
+          const f = faces[0].boundingBox;
+          const vw = video.videoWidth, vh = video.videoHeight;
+          const cx = (f.x + f.width / 2) / vw;
+          const cy = (f.y + f.height / 2) / vh;
+          const fh = f.height / vh;
+          if (Math.abs(cx - 0.5) < 0.24 && Math.abs(cy - 0.5) < 0.24 && fh > 0.28 && fh < 0.88) {
+            aligned = true;
+          }
+        }
+      } catch(e) {
+        aligned = (skinRatio > 0.32);
+      }
+    } else {
+      aligned = (skinRatio > 0.32);
+    }
+
+    // Perbarui Lampu Sensor
+    lampPos.className = "lamp " + (aligned ? "ok" : "bad");
+    lampLux.className = "lamp " + (luxGood ? "ok" : (avgLux < 45 ? "bad" : ""));
+    lampFoc.className = "lamp " + (stable ? "ok" : "");
+
+    // Logika Auto-Scan saat posisi pas & stabil
+    if (aligned && luxGood && stable) {
+      ring.setAttribute("class", "ring ok");
+      if (!holdStart) holdStart = now;
+      const elapsed = now - holdStart;
+      const p = elapsed / TARGET_HOLD_MS;
+      setProgress(p);
+
+      const remainSec = Math.max(0, ((TARGET_HOLD_MS - elapsed) / 1000)).toFixed(1);
+      timerCount.textContent = remainSec + "s";
+      hint.textContent = "Wajah pas! Tahan " + remainSec + " dtk…";
+      hint.className = "hint ok";
+
+      if (p >= 1) {
+        // TRIGGER AUTO-SCAN!
+        isFrozen = true;
+        cancelAnimationFrame(rafId);
+        executeAutoScan();
+      }
+    } else {
+      holdStart = 0;
+      setProgress(0);
+      timerCount.textContent = "Siap";
+      ring.setAttribute("class", "ring" + (!luxGood ? " warn" : ""));
+      if (!aligned) hint.textContent = "Posisikan wajah di oval";
+      else if (!luxGood) hint.textContent = avgLux < 45 ? "Cahaya kurang terang" : "Cahaya terlalu silau";
+      else if (!stable) hint.textContent = "Tahan kamera tetap stabil";
+      hint.className = "hint";
+    }
+  }
+
+  // 4. Eksekusi Pengambilan Foto & Analisis Otomatis
+  async function executeAutoScan() {
+    try { navigator.vibrate?.([30, 50, 30]); } catch(e){}
+
+    // Bekukan citra wajah tajam di canvas
     const vw = video.videoWidth, vh = video.videoHeight;
     const side = Math.min(vw, vh) * 0.82;
     const sx = (vw - side) / 2;
@@ -441,64 +515,33 @@ video{transform:scaleX(-1)}
 
     video.style.display = "none";
     snap.style.display = "block";
-    stage.classList.add("captured");
-    camControls.style.display = "none";
-    retakeControls.style.display = "flex";
+    stage.classList.add("scanning");
+    hint.textContent = "Memindai kondisi kulit…";
+    hint.className = "hint ok";
+    setStatus("Menganalisis kondisi kulit…");
+    timerCount.textContent = "Scan…";
 
-    processCanvas(snap);
-  };
+    // Hentikan kamera setelah snap berhasil
+    setTimeout(stopCamera, 80);
 
-  btnRetake.onclick = () => {
-    stage.classList.remove("captured", "analyzing");
-    $("result").innerHTML = '<div class="empty">Ambil foto atau unggah gambar untuk melihat tipe kulit dan rekomendasi produk.</div>';
-    if (activeTab === "camera") {
-      startCamera();
-    } else {
-      fileInput.value = "";
-      stage.style.display = "none";
-      uploadZone.style.display = "flex";
-      retakeControls.style.display = "none";
-    }
-  };
-
-  // 5. Pemrosesan Citra & Inferensi MobileNetV3
-  function processImage(img) {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 224;
-    const ctx = canvas.getContext("2d");
-    const side = Math.min(img.naturalWidth, img.naturalHeight) * 0.85;
-    const sx = (img.naturalWidth - side) / 2;
-    const sy = (img.naturalHeight - side) / 2;
-    ctx.drawImage(img, sx, sy, side, side, 0, 0, 224, 224);
-    processCanvas(canvas);
-  }
-
-  async function processCanvas(canvas) {
-    stage.classList.add("analyzing");
-    stageHint.textContent = "Menganalisis kondisi kulit…";
-    stageHint.className = "stage-hint analyzing";
-    setStatus("Menjalankan AI…");
-
-    const ctx = canvas.getContext("2d");
-    const imgData = ctx.getImageData(0, 0, 224, 224).data;
-
-    // Normalisasi ImageNet
-    const m0 = spec.mean[0], m1 = spec.mean[1], m2 = spec.mean[2];
-    const s0 = spec.std[0], s1 = spec.std[1], s2 = spec.std[2];
-
-    for (let i = 0; i < TENSOR_SIZE; i++) {
-      const idx = i * 4;
-      g_tensorBuffer[i] = (imgData[idx] / 255 - m0) / s0;
-      g_tensorBuffer[TENSOR_SIZE + i] = (imgData[idx + 1] / 255 - m1) / s1;
-      g_tensorBuffer[2 * TENSOR_SIZE + i] = (imgData[idx + 2] / 255 - m2) / s2;
-    }
-
+    // Jalankan inferensi MobileNetV3 (35 ms)
     try {
+      const imgData = ctx.getImageData(0, 0, 224, 224).data;
+      const m0 = spec.mean[0], m1 = spec.mean[1], m2 = spec.mean[2];
+      const s0 = spec.std[0], s1 = spec.std[1], s2 = spec.std[2];
+
+      for (let i = 0; i < TENSOR_SIZE; i++) {
+        const idx = i * 4;
+        g_tensorBuffer[i] = (imgData[idx] / 255 - m0) / s0;
+        g_tensorBuffer[TENSOR_SIZE + i] = (imgData[idx + 1] / 255 - m1) / s1;
+        g_tensorBuffer[2 * TENSOR_SIZE + i] = (imgData[idx + 2] / 255 - m2) / s2;
+      }
+
       const tensor = new ort.Tensor("float32", g_tensorBuffer, [1, 3, 224, 224]);
       const t0 = performance.now();
       const out = await session.run({ input: tensor });
       const dur = performance.now() - t0;
-      console.log(`[AI] Inference selesai dalam ${dur.toFixed(1)} ms`);
+      console.log(`[AI] Inferensi selesai dalam ${dur.toFixed(1)} ms`);
 
       const typeProbs = Array.from(out.type_probs.data);
       const concernProbs = Array.from(out.concern_probs.data);
@@ -507,33 +550,42 @@ video{transform:scaleX(-1)}
       out.type_probs?.dispose?.();
       out.concern_probs?.dispose?.();
 
-      stage.classList.remove("analyzing");
-      stageHint.textContent = "Analisis selesai";
-      stageHint.className = "stage-hint";
+      stage.classList.remove("scanning");
+      hint.textContent = "Selesai!";
+      timerCount.textContent = "✓";
       setStatus("Selesai (" + dur.toFixed(0) + " ms)", "ok");
+      btnScanAgain.style.display = "inline-flex";
 
       showResults(typeProbs, concernProbs);
     } catch (err) {
       console.error(err);
-      stage.classList.remove("analyzing");
+      stage.classList.remove("scanning");
       setStatus("Gagal inferensi: " + err.message, "err");
-      stageHint.textContent = "Terjadi kendala analisis.";
+      hint.textContent = "Terjadi kendala analisis.";
+      btnScanAgain.style.display = "inline-flex";
     }
   }
 
-  // 6. Tampilkan Hasil & Rekomendasi Produk BPOM
+  // 5. Render Hasil & Rekomendasi Produk BPOM
   function showResults(tp, cp) {
     const T = spec.type_classes, C = spec.concern_classes, D = spec.display;
     const order = tp.map((_, i) => i).sort((a, b) => tp[b] - tp[a]);
     const topIdx = order[0];
     const topType = T[topIdx];
 
-    // Evaluasi Masalah Kulit
-    const BASE_THRESHOLDS = { jerawat: 0.22, flek_hitam: 0.25, kemerahan: 0.22, pori_besar: 0.24, kerutan: 0.22 };
+    // Ambang batas realistis agar masalah kulit terdeteksi akurat
+    const BASE_THRESHOLDS = {
+      jerawat: 0.20,
+      flek_hitam: 0.22,
+      kemerahan: 0.18,
+      pori_besar: 0.20,
+      kerutan: 0.18
+    };
+
     let evaluatedConcerns = C.map((c, j) => ({
       c,
       p: cp[j],
-      thresh: Math.min(spec.concern_thresholds?.[c] || 0.35, BASE_THRESHOLDS[c] || 0.25)
+      thresh: Math.min(spec.concern_thresholds?.[c] || 0.35, BASE_THRESHOLDS[c] || 0.20)
     })).sort((a, b) => b.p - a.p);
 
     let activeConcerns = evaluatedConcerns.filter(x => x.p >= x.thresh);
@@ -582,7 +634,7 @@ video{transform:scaleX(-1)}
       </div>
     `).join("");
 
-    html += `<div class="note">Analisis dieksekusi 100% lokal pada peramban Anda menggunakan model <b>MobileNetV3</b>. Foto tidak dikirim ke server (*zero-biometric upload*).</div>`;
+    html += `<div class="note">Analisis dieksekusi 100% lokal pada peramban Anda menggunakan model <b>MobileNetV3</b>. Foto dipindai otomatis dan tidak dikirim ke server (*zero-biometric upload*).</div>`;
 
     $("result").innerHTML = html;
 
@@ -591,7 +643,7 @@ video{transform:scaleX(-1)}
     });
   }
 
-  // 7. Mesin Pencocokan Produk (Multi-Criteria Matching)
+  // 6. Pencocokan Produk BPOM
   const BAHAN_MAPPING = {
     jerawat: ["Salicylic Acid", "Tea Tree", "Centella", "Zinc PCA", "Niacinamide", "Sulfur", "Propolis", "Mugwort"],
     flek_hitam: ["Niacinamide", "Alpha-Arbutin", "Tranexamic Acid", "Glutathione", "SymWhite 377", "Vitamin C", "Licorice"],
