@@ -180,7 +180,7 @@ footer{margin-top:44px;font-size:12.5px;color:var(--mute);max-width:60ch}
 <body>
 <main>
 <header>
-  <div class="brand">S’luv <span class="badge-ver">v2.6 Ultra</span></div>
+  <div class="brand">S’luv <span class="badge-ver">v3.0 Ultra-Light</span></div>
   <button type="button" class="doctor-badge-btn" id="btnDoctorModal">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
     Dicek dokter kulit
@@ -190,7 +190,7 @@ footer{margin-top:44px;font-size:12.5px;color:var(--mute);max-width:60ch}
 <div class="grid">
   <section class="scan" aria-label="Scan wajah">
     <h1>Scan kulit wajahmu</h1>
-    <p class="lede">Ikuti dua gerakan singkat, lalu lihat tipe kulit dan produk yang cocok.</p>
+    <p class="lede">Ikuti satu gerakan singkat, lalu lihat tipe kulit dan produk yang cocok.</p>
     <div class="stage" id="stage" tabindex="0" role="button" aria-label="Mulai scan">
       <video id="video" playsinline muted></video>
       <canvas id="snap"></canvas>
@@ -203,7 +203,7 @@ footer{margin-top:44px;font-size:12.5px;color:var(--mute);max-width:60ch}
       <div class="challenge" id="challenge"></div>
       <div class="hint" id="hint" role="status">Tekan “Mulai scan”</div>
     </div>
-    <div class="console"><div class="lamps"><span class="lamp" data-k="pos">Posisi</span><span class="lamp" data-k="lux">Cahaya</span><span class="lamp" data-k="foc">Fokus</span></div><div class="count"><b id="cnt">00</b><small id="cn2">/12</small></div></div>
+    <div class="console"><div class="lamps"><span class="lamp" data-k="pos">Posisi</span><span class="lamp" data-k="lux">Cahaya</span><span class="lamp" data-k="foc">Fokus</span></div><div class="count"><b id="cnt">00</b><small id="cn2">/03</small></div></div>
     <ol class="steps" id="steps"><li>Posisi</li><li>Gerakan</li><li>Foto</li><li>Analisis</li></ol>
     <div class="reject-alert" id="rejectAlert" role="alert"></div>
     <div class="controls">
@@ -254,7 +254,7 @@ $("btnCloseDoctor").onclick = () => $("modalDoctor").classList.remove("active");
 
 // YAW_SIGN diatur ke -1 agar tengok kiri/kanan presisi mengikuti orientasi cermin pengguna
 const YAW_SIGN = -1;
-const CHALLENGE_TIMEOUT = 8000, HOLD_MS = 800, YAW_DEG = 18;
+const CHALLENGE_TIMEOUT = 8000, HOLD_MS = 550, YAW_DEG = 18;
 const BLOCKED_CAMERA = /obs|virtual|manycam|droidcam|iriun|snap camera|epoccam|xsplit|camo|ndi/i;
 
 const CHALLENGES = [
@@ -415,7 +415,7 @@ async function startScan() {
   $("btnStart").style.display = "none"; $("btnRetry").style.display = "none";
   $("ring").setAttribute("class", "ring");
 
-  const pool = [...CHALLENGES].sort(() => Math.random() - 0.5).slice(0, 2);
+  const pool = [...CHALLENGES].sort(() => Math.random() - 0.5).slice(0, 1);
   run = { phase: "align", holdStart: 0, queue: pool, idx: 0, chStart: 0, eyeClosed: false, lastTime: -1 };
   setStatus("Kamera aktif", "ok");
   setHint("Posisikan wajah di oval");
@@ -492,7 +492,7 @@ function checkFaceOcclusion(lm) {
 }
 
 let lastDetect = 0;
-const DETECT_INTERVAL = 45; // ~22 FPS MediaPipe tracking: smooth 60 FPS rendering, zero lag
+const DETECT_INTERVAL = 60; // ~16 FPS tracking: sangat hemat baterai & ringan di HP
 
 // ---------- Loop Utama Pemeriksaan ----------
 function loop(now) {
@@ -609,11 +609,13 @@ function loop(now) {
   }
 }
 
-// ---------- Multi-Frame Collector & Analisis ----------
-const N_FRAMES = 12, FRAME_GAP = 250, COLLECT_TIMEOUT = 12000;
-const SHARP_MIN = 20, LUMA_MIN = 70, LUMA_MAX = 190;
+// ---------- Multi-Frame Collector & Analisis (Ultra-Light 3-Frame Engine) ----------
+const N_FRAMES = 3, FRAME_GAP = 180, COLLECT_TIMEOUT = 8000;
+const SHARP_MIN = 18, LUMA_MIN = 65, LUMA_MAX = 195;
 const fc = document.createElement("canvas"); fc.width = fc.height = 224;
 const fctx = fc.getContext("2d", { willReadFrequently: true });
+const W = 224;
+const g_gray = new Float32Array(W * W);
 
 function beginCollect() {
   if (hasScreenGlare()) {
@@ -621,19 +623,20 @@ function beginCollect() {
     return;
   }
   run.phase = "collect"; run.frames = []; run.dropped = 0; run.nextAt = 0; run.collectStart = performance.now();
-  setHint("Tahan posisi, mengumpulkan data...");
+  setHint("Tahan posisi sejenak...");
 }
 
 function frameQuality(px) {
-  const W = 224, g = new Float32Array(W * W); let sum = 0;
+  let sum = 0;
   for (let i = 0; i < W * W; i++) {
-    g[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
-    sum += g[i];
+    const val = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
+    g_gray[i] = val;
+    sum += val;
   }
   let lap = 0, c = 0;
-  for (let y = 1; y < W - 1; y += 2) {
-    for (let x = 1; x < W - 1; x += 2) {
-      const v = 4 * g[y * W + x] - g[(y - 1) * W + x] - g[(y + 1) * W + x] - g[y * W + x - 1] - g[y * W + x + 1];
+  for (let y = 1; y < W - 1; y += 4) {
+    for (let x = 1; x < W - 1; x += 4) {
+      const v = 4 * g_gray[y * W + x] - g_gray[(y - 1) * W + x] - g_gray[(y + 1) * W + x] - g_gray[y * W + x - 1] - g_gray[y * W + x + 1];
       lap += v * v; c++;
     }
   }
@@ -679,8 +682,8 @@ async function analyze(frames) {
   $("ring").setAttribute("class", "ring ok");
 
   const cntEl = $("cnt"), cn2El = $("cn2");
-  if (cntEl) cntEl.textContent = "12";
-  if (cn2El) cn2El.textContent = "/12";
+  if (cntEl) cntEl.textContent = "03";
+  if (cn2El) cn2El.textContent = "/03";
 
   setStatus("Menganalisis kondisi kulit…");
   setHint("Menganalisis kondisi kulit...");
@@ -875,7 +878,7 @@ function lamp(k,s){d.querySelector('.lamp[data-k="'+k+'"]').className="lamp"+(s?
 function sync(){var t=hint.textContent,rc=ring.getAttribute("class")||"";
 lamp("pos",rc.indexOf("warn")>-1?"bad":rc.indexOf("ok")>-1?"ok":"");
 lamp("lux",/cahaya/i.test(t)?"bad":cur>=2?"ok":"");lamp("foc",/buram|stabil/i.test(t)?"bad":cur>=2?"ok":"")}
-function reset(){sec.classList.add("live");st.classList.add("live");st.classList.remove("done");clearScan();cur=-1;setStep(0);cnt.textContent="00";cn2.textContent="/12";sync()}
+function reset(){sec.classList.add("live");st.classList.add("live");st.classList.remove("done");clearScan();cur=-1;setStep(0);cnt.textContent="00";cn2.textContent="/03";sync()}
 ["btnStart","btnRetry"].forEach(function(id){g(id).addEventListener("click",reset)});
 new MutationObserver(function(){var t=hint.textContent,n=-1,mm=t.match(/(\d+)\/(\d+)/);
 if(mm){cnt.textContent=("0"+mm[1]).slice(-2);cn2.textContent="/"+mm[2]}
