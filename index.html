@@ -976,18 +976,18 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
     }
   }
 
-  // 1. DETEKSI KACAMATA (Nasal Bridge Contrast & Edge Ratio)
-  // Memeriksa area batang hidung antara landmark 133, 362 (inner eye) dan landmark 168, 6 (nasal bridge)
+  // 1. DETEKSI KACAMATA MULTI-ZONAL (Nasal Bridge + Eye Orbit Rim)
+  // Memeriksa batang hidung (168, 6) dan lingkaran bawah/luar mata (111, 117, 340, 346, 226, 446)
   function detectGlasses(lm, vw, vh) {
     if (!lm || lm.length < 400) return false;
     const eyeL = lm[133], eyeR = lm[362], bridge = lm[168] || lm[6];
     if (!eyeL || !eyeR || !bridge) return false;
 
     try {
-      // Ambil patch kecil pada jembatan hidung
+      // Zona 1: Jembatan hidung di antara kedua mata
       const bx = bridge.x * vw, by = bridge.y * vh;
-      const span = Math.hypot((eyeR.x - eyeL.x) * vw, (eyeR.y - eyeL.y) * vh) * 0.45;
-      if (span < 10) return false;
+      const eyeSpan = Math.hypot((eyeR.x - eyeL.x) * vw, (eyeR.y - eyeL.y) * vh);
+      const span = Math.max(16, eyeSpan * 0.40);
 
       sctx.drawImage(video, bx - span / 2, by - span / 2, span, span, 0, 0, 32, 32);
       const d = sctx.getImageData(0, 0, 32, 32).data;
@@ -1003,11 +1003,43 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
           edgeDiffSum += Math.abs(lum - nextLum);
         }
       }
-      const contrast = lumaMax - lumaMin;
-      const edgeIntensity = edgeDiffSum / (32 * 31);
+      const bridgeContrast = lumaMax - lumaMin;
+      const bridgeEdges = edgeDiffSum / (32 * 31);
 
-      // Bingkai kacamata memicu garis gelap/kontras tinggi melintang di atas hidung
-      return (contrast > 125 && edgeIntensity > 28);
+      // Zona 2: Bingkai kacamata bawah/samping mata (Cheekbone & Temporal rim)
+      // Ambil sampel area tepi luar mata kiri (lm 226) dan kanan (lm 446)
+      const rimLeft = lm[226] || lm[130];
+      const rimRight = lm[446] || lm[359];
+      let rimDarkEdgeCount = 0;
+
+      if (rimLeft && rimRight) {
+        const checkPoints = [
+          { x: rimLeft.x * vw, y: rimLeft.y * vh },
+          { x: rimRight.x * vw, y: rimRight.y * vh },
+          { x: lm[111].x * vw, y: lm[111].y * vh }, // Bawah mata kiri
+          { x: lm[340].x * vw, y: lm[340].y * vh }  // Bawah mata kanan
+        ];
+
+        for (const pt of checkPoints) {
+          sctx.drawImage(video, pt.x - 10, pt.y - 10, 20, 20, 0, 0, 16, 16);
+          const rimData = sctx.getImageData(0, 0, 16, 16).data;
+          let rMin = 255, rMax = 0;
+          for (let k = 0; k < 16 * 16; k++) {
+            const klum = 0.299 * rimData[k * 4] + 0.587 * rimData[k * 4 + 1] + 0.114 * rimData[k * 4 + 2];
+            if (klum < rMin) rMin = klum;
+            if (klum > rMax) rMax = klum;
+          }
+          if ((rMax - rMin) > 55) rimDarkEdgeCount++;
+        }
+      }
+
+      // Kacamata terdeteksi jika:
+      // a. Jembatan hidung memiliki garis kontras/tepian kacamata (ambang realistis)
+      // b. ATAU terdapat bingkai kacamata tebal di 2 atau lebih titik orbit mata
+      const isBridgeGlasses = (bridgeContrast > 60 && bridgeEdges > 12);
+      const isRimGlasses = (rimDarkEdgeCount >= 2);
+
+      return isBridgeGlasses || isRimGlasses;
     } catch(e) {
       return false;
     }
