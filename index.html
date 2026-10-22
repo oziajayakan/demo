@@ -750,8 +750,8 @@ main {
       <!-- Sensor Keamanan Anti-Manipulasi Lengkap -->
       <div class="sensor-checks">
         <div class="sensor-badge">
-          <span class="sensor-label">Hardware</span>
-          <span class="sensor-status active" id="sensCam">Kamera Asli</span>
+          <span class="sensor-label">Anti-Layar</span>
+          <span class="sensor-status" id="sensScreen">Mengecek</span>
         </div>
         <div class="sensor-badge">
           <span class="sensor-label">Mask/Tangan</span>
@@ -813,7 +813,7 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
   const liveIcon = document.getElementById("liveIcon");
   const liveText = document.getElementById("liveText");
   
-  const sensCam = document.getElementById("sensCam");
+  const sensScreen = document.getElementById("sensScreen");
   const sensMask = document.getElementById("sensMask");
   const sensGlasses = document.getElementById("sensGlasses");
   const sensLive = document.getElementById("sensLive");
@@ -1074,7 +1074,48 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
     return null;
   }
 
-  // 3. EYE ASPECT RATIO (EAR) & YAW POSE ESTIMATION
+  // 3. DETEKSI LAYAR DIGITAL / FOTO STATIS (Texture Variance & Screen Glare Analysis)
+  // Layar HP lain memiliki pantulan glare lampu/layar seragam dan varians tekstur mikro yang rendah/artifisial
+  function detectScreenSpoof(lm, vw, vh) {
+    if (!lm || lm.length < 400) return true;
+    try {
+      // Ambil area pipi (cheek patch) antara hidung dan telinga (landmark 117 dan 346)
+      const cheekL = lm[117], cheekR = lm[346];
+      const cx = ((cheekL.x + cheekR.x) / 2) * vw;
+      const cy = ((cheekL.y + cheekR.y) / 2) * vh;
+      const patchSize = 48;
+
+      sctx.drawImage(video, cx - patchSize / 2, cy - patchSize / 2, patchSize, patchSize, 0, 0, 32, 32);
+      const data = sctx.getImageData(0, 0, 32, 32).data;
+
+      let sum = 0, sumSq = 0, glarePixels = 0;
+      const totalPx = 32 * 32;
+
+      for (let i = 0; i < totalPx; i++) {
+        const idx = i * 4;
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        sum += lum;
+        sumSq += lum * lum;
+
+        // Pixel glare layar ponsel (> 245 di semua kanal RGB)
+        if (r > 245 && g > 245 && b > 245) glarePixels++;
+      }
+
+      const mean = sum / totalPx;
+      const variance = (sumSq / totalPx) - (mean * mean);
+      const glareRatio = glarePixels / totalPx;
+
+      // Layar HP lain: glare tinggi karena pantulan kaca layar HP (> 12%) ATAU tekstur terlalu datar/buram (varians < 35)
+      if (glareRatio > 0.12) return "Pantulan layar terdeteksi";
+      if (variance < 32) return "Tekstur terlalu datar (Foto/Layar)";
+      return null;
+    } catch(e) {
+      return null;
+    }
+  }
+
+  // 4. EYE ASPECT RATIO (EAR) & YAW POSE ESTIMATION
   function getEAR(lm, isLeft = true) {
     // 6 Landmark per mata untuk menghitung Eye Aspect Ratio
     // Left eye: 362 (outer), 263 (inner), 386/374, 380/385
@@ -1086,7 +1127,7 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
     const leftP = isLeft ? lm[362] : lm[33];
     const rightP = isLeft ? lm[263] : lm[133];
 
-    if (!top1 || !bot1 || !top2 || !bot2 || !leftP || !rightP) return 0.3;
+    if (!top1 || !bot1 || !top2 || !bot2 || !leftP || !rightP) return 0.28;
 
     const v1 = Math.hypot(top1.x - bot1.x, top1.y - bot1.y);
     const v2 = Math.hypot(top2.x - bot2.x, top2.y - bot2.y);
@@ -1148,7 +1189,21 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
     const vw = video.videoWidth || 640;
     const vh = video.videoHeight || 480;
 
-    // --- CHECK 1: OCCLUSION & MASK GUARD ---
+    // --- CHECK 1: ANTI-SCREEN & PHOTO SPOOF GUARD ---
+    const screenError = detectScreenSpoof(lm, vw, vh);
+    if (screenError) {
+      scanOval.className = "scan-oval warning";
+      sensScreen.textContent = "Terdeteksi Layar"; sensScreen.className = "sensor-status danger";
+      liveIcon.textContent = "📱";
+      liveText.textContent = screenError + "! Hadapkan wajah asli.";
+      livenessBanner.className = "liveness-banner alert";
+      alignHoldStart = 0;
+      return;
+    } else {
+      sensScreen.textContent = "Wajah Nyata"; sensScreen.className = "sensor-status active";
+    }
+
+    // --- CHECK 2: OCCLUSION & MASK GUARD ---
     const occlusionError = detectFaceOcclusion(lm);
     if (occlusionError) {
       scanOval.className = "scan-oval warning";
@@ -1162,7 +1217,7 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
       sensMask.textContent = "Bebas"; sensMask.className = "sensor-status active";
     }
 
-    // --- CHECK 2: GLASSES GUARD ---
+    // --- CHECK 3: GLASSES GUARD ---
     const glassesDetected = detectGlasses(lm, vw, vh);
     if (glassesDetected) {
       scanOval.className = "scan-oval warning";
@@ -1189,7 +1244,7 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
 
     const rotMatrix = res.facialTransformationMatrixes?.[0]?.data || null;
     const yaw = rotMatrix ? getYawDegree(rotMatrix) : 0;
-    const isFrontal = Math.abs(yaw) < 14;
+    const isFrontal = Math.abs(yaw) < 12;
 
     // TAHAP 1: PENYESUAIAN POSISI (ALIGNMENT)
     if (phase === "align") {
@@ -1239,25 +1294,26 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
       liveText.textContent = `${currentChallenge.hint} (${remainSec}s)`;
       livenessBanner.className = "liveness-banner";
 
-      // Evaluasi Respons Berdasarkan Eye Aspect Ratio (EAR) & Yaw
+      // Evaluasi Respons Berdasarkan Eye Aspect Ratio (EAR) & Dynamic Yaw Shift
       let challengePassed = false;
       const earLeft = getEAR(lm, true);
       const earRight = getEAR(lm, false);
       const avgEAR = (earLeft + earRight) / 2.0;
 
       if (currentChallenge.id === "blink") {
-        // Kedipan mata alami: bukaan mata mengecil di bawah 0.18 lalu membuka kembali > 0.24
-        if (avgEAR < 0.18) {
+        // Kedipan mata riil: harus benar-benar tertutup (< 0.13) dan membuka kembali (> 0.23)
+        // Gambar 2D tidak bisa melakukan perubahan dinamis bukaan kelopak mata ini
+        if (avgEAR < 0.13) {
           eyeWasClosed = true;
-        } else if (eyeWasClosed && avgEAR > 0.23) {
+        } else if (eyeWasClosed && avgEAR > 0.22) {
           challengePassed = true;
         }
       } else if (currentChallenge.id === "left") {
-        // Kepala menoleh ke kiri (yaw < -12 derajat)
-        if (yaw < -12) challengePassed = true;
+        // Harus menoleh signifikan ke kiri (yaw < -15 derajat)
+        if (yaw < -15) challengePassed = true;
       } else if (currentChallenge.id === "right") {
-        // Kepala menoleh ke kanan (yaw > 12 derajat)
-        if (yaw > 12) challengePassed = true;
+        // Harus menoleh signifikan ke kanan (yaw > 15 derajat)
+        if (yaw > 15) challengePassed = true;
       }
 
       if (challengePassed) {
