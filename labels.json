@@ -10,7 +10,8 @@
     "flek_hitam",
     "kemerahan",
     "pori_besar",
-    "kerutan"
+    "kerutan",
+    "mata_panda"
   ],
   "display": {
     "berminyak": "Berminyak",
@@ -21,7 +22,8 @@
     "flek_hitam": "Flek hitam / bekas jerawat",
     "kemerahan": "Kemerahan",
     "pori_besar": "Pori besar",
-    "kerutan": "Kerutan / garis halus"
+    "kerutan": "Kerutan / garis halus",
+    "mata_panda": "Kantung mata / mata panda"
   },
   "input_size": 224,
   "mean": [
@@ -45,7 +47,8 @@
     "flek_hitam": 0.65,
     "kemerahan": 0.45,
     "pori_besar": 0.55,
-    "kerutan": 0.35
+    "kerutan": 0.35,
+    "mata_panda": 0.25
   },
   "min_confidence": 0.45
 }

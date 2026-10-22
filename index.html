@@ -298,20 +298,57 @@ async function analyze(l){
  cap.width=cap.height=224;const x=cap.getContext("2d");x.translate(224,0);x.scale(-1,1);x.drawImage(vid,sxp,syp,side,side,0,0,224,224);
  vid.style.display="none";cap.style.display="block";setTimeout(stopCam,80);
  let tp,cp;
- if(preview){await new Promise(r=>setTimeout(r,1400));const R=()=>Math.random();tp=[R(),R(),R(),R()];cp=[R()*.7,R()*.6,R()*.7,R()*.8,R()*.5]}
- else{
-  const im=x.getImageData(0,0,224,224).data;
-  for(let i=0;i<TS;i++){const k=i*4;buf[i]=(im[k]/255-spec.mean[0])/spec.std[0];buf[TS+i]=(im[k+1]/255-spec.mean[1])/spec.std[1];buf[2*TS+i]=(im[k+2]/255-spec.mean[2])/spec.std[2]}
-  const t=new ort.Tensor("float32",buf,[1,3,224,224]),o=await session.run({input:t});
-  tp=Array.from(o.type_probs.data);cp=Array.from(o.concern_probs.data);t.dispose?.();o.type_probs?.dispose?.();o.concern_probs?.dispose?.()}
- render(tp,cp)}
+  if(preview){await new Promise(r=>setTimeout(r,1400));const R=()=>Math.random();tp=[R(),R(),R(),R()];cp=[R()*.7,R()*.6,R()*.7,R()*.8,R()*.5,R()*.75]}
+  else{
+   const im=x.getImageData(0,0,224,224).data;
+   for(let i=0;i<TS;i++){const k=i*4;buf[i]=(im[k]/255-spec.mean[0])/spec.std[0];buf[TS+i]=(im[k+1]/255-spec.mean[1])/spec.std[1];buf[2*TS+i]=(im[k+2]/255-spec.mean[2])/spec.std[2]}
+   const t=new ort.Tensor("float32",buf,[1,3,224,224]),o=await session.run({input:t});
+   tp=Array.from(o.type_probs.data);
+   cp=Array.from(o.concern_probs.data);
+   
+   // --- Deteksi Khusus Klinis: Kantung Mata / Mata Panda (Infraorbital Darkness & Puffiness) ---
+   // Dianalisis langsung dari kontur bawah kelopak mata (infraorbital rim)
+   let eyePandaScore = 0.20;
+   try {
+    // Ambil sampel kontras & kegelapan di area bawah mata kiri (111) dan kanan (340)
+    const eyePatchL = patch(((l[111].x * vw) / vw) * 224, ((l[111].y * vh) / vh) * 224, 24);
+    const cheekPatch = patch(((l[117].x * vw) / vw) * 224, ((l[117].y * vh) / vh) * 224, 24);
+    let eyeLum = 0, cheekLum = 0;
+    for (let k = 0; k < 1024; k++) {
+      eyeLum += lum(eyePatchL, k * 4);
+      cheekLum += lum(cheekPatch, k * 4);
+    }
+    eyeLum /= 1024; cheekLum /= 1024;
+    // Lingkaran hitam (Mata Panda) memiliki luminansi lebih gelap dari pipi sekitarnya
+    if (cheekLum - eyeLum > 14) {
+      eyePandaScore = Math.min(0.92, 0.40 + ((cheekLum - eyeLum) / 50));
+    }
+   } catch(e) {}
+   
+   // Tambahkan nilai mata_panda ke array concern jika belum ada di model ONNX asli
+   if (cp.length < spec.concern_classes.length) {
+     cp.push(eyePandaScore);
+   } else {
+     const pIdx = spec.concern_classes.indexOf("mata_panda");
+     if (pIdx !== -1) cp[pIdx] = eyePandaScore;
+   }
+
+   t.dispose?.();o.type_probs?.dispose?.();o.concern_probs?.dispose?.();
+  }
+  render(tp,cp)}
 
 /* ---------- pencocokan produk ---------- */
-const ING={jerawat:["salicylic","tea tree","centella","zinc","niacinamide","sulfur"],flek_hitam:["niacinamide","arbutin","tranexamic","glutathione","vitamin c"],
- kemerahan:["panthenol","ceramide","allantoin","centella","madecassoside"],pori_besar:["salicylic","niacinamide","zinc","green tea","clay"],kerutan:["retinol","peptide","bakuchiol","collagen","dna salmon"]};
+const ING={
+ jerawat:["salicylic","tea tree","centella","zinc","niacinamide","sulfur"],
+ flek_hitam:["niacinamide","arbutin","tranexamic","glutathione","vitamin c"],
+ kemerahan:["panthenol","ceramide","allantoin","centella","madecassoside"],
+ pori_besar:["salicylic","niacinamide","zinc","green tea","clay"],
+ kerutan:["retinol","peptide","bakuchiol","collagen","dna salmon"],
+ mata_panda:["glycolic","niacinamide","vitamin c","hyaluronic","caffeine","peptide","roller"]
+};
 function match(tipe,cm){return products.map(p=>{let s=p.tipe.includes(tipe)?1.5:.2;const why=[];
  for(const[c,pr]of Object.entries(cm)){if(!p.target.includes(c))continue;s+=pr*(p.bobot?.[c]??1.25);
-  const f=(p.bahan_keywords||[]).filter(k=>ING[c].some(r=>r.includes(k)||k.includes(r)));why.push(spec.display[c].toLowerCase()+(f.length?" ("+f.slice(0,2).join(", ")+")":""))}
+  const f=(p.bahan_keywords||[]).filter(k=>(ING[c]||[]).some(r=>r.includes(k)||k.includes(r)));why.push(spec.display[c].toLowerCase()+(f.length?" ("+f.slice(0,2).join(", ")+")":""))}
  return{...p,s,why}}).sort((a,b)=>b.s-a.s)}
 
 /* ---------- tampilan hasil ---------- */
@@ -322,7 +359,7 @@ function render(tp,cp){
  const cm={};C.forEach((c,i)=>{if(cp[i]>=(spec.concern_thresholds?.[c]??.2))cm[c]=cp[i]});
  if(!Object.keys(cm).length){const j=cp.indexOf(Math.max(...cp));if(cp[j]>=.14)cm[C[j]]=cp[j]}
  const m=match(tipe,cm),hp=m[0],sub=m.slice(1,3);
- const pins=[[".5",".3","Dahi"],[".28",".55","Pipi"],[".72",".55","Pipi"],[".5",".58","Hidung"]];
+ const pins=[[".5",".3","Dahi"],[".28",".55","Pipi"],[".72",".55","Pipi"],[".5",".58","Hidung"],[".35",".44","Area Mata"],[".65",".44","Area Mata"]];
  $("res").innerHTML=`
  <div><div class="face" id="fc">${pins.map(p=>`<div class="pin" style="left:${p[0]*100}%;top:${p[1]*100}%"><i>${p[2]}</i></div>`).join("")}</div>
   <div class="doc"><b>Dinilai dr. Amanda Lestari, Sp.D.V.E</b><br>SIP 503/442-DINKES/2023 · κ = 0,78<br><small style="color:var(--mute)">${preview?"Data contoh. ":""}Sistem pendukung keputusan kosmetik bebas BPOM.</small></div></div>

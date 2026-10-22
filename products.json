@@ -1,5 +1,40 @@
 [
   {
+    "id": 101,
+    "nama": "L'Oréal Paris Glycolic Bright Eye Serum",
+    "merek": "L'Oréal Paris",
+    "kat": "Eye Serum",
+    "bpom": "NA18221903348",
+    "spf": "",
+    "tekstur": "Serum ringan dengan Triple Roller Applicator dingin",
+    "harga": 189000,
+    "tipe": [
+      "normal",
+      "berminyak",
+      "kering",
+      "kombinasi"
+    ],
+    "target": [
+      "mata_panda",
+      "flek_hitam",
+      "kerutan"
+    ],
+    "bahan_raw": "• 3% Brightening Complex (Glycolic Acid + Niacinamide + Vitamin CG)\n• Triple Roller Applicator\n• Hyaluronic Acid",
+    "fungsi": "• Mencerahkan lingkaran hitam (mata panda) dalam 2 minggu.\n• Merelaksasi area kantung mata yang lelah dan bengkak.\n• Menyamarkan garis halus dan kerutan di sekitar mata.",
+    "bahan_keywords": [
+      "glycolic",
+      "niacinamide",
+      "vitamin c",
+      "hyaluronic",
+      "roller"
+    ],
+    "bobot": {
+      "mata_panda": 1.6,
+      "flek_hitam": 1.2,
+      "kerutan": 1.2
+    }
+  },
+  {
     "id": 1,
     "nama": "S'Luv Perfect Sunscreen All-in-One",
     "merek": "S'Luv Beauty Skin",
