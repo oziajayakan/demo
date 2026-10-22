@@ -930,24 +930,30 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
     activeResultView.style.display = "none";
 
     try {
-      // 1. Verifikasi Hardware Kamera Anti-Virtual
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(d => d.kind === "videoinput");
-      const virtualCamNames = ["obs", "virtual", "manycam", "droidcam", "vcam", "fake"];
-      const isVirtual = videoDevices.some(d => virtualCamNames.some(v => (d.label || "").toLowerCase().includes(v)));
+      // 1. Verifikasi Hardware Kamera
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === "videoinput");
+        const virtualCamNames = ["obs", "virtual", "manycam", "droidcam", "vcam", "fake"];
+        const isVirtual = videoDevices.some(d => virtualCamNames.some(v => (d.label || "").toLowerCase().includes(v)));
 
-      if (isVirtual && videoDevices.length === 1) {
-        sensCam.textContent = "Virtual Cam";
-        sensCam.className = "sensor-status danger";
-      } else {
-        sensCam.textContent = "Kamera Asli";
-        sensCam.className = "sensor-status active";
+        if (sensScreen) {
+          sensScreen.textContent = isVirtual ? "Virtual" : "Mengecek";
+          sensScreen.className = isVirtual ? "sensor-status danger" : "sensor-status";
+        }
+      } catch(e) {}
+
+      // 2. Akses Kamera dengan Fallback Ramah Semua Perangkat
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+      } catch(strictErr) {
+        // Fallback jika device/browser tidak mendukung constraint facingMode "user"
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
 
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false
-      });
       video.srcObject = stream;
       await video.play();
 
@@ -961,10 +967,11 @@ const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_lan
 
       rafId = requestAnimationFrame(detectionLoop);
     } catch (err) {
-      console.error(err);
+      console.error("Camera error:", err);
       liveIcon.textContent = "⚠️";
-      liveText.textContent = "Izin kamera ditolak / tidak tersedia";
+      liveText.textContent = "Klik ikon kamera di browser untuk izinkan kamera";
       livenessBanner.className = "liveness-banner alert";
+      chText.textContent = "Izin kamera diperlukan";
     }
   }
 
