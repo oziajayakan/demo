@@ -23,6 +23,10 @@ import {
   evaluateFlashChromaticity,
   LivenessResult,
 } from '@/lib/flash-liveness';
+import {
+  checkGlassesWithLandmarks,
+  checkGlassesFallback,
+} from '@/lib/glasses-detector';
 
 type ScanState =
   | 'INIT'
@@ -40,6 +44,7 @@ export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
+  const landmarkerRef = useRef<any>(null);
 
   // Challenge session state from Edge API
   const [sessionData, setSessionData] = useState<any>(null);
@@ -54,6 +59,7 @@ export default function ScanPage() {
     faceDist: false,
     light: false,
     focus: false,
+    noGlasses: true,
     flashReady: false,
   });
 
@@ -124,6 +130,63 @@ export default function ScanPage() {
     }
   }, []);
 
+  // MediaPipe FaceLandmarker Initialization
+  useEffect(() => {
+    let active = true;
+    async function loadLandmarker() {
+      try {
+        const { FaceLandmarker, FilesetResolver } = await import(
+          '@mediapipe/tasks-vision'
+        );
+        const fileset = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+        );
+        const lm = await FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+        });
+        if (active) {
+          landmarkerRef.current = lm;
+          console.log('FaceLandmarker GPU loaded successfully');
+        }
+      } catch (e) {
+        console.warn('FaceLandmarker GPU failed, falling back to CPU/CV:', e);
+        try {
+          const { FaceLandmarker, FilesetResolver } = await import(
+            '@mediapipe/tasks-vision'
+          );
+          const fileset = await FilesetResolver.forVisionTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+          );
+          const lm = await FaceLandmarker.createFromOptions(fileset, {
+            baseOptions: {
+              modelAssetPath:
+                'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+              delegate: 'CPU',
+            },
+            runningMode: 'VIDEO',
+            numFaces: 1,
+          });
+          if (active) {
+            landmarkerRef.current = lm;
+            console.log('FaceLandmarker CPU loaded successfully');
+          }
+        } catch (err) {
+          console.warn('MediaPipe offline, using CV fallback:', err);
+        }
+      }
+    }
+    loadLandmarker();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // 3. Main Frame Processing Loop (Face Alignment & Liveness Gates)
   useEffect(() => {
     if (scanState === 'SUCCESS' || scanState === 'ERROR' || scanState === 'FLASH') {
@@ -168,11 +231,34 @@ export default function ScanPage() {
       const laplacianVar = computeLaplacianVariance(pCtx, 160, 120);
       const isFocusOk = laplacianVar >= 14;
 
-      // Basic alignment assumptions for oval frame
+      // 3. Strict Glasses & Eye Occlusion Detection Gate
+      let glassesRes = { pass: true, msg: 'Bebas kacamata' };
+      if (landmarkerRef.current) {
+        try {
+          const lmRes = landmarkerRef.current.detectForVideo(video, performance.now());
+          if (lmRes?.faceLandmarks?.[0]) {
+            glassesRes = checkGlassesWithLandmarks(
+              lmRes.faceLandmarks[0],
+              pCtx,
+              160,
+              120
+            );
+          } else {
+            glassesRes = checkGlassesFallback(pCtx, 160, 120);
+          }
+        } catch {
+          glassesRes = checkGlassesFallback(pCtx, 160, 120);
+        }
+      } else {
+        glassesRes = checkGlassesFallback(pCtx, 160, 120);
+      }
+
+      const isNoGlassesOk = glassesRes.pass;
       const isPosOk = true;
       const isDistOk = avgLuma > 40;
 
-      const allGatesOk = isLightOk && isFocusOk && isPosOk && isDistOk;
+      const allGatesOk =
+        isLightOk && isFocusOk && isPosOk && isDistOk && isNoGlassesOk;
 
       setGates({
         camLock: true,
@@ -180,6 +266,7 @@ export default function ScanPage() {
         faceDist: isDistOk,
         light: isLightOk,
         focus: isFocusOk,
+        noGlasses: isNoGlassesOk,
         flashReady: allGatesOk,
       });
 
@@ -202,11 +289,15 @@ export default function ScanPage() {
         setHoldProgress(0);
         if (scanState === 'HOLD') setScanState('SEARCH');
 
-        if (!isFocusOk) {
+        if (!isNoGlassesOk) {
+          setStatusMessage('👓 ' + glassesRes.msg);
+        } else if (!isFocusOk) {
           setStatusMessage('Tahan stabil, fokuskan kamera ke wajah');
         } else if (!isLightOk) {
           setStatusMessage(
-            avgLuma < 65 ? 'Cahaya kurang, cari tempat lebih terang' : 'Cahaya terlalu silau'
+            avgLuma < 65
+              ? 'Cahaya kurang, cari tempat lebih terang'
+              : 'Cahaya terlalu silau'
           );
         } else {
           setStatusMessage('Posisikan wajah lurus di dalam bingkai oval');
@@ -443,22 +534,51 @@ export default function ScanPage() {
                   </div>
                 )}
 
+                {/* Glasses Occlusion Warning Overlay */}
+                {!gates.noGlasses && (
+                  <div className="absolute inset-x-6 top-16 z-20 flex justify-center">
+                    <div className="px-4 py-2.5 rounded-2xl bg-rose-950/90 border border-rose-500 text-rose-200 text-xs font-bold flex items-center gap-2 shadow-2xl backdrop-blur-md animate-bounce">
+                      <XCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                      Lepas kacamata Anda untuk melanjutkan
+                    </div>
+                  </div>
+                )}
+
                 {/* Instruction HUD Badge */}
                 <div className="absolute top-4 inset-x-4 text-center pointer-events-none">
-                  <div className="inline-block px-4 py-1.5 rounded-full bg-black/75 backdrop-blur-md border border-plum-600/50 text-white font-medium text-xs sm:text-sm shadow-lg">
+                  <div
+                    className={`inline-block px-4 py-1.5 rounded-full backdrop-blur-md border font-medium text-xs sm:text-sm shadow-lg ${
+                      !gates.noGlasses
+                        ? 'bg-rose-950/80 border-rose-500 text-rose-200'
+                        : 'bg-black/75 border-plum-600/50 text-white'
+                    }`}
+                  >
                     {statusMessage}
                   </div>
                 </div>
 
-                {/* Challenge Indicator Badge */}
-                {sessionData && (
-                  <div className="absolute bottom-4 left-4 z-10">
+                {/* Challenge & Refresh Bar */}
+                <div className="absolute bottom-4 inset-x-4 z-10 flex items-center justify-between">
+                  {sessionData ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur border border-plum-700/60 text-[10px] text-plum-300">
                       <Zap className="w-3 h-3 text-[#00F0FF]" />
                       Flash Target: {sessionData.challenge?.flashName}
                     </span>
-                  </div>
-                )}
+                  ) : <span />}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      holdStartRef.current = null;
+                      setHoldProgress(0);
+                      setStatusMessage('Mengecek ulang kondisi wajah...');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-plum-900/80 hover:bg-plum-800 border border-plum-600/60 text-white text-[10px] font-semibold transition cursor-pointer backdrop-blur shadow"
+                  >
+                    <RefreshCw className="w-3 h-3 text-plum-300" />
+                    Refresh Cek
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -466,12 +586,27 @@ export default function ScanPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
               <div
                 className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
+                  gates.noGlasses
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
+                    : 'bg-rose-950/40 border-rose-500/60 text-rose-300 ring-1 ring-rose-500/40 animate-pulse'
+                }`}
+              >
+                {gates.noGlasses ? (
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                ) : (
+                  <XCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                )}
+                <span>{gates.noGlasses ? 'Tanpa Kacamata' : 'Lepas Kacamata'}</span>
+              </div>
+
+              <div
+                className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
                   gates.camLock
                     ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
                     : 'bg-plum-950/40 border-plum-800 text-plum-400'
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                 <span>Kamera Terkunci</span>
               </div>
 
@@ -482,7 +617,7 @@ export default function ScanPage() {
                     : 'bg-plum-950/40 border-plum-800 text-plum-400'
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                 <span>Ketajaman Pori</span>
               </div>
 
@@ -493,7 +628,7 @@ export default function ScanPage() {
                     : 'bg-plum-950/40 border-plum-800 text-plum-400'
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                 <span>Cahaya Merata</span>
               </div>
 
@@ -510,23 +645,12 @@ export default function ScanPage() {
 
               <div
                 className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
-                  scanState === 'INFERRING' || scanState === 'VERIFYING'
-                    ? 'bg-[#FF2A85]/20 border-[#FF2A85]/50 text-[#FF80BF]'
-                    : 'bg-plum-950/40 border-plum-800 text-plum-400'
-                }`}
-              >
-                <Sparkles className="w-4 h-4 flex-shrink-0" />
-                <span>ONNX Multi-Head</span>
-              </div>
-
-              <div
-                className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
                   sessionData
                     ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
                     : 'bg-plum-950/40 border-plum-800 text-plum-400'
                 }`}
               >
-                <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                <ShieldCheck className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                 <span>Edge Nonce Valid</span>
               </div>
             </div>
