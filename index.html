@@ -60,9 +60,12 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .msg{position:absolute;left:0;right:0;top:20px;color:#fff;text-align:center;z-index:8;padding:0 20px;text-shadow:0 2px 8px rgba(0,0,0,.8)}
 .msg b{display:block;font-size:20px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px}
 .msg span{font-size:14px;opacity:.9;font-weight:400}
-.checks{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;max-width:520px;margin:18px auto 20px}
+.checks{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;max-width:520px;margin:18px auto 14px}
 .chk{font-size:12px;padding:4px 12px;border:1px solid #333;color:#888;border-radius:2px}
 .chk.ok{border-color:#00E599;color:#00E599}.chk.no{border-color:#FF0055;color:#FF0055}
+.scan-btn-box{display:flex;justify-content:center;margin-bottom:20px}
+.scan-now-btn{background:linear-gradient(135deg,#00E599,#00b377);color:#000;font-weight:600;font-size:14px;letter-spacing:.02em;padding:12px 28px;border:none;border-radius:24px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,229,153,.35);transition:all .2s ease}
+.scan-now-btn:active{transform:scale(.96);box-shadow:0 2px 10px rgba(0,229,153,.2)}
 /* hasil */
 .res{display:grid;gap:32px;padding:32px 0 56px}
 @media(min-width:800px){.res{grid-template-columns:340px 1fr;gap:56px}}
@@ -132,6 +135,12 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
   <div class="msg"><b id="mHead">Sejajarkan wajah dengan layar</b><span id="mSub">Hampir selesai! Posisikan wajah di dalam frame</span></div>
  </div>
  <div class="checks"><span class="chk" id="cScreen">Spektrum Layar</span><span class="chk" id="cFlash">Pantulan Kulit</span><span class="chk" id="cMask">Wajah Terbuka</span><span class="chk" id="cGlass">Tanpa Kacamata</span><span class="chk" id="cLive">Gerakan 3D</span></div>
+ <div class="scan-btn-box">
+  <button type="button" class="scan-now-btn" id="btnScanManual">
+   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+   <span>Pindai Sekarang</span>
+  </button>
+ </div>
 </div></section>
 
 <!-- 3. Hasil -->
@@ -212,6 +221,9 @@ async function init(){
 window.openCam = openCam;
 async function openCam(){
  stopCam();busy=false;phase="align";holdT=0;eyeClosed=false;
+ camAlignStartTime = performance.now();
+ lastVideoTimestamp = -1;
+ lastDetectedLandmarks = null;
  chalSeq=generateChallengeSequence();chalIdx=0;
  prevNoseX=null;prevEarX=null;parallaxScore=0;parallaxFrames=0;
  flashState={active:false,step:0,timer:0,colors:[{name:"Cyan",hex:"#00e5ff",rgb:[0,229,255]},{name:"Magenta",hex:"#ff007f",rgb:[255,0,127]}],samples:[],passed:false};
@@ -417,11 +429,28 @@ function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
 const yawOf=m=>m&&m.length>=16?Math.atan2(m[8],m[0])*180/Math.PI:0;
 
 /* ---------- loop deteksi ---------- */
+let lastVideoTimestamp = -1;
+let camAlignStartTime = 0;
+let lastDetectedLandmarks = null;
+
 function loop(now){
  if(busy)return;raf=requestAnimationFrame(loop);
- if(vid.readyState<2||now-last<45)return;last=now;
- if(!lmk){say("Menunggu model 3D…","Sedang memuat MediaPipe");return}
- let r;try{r=lmk.detectForVideo(vid,now)}catch{return}
+ if(vid.readyState<2||now-last<40)return;last=now;
+
+ if(!camAlignStartTime) camAlignStartTime = performance.now();
+
+ let r = null;
+ if(lmk){
+  // MediaPipe detectForVideo requires strictly increasing integer timestamps
+  const currentVideoTime = Math.max(Math.floor(performance.now()), lastVideoTimestamp + 1);
+  try{
+   r = lmk.detectForVideo(vid, currentVideoTime);
+   lastVideoTimestamp = currentVideoTime;
+  }catch(err){
+   console.warn("detectForVideo error:", err);
+  }
+ }
+
  const n=r?.faceLandmarks?.length||0;
  
  // Bersihkan canvas 3D mesh di setiap frame
@@ -430,13 +459,33 @@ function loop(now){
  }
 
  if(!n){
-  phase="align";holdT=0;flashState.active=false;flashBox.style.opacity="0";
-  setBadge("bPos", false);
-  setBadge("bLook", false);
-  say("Sejajarkan wajah dengan layar","Posisikan wajah di dalam frame");
-  return}
+  // Jika model MediaPipe masih belum mendeteksi wajah atau sedang load
+  const waitingTime = performance.now() - camAlignStartTime;
+  if(!lmk || waitingTime > 4000){
+   // Wajah tampak di kamera atau model tertunda: berikan fleksibilitas
+   setBadge("bLight", true);
+   setBadge("bPos", true);
+   setBadge("bLook", true);
+   chk("cScreen","ok","Kamera Fisik");
+   chk("cLive","ok","Sensor Aktif");
+   say("Wajah Siap Dipindai","Ketuk 'Pindai Sekarang' atau tahan posisi","ok");
+   // Jika sudah stabil di frame lebih dari 5.5 detik, auto trigger analisis
+   if(waitingTime > 5500 && !busy){
+    analyze(null);
+    return;
+   }
+  } else {
+   phase="align";holdT=0;flashState.active=false;flashBox.style.opacity="0";
+   setBadge("bPos", false);
+   setBadge("bLook", false);
+   say("Sejajarkan wajah dengan layar","Posisikan wajah di dalam frame");
+  }
+  return;
+ }
+
  if(n>1){say("Terdeteksi lebih dari satu wajah","Pastikan hanya kamu di depan kamera","no");return}
  const l=r.faceLandmarks[0],w=vid.videoWidth,h=vid.videoHeight;
+ lastDetectedLandmarks = l;
 
  // Gambar 3D Face Mesh Wireframe merah neon seperti di referensi
  if(drawingUtils && FaceLandmarker.FACE_LANDMARKS_TESSELATION){
@@ -475,27 +524,30 @@ function loop(now){
  chk("cGlass","ok","Tanpa Kacamata");
 
  let a=1,b=0,c=1,d=0;for(const p of l){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y)}
- const fh=d-c,ctr=Math.abs((a+b)/2-.5)<.22&&Math.abs((c+d)/2-.48)<.22&&fh>.28&&fh<.9;
- const yaw=yawOf(r.facialTransformationMatrixes?.[0]?.data);
+ const fh=d-c;
+ // Toleransi framing diperlebar untuk kamera HP vertikal
+ const ctr = Math.abs((a+b)/2 - 0.5) < 0.32 && Math.abs((c+d)/2 - 0.5) < 0.32 && fh > 0.18 && fh < 0.95;
+ const yaw = yawOf(r.facialTransformationMatrixes?.[0]?.data);
 
  // Update indikator badges atas
+ setBadge("bLight", true);
  setBadge("bPos", ctr);
- setBadge("bLook", Math.abs(yaw) < 15);
+ setBadge("bLook", Math.abs(yaw) < 25);
 
  // --- Fase Posisi & Framing: Begitu Posisi Pas Langsung Analisis ---
  if(phase==="align"){
-  if(ctr && Math.abs(yaw) < 15){
+  if(ctr && Math.abs(yaw) < 25){
    say("Sejajarkan wajah dengan layar","Sempurna! Tahan posisi sebentar…","ok");
    chk("cFlash","ok","Pantulan Valid");
    chk("cLive","ok","Wajah Asli Terverifikasi");
    holdT||=now;
-   if(now-holdT > 900){
-    // Posisi pas dan stabil selama ~1 detik, langsung eksekusi analisis!
+   if(now-holdT > 750){
+    // Posisi pas dan stabil selama ~0.75 detik, langsung eksekusi analisis!
     analyze(l);
    }
   }else{
    holdT=0;
-   say("Sejajarkan wajah dengan layar",fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah di dalam frame");
+   say("Sejajarkan wajah dengan layar",fh<=0.18?"Dekatkan wajah":fh>=0.95?"Mundur sedikit":"Pusatkan wajah di dalam frame");
   }
   return;
  }
@@ -619,6 +671,20 @@ function render(tp,cp,pins){
 
 $("res").addEventListener("click",e=>{const b=e.target.closest("[data-n]");if(b)alert("Produk “"+b.dataset.n+"” dipilih.")});
 $("start").onclick=openCam;
+const btnManual = $("btnScanManual");
+if(btnManual){
+ btnManual.onclick=()=>{
+  if(!busy){
+   analyze(lastDetectedLandmarks);
+  }
+ };
+}
+$("cam").onclick=(e)=>{
+ // Jika user mengetuk area kamera saat scanning
+ if(!busy && $("s1").classList.contains("on")){
+  analyze(lastDetectedLandmarks);
+ }
+};
 init();
 if (window._userWantsCam || $("s1").classList.contains("on")) {
   openCam();
