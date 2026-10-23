@@ -4,7 +4,7 @@ import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Skin Genius AI · Pemindai Wajah & Analisis Kulit Anti-Manipulasi',
+  title: 'Analisis Kulit Wajah · Annisa Beauty Shop',
   description:
     'Sistem pemindai kondisi kulit wajah real-time berbasis deep learning dengan verifikasi anti-spoofing biometrik dan rekomendasi produk BPOM.',
 };
@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className="dark">
+    <html lang="id">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -24,7 +24,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Playfair+Display:ital,wght@0,500..800;1,500..800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Young+Serif&display=swap"
           rel="stylesheet"
         />
         <Script
@@ -32,9 +32,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="min-h-screen bg-black text-white antialiased">
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
