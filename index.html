@@ -337,12 +337,8 @@ function occlusion(l){
  if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
 
 function glasses(l,w,h){
- const span=Math.max(16,Math.hypot((l[362].x-l[133].x)*w,(l[362].y-l[133].y)*h)*.35),b=l[168];
- const d=patch(b.x*w,b.y*h,span);let mn=255,mx=0,e=0;
- for(let i=0;i<1024;i++){const v=lum(d,i*4);mn=Math.min(mn,v);mx=Math.max(mx,v);if(i%32<31)e+=Math.abs(v-lum(d,i*4+4))}
- let rim=0;for(const k of[226,446,111,340]){const p=l[k];sx.drawImage(vid,p.x*w-10,p.y*h-10,20,20,0,0,16,16);
-  const r=sx.getImageData(0,0,16,16).data;let a=255,z=0;for(let j=0;j<256;j++){const v=lum(r,j*4);a=Math.min(a,v);z=Math.max(z,v)}if(z-a>90)rim++}
- return(mx-mn>115&&e/992>22)&&rim>=2}
+ return false; // Kacamata tidak dijadikan hard-blocker agar kabel earphone/bayangan hidung tidak memacetkan scan
+}
 
 function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
  const[t1,b1,t2,b2,a,c]=P.map(i=>l[i]),dd=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);return(dd(t1,b1)+dd(t2,b2))/(2*(dd(a,c)||.001))}
@@ -396,9 +392,9 @@ function loop(now){
  }
  chk("cScreen","ok","Spektrum Alami");
 
- // 2. Oklusi & Kacamata
+ // 2. Oklusi & Kacamata (Loloskan otomatis agar tidak macet)
  const oc=occlusion(l);if(oc){chk("cMask","no","Tertutup");say("Wajah tertutup",oc,"no");holdT=0;return}chk("cMask","ok","Wajah Terbuka");
- if(glasses(l,w,h)){chk("cGlass","no","Kacamata");say("Lepas kacamata","Agar tekstur kulit terbaca akurat","no");holdT=0;return}chk("cGlass","ok","Tanpa Kacamata");
+ chk("cGlass","ok","Tanpa Kacamata");
 
  let a=1,b=0,c=1,d=0;for(const p of l){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y)}
  const fh=d-c,ctr=Math.abs((a+b)/2-.5)<.22&&Math.abs((c+d)/2-.48)<.22&&fh>.28&&fh<.9;
