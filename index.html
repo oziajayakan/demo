@@ -4,53 +4,89 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cek Kulit Wajah · Annisa Beauty Shop</title>
-<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@1,500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
 <style>
-:root{--ink:#111;--paper:#fff;--soft:#F3F2F0;--line:#E2E0DC;--gold:#A9824A;--mute:#6C6A66;--bad:#C8102E;--ok:#1B7F5B;
-padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);box-sizing:border-box}
+/* ===== Token: diambil dari banner Annisa Beauty Shop ===== */
+:root{
+  --ink:#3A1034;          /* teks plum tua */
+  --plum:#5B0F4D;         /* judul */
+  --berry:#8E1366;        /* tombol utama */
+  --gold:#B0287F;         /* aksen (menggantikan emas lama) */
+  --blush:#FCEBFA;        /* kartu produk */
+  --petal:#F7C9E6;
+  --soft:#FCEBFA;
+  --line:#EBD3E6;
+  --mute:#74596F;
+  --footer:#9A2A6B;
+  --bad:#C8102E;
+  --ok:#1B7F5B;
+  padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);box-sizing:border-box
+}
 *{box-sizing:border-box;margin:0}
-body{font:400 16px/1.55 Jost,system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+body{font-family:"DM Sans",system-ui,sans-serif;color:var(--ink);background:#fff}
+.pin i{font-family:"DM Sans",sans-serif}
 button{font:inherit;cursor:pointer}
-button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
-.top{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;border-bottom:1px solid var(--line)}
-.logo{font-weight:600;letter-spacing:.04em}.logo small{display:block;font-weight:300;color:var(--gold);font-size:12px;letter-spacing:.02em}
-.step{font-size:13px;color:var(--mute)}
+button:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
+
+/* ===== Header ===== */
+.top{display:flex;justify-content:space-between;align-items:center;background:#fff;border-bottom:1px solid var(--line);padding:14px 24px}
+.logo{font:600 26px/1.1 "Playfair Display",serif;color:var(--berry);letter-spacing:0;text-transform:lowercase}
+.logo::first-line{text-transform:capitalize}
+.logo small{display:block;font:500 11px "DM Sans",sans-serif;letter-spacing:.14em;color:var(--mute);text-transform:none}
+.step{background:var(--blush);color:var(--berry);padding:6px 14px;border-radius:999px;font-weight:500;font-size:13px}
 .wrap{max-width:960px;margin:0 auto;padding:0 22px}
 .scr{display:none}.scr.on{display:block}
-/* hero */
+
+/* ===== Pembuka ===== */
+#s0{background:linear-gradient(180deg,#F5E6FA 0,#fff 560px)}
 .hero{display:grid;gap:28px;padding:40px 0 24px}
 @media(min-width:800px){.hero{grid-template-columns:1.1fr .9fr;align-items:center;padding:72px 0 40px}}
-.hero h1{font-weight:300;font-size:clamp(40px,7vw,72px);line-height:1.02;letter-spacing:-.02em}
-.hero h1 em{font-family:"Cormorant Garamond",serif;font-weight:500;color:var(--gold)}
-.hero p{margin:18px 0 26px;color:var(--mute);max-width:46ch}
-.btn{display:inline-block;background:var(--ink);color:#fff;border:0;padding:16px 34px;font-weight:500;letter-spacing:.03em}
-.btn:disabled{opacity:.45}.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.hero h1{font-family:"Playfair Display",serif;font-weight:600;color:var(--plum);letter-spacing:-.015em;line-height:1.06;font-size:clamp(38px,6vw,62px)}
+.hero h1 em{font-family:inherit;font-weight:600;font-style:italic;color:inherit}
+.hero p{margin:18px 0 26px;color:#5d4558;max-width:46ch}
+.btn{display:inline-block;background:linear-gradient(135deg,#A01F77,#730D58);color:#fff;border:0;border-radius:999px;padding:15px 36px;font-weight:700;letter-spacing:.01em;box-shadow:0 10px 24px rgba(142,19,102,.28)}
+.btn:disabled{opacity:.45}
+.btn.ghost{background:transparent;color:var(--berry);border:1.5px solid var(--berry);box-shadow:none}
 .status{font-size:13px;color:var(--mute);margin-top:12px;min-height:20px}
-.mapart{aspect-ratio:4/5;background:var(--soft);position:relative;overflow:hidden}
+.mapart{aspect-ratio:4/5;border-radius:28px;background:
+  radial-gradient(ellipse 16px 9px at 18% 28%,#F8B4DA 60%,transparent 64%),
+  radial-gradient(ellipse 12px 7px at 84% 70%,#F8B4DA 60%,transparent 64%),
+  radial-gradient(ellipse 10px 6px at 70% 14%,#fff 60%,transparent 64%),
+  radial-gradient(120% 80% at 85% 0,#F7C9E6 0,transparent 60%),
+  radial-gradient(90% 70% at 5% 100%,#D9BEF2 0,transparent 65%),
+  linear-gradient(160deg,#FBEFF9,#EBDDF7);position:relative;overflow:hidden}
 .mapart svg{position:absolute;inset:0;width:100%;height:100%}
-.tips{display:grid;gap:0;border-top:1px solid var(--line);margin-top:24px}
+.mapart svg g[fill="none"]{stroke:#7A0F5C}
+.mapart svg g[fill="#A9824A"]{fill:var(--gold)}
+.tips{display:grid;gap:0;border-top:0;margin-top:24px}
 @media(min-width:700px){.tips{grid-template-columns:repeat(3,1fr)}}
-.tip{padding:22px 0;border-bottom:1px solid var(--line)}
-@media(min-width:700px){.tip{padding:26px 24px 26px 0;border-bottom:0}}
-.tip b{display:block;font-weight:500;margin-bottom:4px}.tip span{color:var(--mute);font-size:14px}
+.tip{padding:22px 0;border-bottom:0}
+@media(min-width:700px){.tip{border-left:1px solid var(--line);padding:6px 24px}.tip:first-child{border-left:0;padding-left:0}}
+@media(max-width:699px){.tip{border-bottom:1px solid var(--line)}}
+.tip b{display:block;color:var(--plum);font-weight:700;margin-bottom:4px}
+.tip span{color:var(--mute);font-size:14px}
 .fine{font-size:12px;color:var(--mute);padding:22px 0 40px}
-#s1{background:#000;color:#fff;padding-top:16px;padding-bottom:30px;min-height:90vh}
+
+/* ===== Pindai (latar plum agar kamera menonjol) ===== */
+#s1{background:radial-gradient(120% 60% at 50% 0,#4F0C44 0,#240620 72%);color:#fff;padding-top:16px;padding-bottom:30px;min-height:90vh}
 .cam-top-hud{max-width:540px;margin:0 auto 12px;padding:0 8px}
-.gate-hud{display:flex;justify-content:space-between;align-items:center;background:rgba(20,20,20,0.85);border:1px solid #282828;padding:8px 14px;border-radius:24px;backdrop-filter:blur(6px);margin-bottom:10px}
+.gate-hud{display:flex;justify-content:space-between;align-items:center;background:rgba(70,14,60,.7);border:1px solid rgba(247,201,230,.22);padding:8px 14px;border-radius:24px;backdrop-filter:blur(6px);margin-bottom:10px}
 .gate-status-pill{font-size:12px;font-weight:600;letter-spacing:.04em;padding:4px 12px;border-radius:14px;display:inline-flex;align-items:center;gap:6px}
 .gate-status-pill.ready{background:rgba(0,229,153,0.18);color:#00E599;border:1px solid #00E599}
 .gate-status-pill.wait{background:rgba(255,180,0,0.18);color:#FFB400;border:1px solid #FFB400}
 .gate-status-pill.fail{background:rgba(255,0,85,0.18);color:#FF0055;border:1px solid #FF0055}
-.gate-timer{font-size:12px;color:#aaa;font-weight:500}
+.gate-timer{font-size:12px;color:#e9c7de;font-weight:500}
 .checks-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;max-width:540px;margin:0 auto 14px;padding:0 8px}
-.chk-item{background:rgba(18,18,18,0.7);border:1px solid #2a2a2a;border-radius:6px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#8e8e8e;transition:all .18s ease}
+.chk-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-radius:6px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#cfb3c8;transition:all .18s ease}
 .chk-item.ok{border-color:rgba(0,229,153,0.5);background:rgba(0,229,153,0.08);color:#00E599}
 .chk-item.no{border-color:rgba(255,0,85,0.5);background:rgba(255,0,85,0.08);color:#FF5277}
 .chk-dot{width:7px;height:7px;border-radius:50%;background:#444}
 .chk-item.ok .chk-dot{background:#00E599;box-shadow:0 0 6px #00E599}
 .chk-item.no .chk-dot{background:#FF0055;box-shadow:0 0 6px #FF0055}
-.cam{position:relative;background:#050505;max-width:480px;margin:0 auto;aspect-ratio:3/4;overflow:hidden;border-radius:12px;border:1px solid #222;box-shadow:0 16px 48px rgba(0,0,0,.85)}
+.cam{position:relative;background:#12030f;max-width:480px;margin:0 auto;aspect-ratio:3/4;overflow:hidden;border-radius:22px;border:1px solid rgba(247,201,230,.28);box-shadow:0 18px 50px rgba(110,10,80,.55)}
 .cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #vid{transform:scaleX(-1)}
 #meshCanvas{transform:scaleX(-1);pointer-events:none;z-index:4;opacity:0;transition:opacity .2s ease}
@@ -69,57 +105,70 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .busy .laser{opacity:1;animation:sw 1.2s ease-in-out infinite alternate}
 @keyframes sw{to{top:86%}}
 .msg{position:absolute;left:0;right:0;top:18px;color:#fff;text-align:center;z-index:8;padding:0 16px;text-shadow:0 2px 10px rgba(0,0,0,.9)}
-.msg b{display:inline-block;font-size:18px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px;padding:4px 14px;border-radius:20px;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px)}
+.msg b{display:inline-block;font-size:18px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px;padding:4px 14px;border-radius:20px;background:rgba(36,6,32,.72);backdrop-filter:blur(4px)}
 .msg span{display:block;font-size:13px;opacity:.92;font-weight:400;margin-top:2px}
 .cam-bot-bar{position:absolute;left:0;right:0;bottom:14px;z-index:8;display:flex;justify-content:center;align-items:center}
-.auto-progress{width:160px;height:5px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden}
-.auto-progress-bar{height:100%;width:0%;background:#00E599;transition:width .1s linear}
+.auto-progress{width:160px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;overflow:hidden}
+.auto-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#F7A8D8,#E0449F);transition:width .1s linear}
 .scan-btn-box{display:flex;flex-direction:column;align-items:center;margin-top:16px;gap:8px}
-.scan-now-btn{background:linear-gradient(135deg,#00E599,#00b377);color:#000;font-weight:600;font-size:14px;letter-spacing:.02em;padding:12px 30px;border:none;border-radius:24px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(0,229,153,.35);transition:all .2s ease}
-.scan-now-btn:disabled{background:#2a2a2a;color:#666;cursor:not-allowed;box-shadow:none;opacity:.6}
-.scan-fail-notice{max-width:480px;margin:12px auto 0;background:#1a1114;border:1px solid #4a1926;border-radius:8px;padding:12px 16px;display:none;font-size:13px;color:#ff99aa}
+.scan-now-btn{background:linear-gradient(135deg,#C2268F,#8E1366);color:#fff;font-weight:700;font-size:14px;letter-spacing:.02em;padding:12px 30px;border:none;border-radius:24px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 22px rgba(194,38,143,.4);transition:all .2s ease}
+.scan-now-btn:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.45);cursor:not-allowed;box-shadow:none;opacity:.6}
+.scan-fail-notice{max-width:480px;margin:12px auto 0;background:#35102f;border:1px solid #7a1f63;border-radius:8px;padding:12px 16px;display:none;font-size:13px;color:#ffc9e6}
 .scan-fail-notice.show{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.btn-sm-quest{background:#FF0055;color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer}
-/* Modal Kuesioner */
-.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:99;display:none;align-items:center;justify-content:center;padding:16px}
+.btn-sm-quest{background:#E0449F;color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer}
+
+/* ===== Kuesioner ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(36,6,32,.78);z-index:99;display:none;align-items:center;justify-content:center;padding:16px}
 .modal-mask.on{display:flex}
-.modal-box{background:#fff;color:var(--ink);width:100%;max-width:520px;border-radius:12px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto}
-.modal-box h3{font-size:20px;margin-bottom:8px}
+.modal-box{background:#fff;color:var(--ink);width:100%;max-width:520px;border-radius:24px;padding:28px;box-shadow:0 20px 50px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto}
+.modal-box h3{font:600 24px "Playfair Display",serif;color:var(--plum);margin-bottom:8px}
 .modal-box .warn-note{background:#FFF4E5;border:1px solid #FFD8A8;color:#995400;padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:16px}
 .q-group{margin-bottom:16px}
-.q-group label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
-.q-group select,.q-group input{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.q-group label{display:block;font-weight:600;font-size:14px;margin-bottom:6px;color:var(--plum)}
+.q-group select,.q-group input{width:100%;padding:10px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}
+.q-group select:focus,.q-group input:focus{outline:2px solid var(--berry);border-color:transparent}
 .modal-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
-/* hasil */
+
+/* ===== Hasil ===== */
 .res{display:grid;gap:32px;padding:32px 0 56px}
 @media(min-width:800px){.res{grid-template-columns:340px 1fr;gap:56px}}
-.face{position:relative;aspect-ratio:1;background:#000;overflow:hidden}
+.face{position:relative;aspect-ratio:1;background:#000;overflow:hidden;border-radius:24px;box-shadow:0 14px 34px rgba(142,19,102,.18)}
 .face canvas{width:100%;height:100%;display:block}
-.pin{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(0,0,0,.25)}
-.pin i{position:absolute;left:18px;top:-6px;font:500 11px Jost;font-style:normal;background:#fff;color:#111;padding:1px 6px;white-space:nowrap}
+.pin{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(142,19,102,.45)}
+.pin i{position:absolute;left:18px;top:-6px;font:500 11px "DM Sans",sans-serif;font-style:normal;background:#fff;color:var(--plum);border-radius:4px;padding:1px 6px;white-space:nowrap}
 .score{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:20px}
-.score .n{font:italic 500 88px/0.9 "Cormorant Garamond",serif;color:var(--gold)}
-.score .l{color:var(--mute);font-size:14px}.score h2{font-weight:400;font-size:26px;line-height:1.2}
+.score .n{font-family:"Playfair Display",serif;font-weight:500;font-size:88px;line-height:0.9;color:var(--gold)}
+.score .l{color:var(--mute);font-size:14px}
+.score h2{font-family:"Playfair Display",serif;font-weight:600;font-size:26px;line-height:1.2;color:var(--plum)}
 .conf-badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;margin-top:6px}
 .conf-badge.high{background:#E6F7F0;color:#1B7F5B}
 .conf-badge.mid{background:#FFF4E5;color:#B25E00}
 .conf-badge.low{background:#FDE8EC;color:#C8102E}
 .dim{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:14px 0;border-bottom:1px solid var(--line)}
-.dim .lv{font-size:13px;color:var(--mute)}.dim .bar{grid-column:1/3;height:3px;background:var(--soft)}.dim .bar i{display:block;height:100%;background:var(--ink)}
-.doc{margin-top:20px;padding:16px 18px;background:var(--soft);font-size:14px}.doc b{font-weight:500}
-.rt{font-weight:400;font-size:28px;margin:44px 0 6px;grid-column:1/-1}
+.dim .lv{font-size:13px;color:var(--mute)}
+.dim .bar{grid-column:1/3;height:6px;border-radius:3px;background:var(--blush)}
+.dim .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#EA9BCE,#8E1366)}
+.doc{margin-top:20px;padding:16px 18px;background:var(--blush);border-radius:16px;font-size:14px}
+.doc b{font-weight:500}
+.rt{font-family:"Playfair Display",serif;font-weight:600;color:var(--plum);font-size:32px;margin:44px 0 6px;grid-column:1/-1}
 .routine{grid-column:1/-1;display:grid;gap:18px}
 @media(min-width:800px){.routine{grid-template-columns:1.25fr 1fr}}
-.hero-p{background:var(--ink);color:#fff;padding:28px}
-.hero-p small{color:#E8C98F}.hero-p h3{font-weight:400;font-size:26px;line-height:1.2;margin:6px 0 10px}
-.hero-p p{font-size:14px;opacity:.85;margin-bottom:16px}
-.hero-p .bp{font-size:12px;opacity:.7;margin-bottom:18px}
+.hero-p{background:linear-gradient(150deg,#A3207B,#6A0B54);color:#fff;padding:32px;border-radius:26px;box-shadow:0 18px 40px rgba(110,10,80,.3)}
+.hero-p small{color:#FFD3EE;font-weight:500}
+.hero-p h3{font-family:"Playfair Display",serif;font-weight:600;font-size:28px;line-height:1.2;margin:6px 0 10px}
+.hero-p p{font-size:14px;opacity:.9;margin-bottom:16px}
+.hero-p .bp{font-size:12px;opacity:.75;margin-bottom:18px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.hero-p .btn{background:#fff;color:#111;padding:11px 22px}
-.sub{padding:18px 0;border-bottom:1px solid var(--line)}.sub small{color:var(--gold)}
-.sub h4{font-weight:500;margin:2px 0 4px}.sub p{font-size:13px;color:var(--mute);margin-bottom:8px}
-.sub button{background:none;border:0;border-bottom:1px solid var(--ink);padding:0 0 1px;font-weight:500}
+.hero-p .btn{background:#fff;color:var(--berry);padding:11px 22px;box-shadow:none}
+.sub{background:var(--blush);border:0;border-radius:18px;padding:18px 22px;margin-bottom:12px}
+.sub small{color:var(--gold)}
+.sub h4{font-weight:700;color:var(--plum);margin:2px 0 4px}
+.sub p{font-size:13px;color:var(--mute);margin-bottom:8px}
+.sub button{background:none;border:0;border-bottom:1px solid var(--berry);color:var(--berry);padding:0 0 1px;font-weight:500}
 .disc{grid-column:1/-1;font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:16px}
+
+/* ===== Footer ala situs Annisa ===== */
+body::after{content:"Beauty in your Home, A Better You \A © 2026 Annisa Beauty Shop";white-space:pre-line;display:block;background:var(--footer);color:#fff;text-align:center;font-size:13px;line-height:1.8;padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px))}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -411,60 +460,109 @@ function patch(cx,cy,sz){
  return sx.getImageData(0,0,32,32).data;
 }
 
-// 1. Kacamata: Deteksi batang jembatan kacamata, rim bawah mata, dan glare optik lensa
+// 1. Kacamata: Deteksi komprehensif batang hidung, bingkai rim orbital, engsel samping (temple), dan pantulan lensa
 function checkGlasses(l, w, h){
  if(!l || l.length < 468) return { pass: false, msg: "Wajah belum stabil" };
  
- // Jembatan hidung (bridge) landmark 168 vs dahi 9 dan puncak hidung 4
- const bridge = l[168], fore = l[9], tip = l[4];
- const bP = patch(bridge.x*w, bridge.y*h, 24);
- const fP = patch(fore.x*w, fore.y*h, 24);
- const tP = patch(tip.x*w, tip.y*h, 24);
- let bLum=0, fLum=0, tLum=0, bMin=255, bMax=0, bEdges=0;
- for(let i=0;i<64;i++){
-  const bv=lum(bP, i*4), fv=lum(fP, i*4), tv=lum(tP, i*4);
-  bLum += bv; fLum += fv; tLum += tv;
-  bMin = Math.min(bMin, bv); bMax = Math.max(bMax, bv);
-  if(i%8 < 7) bEdges += Math.abs(bv - lum(bP, i*4+4));
- }
- bLum/=64; fLum/=64; tLum/=64;
- const skinRef = Math.max(fLum, tLum);
- const hasBridge = (skinRef - bLum > 20) || (bMax - bMin > 52 && bEdges/64 > 9.5);
-
- // Rim bawah mata (111, 340, 226, 446)
- let rimCount = 0;
- for(const idx of [111, 340, 226, 446]){
-  const pt = l[idx]; if(!pt) continue;
-  const pD = patch(pt.x*w, pt.y*h, 22);
-  let pMin=255, pMax=0, pDark=0;
-  for(let i=0;i<64;i++){
-   const v = lum(pD, i*4);
-   pMin = Math.min(pMin, v);
-   pMax = Math.max(pMax, v);
-   if(v < 72) pDark++;
+ // A. Sumbu Batang Hidung (Nose Bridge & Upper Nasal Root)
+ // Ambil beberapa titik vertikal pada pangkal hidung: landmark 168, 6, 197, 195 vs referensi kulit dahi (9, 151) dan ujung hidung (4, 1)
+ const samplePoint = (pt, sz=18) => {
+  const d = patch(pt.x * w, pt.y * h, sz);
+  let s=0, min=255, max=0, edge=0;
+  for(let i=0; i<64; i++){
+   const v = lum(d, i*4);
+   s += v;
+   if(v < min) min = v;
+   if(v > max) max = v;
+   if(i % 8 < 7) edge += Math.abs(v - lum(d, i*4 + 4));
   }
-  if((pMax - pMin > 55) || (pDark >= 6)) rimCount++;
+  return { avg: s/64, min, max, span: max - min, edge: edge/64 };
+ };
+
+ const b168 = samplePoint(l[168], 16);
+ const b6   = samplePoint(l[6], 16);
+ const b197 = samplePoint(l[197], 16);
+ const f9   = samplePoint(l[9], 20);
+ const f151 = samplePoint(l[151], 20);
+ const t4   = samplePoint(l[4], 20);
+
+ const skinBright = Math.max(f9.avg, f151.avg, t4.avg);
+ const minBridgeLum = Math.min(b168.avg, b6.avg, b197.avg);
+ const maxBridgeSpan = Math.max(b168.span, b6.span, b197.span);
+ const maxBridgeEdge = Math.max(b168.edge, b6.edge, b197.edge);
+
+ // Jembatan terdeteksi jika ada batang gelap melintang di hidung atau tepi kontras tajam
+ const bridgeDarkDrop = skinBright - minBridgeLum;
+ const hasBridge = (bridgeDarkDrop > 14) || (maxBridgeSpan > 42 && maxBridgeEdge > 6.5);
+
+ // B. Deteksi Bingkai Rim Bawah & Samping Mata (Infraorbital & Lateral Eye Rim)
+ // Titik penting: 111, 117 (atas pipi), 340, 346, 226, 446, 130, 359, 243, 463
+ const rimPoints = [111, 340, 226, 446, 130, 359, 243, 463, 117, 346];
+ let rimSignals = 0;
+ for(const idx of rimPoints){
+  const pt = l[idx];
+  if(!pt) continue;
+  const pD = patch(pt.x * w, pt.y * h, 18);
+  let pMin=255, pMax=0, pDark=0, pEdge=0;
+  for(let i=0; i<64; i++){
+   const v = lum(pD, i*4);
+   if(v < pMin) pMin = v;
+   if(v > pMax) pMax = v;
+   if(v < 82) pDark++;
+   if(i % 8 < 7) pEdge += Math.abs(v - lum(pD, i*4 + 4));
+  }
+  // Bingkai kacamata plastik / kawat menciptakan piksel gelap tajam dan gradient tinggi
+  if((pMax - pMin > 48 && pDark >= 3) || (pDark >= 5) || (pEdge/64 > 11)){
+   rimSignals++;
+  }
  }
 
- // Pantulan kilau / coating lensa kacamata (eye landmarks)
- const eyePts = [159,145,33,133,158,153,386,374,362,263,385,380];
- let glareCount = 0;
+ // C. Deteksi Pantulan / Glare / Lapisan Coating Anti-Reflective Lensa Kacamata
+ const eyePts = [159, 145, 33, 133, 158, 153, 386, 374, 362, 263, 385, 380, 468, 473];
+ let glares = 0;
  for(const idx of eyePts){
-  const pt = l[idx]; if(!pt) continue;
-  const d = patch(pt.x*w, pt.y*h, 18);
-  for(let i=0;i<64;i++){
+  const pt = l[idx];
+  if(!pt) continue;
+  const d = patch(pt.x * w, pt.y * h, 20);
+  for(let i=0; i<64; i++){
    const r=d[i*4], g=d[i*4+1], b=d[i*4+2];
-   if((r > 215 && g > 215 && b > 215) || (g > 135 && g - r > 20 && b > 100)){
-    glareCount++;
+   // Pantulan putih terang atau kilau kehijauan/kebiruan (lapisan AR kacamata)
+   const isWhiteSpecular = (r > 200 && g > 200 && b > 200);
+   const isCoatingTint   = (g > 125 && (g - r > 16) && (b > 95));
+   const isBlueReflection = (b > 130 && (b - r > 20));
+   if(isWhiteSpecular || isCoatingTint || isBlueReflection){
+    glares++;
     break;
    }
   }
  }
 
- const wearingGlasses = (hasBridge && rimCount >= 1) || (rimCount >= 2) || (hasBridge && glareCount >= 1) || (glareCount >= 2);
+ // D. Deteksi Batang Tangkai Kacamata di Pelipis (Temples / Outer Eye Corners)
+ // Landmark 127, 356, 162, 389 (antara sudut mata luar dan telinga)
+ let templeDark = 0;
+ for(const idx of [127, 356, 162, 389]){
+  const pt = l[idx];
+  if(!pt) continue;
+  const tD = patch(pt.x * w, pt.y * h, 18);
+  let dCount = 0;
+  for(let i=0; i<64; i++){
+   if(lum(tD, i*4) < 76) dCount++;
+  }
+  if(dCount >= 6) templeDark++;
+ }
+
+ // Kombinasi kriteria kacamata yang sangat ketat:
+ const wearingGlasses = 
+  hasBridge || 
+  (rimSignals >= 2) || 
+  (glares >= 2) || 
+  (templeDark >= 1 && rimSignals >= 1) || 
+  (glares >= 1 && rimSignals >= 1) ||
+  (bridgeDarkDrop > 10 && rimSignals >= 1);
+
  return {
   pass: !wearingGlasses,
-  msg: wearingGlasses ? "Lepas kacamata" : "Bebas kacamata"
+  msg: wearingGlasses ? "Lepas kacamata terlebih dahulu" : "Bebas kacamata"
  };
 }
 
