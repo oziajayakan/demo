@@ -201,7 +201,13 @@ body::after{content:"Beauty in your Home, A Better You \A © 2026 Annisa Beauty 
     <span class="chk-dot"></span>
     <span id="gatePillTxt">Menunggu Semua Syarat Lolos</span>
    </div>
-   <div class="gate-timer" id="gateTimer">Tahan posisi 1.5 dtk</div>
+   <div style="display:flex;align-items:center;gap:10px">
+    <button type="button" id="btnRefreshGate" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:14px;padding:3px 10px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px">
+     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+     Refresh Cek
+    </button>
+    <div class="gate-timer" id="gateTimer">Tahan posisi 1.5 dtk</div>
+   </div>
   </div>
  </div>
 
@@ -460,12 +466,11 @@ function patch(cx,cy,sz){
  return sx.getImageData(0,0,32,32).data;
 }
 
-// 1. Kacamata: Deteksi komprehensif batang hidung, bingkai rim orbital, engsel samping (temple), dan pantulan lensa
+// 1. Kacamata: Deteksi batang hidung nyata (bridge) & rim bingkai tanpa memicu false positive pada bayangan alami
 function checkGlasses(l, w, h){
  if(!l || l.length < 468) return { pass: false, msg: "Wajah belum stabil" };
  
- // A. Sumbu Batang Hidung (Nose Bridge & Upper Nasal Root)
- // Ambil beberapa titik vertikal pada pangkal hidung: landmark 168, 6, 197, 195 vs referensi kulit dahi (9, 151) dan ujung hidung (4, 1)
+ // A. Sumbu Batang Hidung (Nose Bridge)
  const samplePoint = (pt, sz=18) => {
   const d = patch(pt.x * w, pt.y * h, sz);
   let s=0, min=255, max=0, edge=0;
@@ -481,84 +486,64 @@ function checkGlasses(l, w, h){
 
  const b168 = samplePoint(l[168], 16);
  const b6   = samplePoint(l[6], 16);
- const b197 = samplePoint(l[197], 16);
  const f9   = samplePoint(l[9], 20);
- const f151 = samplePoint(l[151], 20);
  const t4   = samplePoint(l[4], 20);
 
- const skinBright = Math.max(f9.avg, f151.avg, t4.avg);
- const minBridgeLum = Math.min(b168.avg, b6.avg, b197.avg);
- const maxBridgeSpan = Math.max(b168.span, b6.span, b197.span);
- const maxBridgeEdge = Math.max(b168.edge, b6.edge, b197.edge);
+ const skinBright = Math.max(f9.avg, t4.avg);
+ const minBridgeLum = Math.min(b168.avg, b6.avg);
+ const maxBridgeSpan = Math.max(b168.span, b6.span);
+ const maxBridgeEdge = Math.max(b168.edge, b6.edge);
 
- // Jembatan terdeteksi jika ada batang gelap melintang di hidung atau tepi kontras tajam
+ // Batang kacamata asli menghasilkan garis kontras tajam (bridgeDarkDrop > 26 & edge tinggi)
  const bridgeDarkDrop = skinBright - minBridgeLum;
- const hasBridge = (bridgeDarkDrop > 14) || (maxBridgeSpan > 42 && maxBridgeEdge > 6.5);
+ const hasPhysicalBridge = (bridgeDarkDrop > 28 && maxBridgeEdge > 8.5) || (maxBridgeSpan > 58 && maxBridgeEdge > 10.5);
 
- // B. Deteksi Bingkai Rim Bawah & Samping Mata (Infraorbital & Lateral Eye Rim)
- // Titik penting: 111, 117 (atas pipi), 340, 346, 226, 446, 130, 359, 243, 463
- const rimPoints = [111, 340, 226, 446, 130, 359, 243, 463, 117, 346];
+ // B. Deteksi Bingkai Rim Bawah Mata (Infraorbital Frame Rim)
+ // Titik penting: 111 & 340 (cekungan bawah mata) vs 226 & 446 (tepi luar)
+ const rimPoints = [111, 340, 226, 446];
  let rimSignals = 0;
  for(const idx of rimPoints){
   const pt = l[idx];
   if(!pt) continue;
   const pD = patch(pt.x * w, pt.y * h, 18);
-  let pMin=255, pMax=0, pDark=0, pEdge=0;
+  let pMin=255, pMax=0, pVeryDark=0, pEdge=0;
   for(let i=0; i<64; i++){
    const v = lum(pD, i*4);
    if(v < pMin) pMin = v;
    if(v > pMax) pMax = v;
-   if(v < 82) pDark++;
+   if(v < 55) pVeryDark++;
    if(i % 8 < 7) pEdge += Math.abs(v - lum(pD, i*4 + 4));
   }
-  // Bingkai kacamata plastik / kawat menciptakan piksel gelap tajam dan gradient tinggi
-  if((pMax - pMin > 48 && pDark >= 3) || (pDark >= 5) || (pEdge/64 > 11)){
+  // Bingkai kacamata menciptakan garis tajam yang sangat gelap (< 55) dan kontras lebar
+  if((pMax - pMin > 58 && pVeryDark >= 4) || (pVeryDark >= 7 && pEdge/64 > 12)){
    rimSignals++;
   }
  }
 
- // C. Deteksi Pantulan / Glare / Lapisan Coating Anti-Reflective Lensa Kacamata
- const eyePts = [159, 145, 33, 133, 158, 153, 386, 374, 362, 263, 385, 380, 468, 473];
+ // C. Deteksi Pantulan Lensa Kacamata (Coating Glare)
+ const eyePts = [159, 145, 33, 133, 386, 374, 362, 263];
  let glares = 0;
  for(const idx of eyePts){
   const pt = l[idx];
   if(!pt) continue;
-  const d = patch(pt.x * w, pt.y * h, 20);
+  const d = patch(pt.x * w, pt.y * h, 18);
   for(let i=0; i<64; i++){
    const r=d[i*4], g=d[i*4+1], b=d[i*4+2];
-   // Pantulan putih terang atau kilau kehijauan/kebiruan (lapisan AR kacamata)
-   const isWhiteSpecular = (r > 200 && g > 200 && b > 200);
-   const isCoatingTint   = (g > 125 && (g - r > 16) && (b > 95));
-   const isBlueReflection = (b > 130 && (b - r > 20));
-   if(isWhiteSpecular || isCoatingTint || isBlueReflection){
+   const isWhiteSpecular = (r > 220 && g > 220 && b > 220);
+   const isCoatingTint   = (g > 140 && (g - r > 22) && (b > 110));
+   if(isWhiteSpecular || isCoatingTint){
     glares++;
     break;
    }
   }
  }
 
- // D. Deteksi Batang Tangkai Kacamata di Pelipis (Temples / Outer Eye Corners)
- // Landmark 127, 356, 162, 389 (antara sudut mata luar dan telinga)
- let templeDark = 0;
- for(const idx of [127, 356, 162, 389]){
-  const pt = l[idx];
-  if(!pt) continue;
-  const tD = patch(pt.x * w, pt.y * h, 18);
-  let dCount = 0;
-  for(let i=0; i<64; i++){
-   if(lum(tD, i*4) < 76) dCount++;
-  }
-  if(dCount >= 6) templeDark++;
- }
-
- // Kombinasi kriteria kacamata yang sangat ketat:
+ // Deteksi positif kacamata jika ada bukti kuat fisik bingkai
  const wearingGlasses = 
-  hasBridge || 
+  (hasPhysicalBridge && rimSignals >= 1) || 
   (rimSignals >= 2) || 
-  (glares >= 2) || 
-  (templeDark >= 1 && rimSignals >= 1) || 
-  (glares >= 1 && rimSignals >= 1) ||
-  (bridgeDarkDrop > 10 && rimSignals >= 1);
+  (hasPhysicalBridge && glares >= 1) ||
+  (glares >= 3);
 
  return {
   pass: !wearingGlasses,
@@ -611,20 +596,20 @@ function checkLighting(l, w, h){
  const avgLum = (lumL + lumR + lumN) / 3;
  const lrDiff = Math.abs(lumL - lumR);
 
- if(clipDark > 25 || avgLum < 40){
+ if(clipDark > 25 || avgLum < 35){
   return { pass: false, msg: "Cahaya terlalu gelap, cari tempat terang" };
  }
- if(clipHigh > 22 || avgLum > 225){
+ if(clipHigh > 22 || avgLum > 230){
   return { pass: false, msg: "Hindari lampu yang terlalu silau" };
  }
- if(lrDiff > 42){
+ if(lrDiff > 45){
   return { pass: false, msg: "Hadap sumber cahaya (cahaya kiri & kanan tidak rata)" };
  }
 
  return { pass: true, msg: "Pencahayaan cukup dan merata" };
 }
 
-// 4. Blur: Variance of Laplacian di area kedua mata
+// 4. Blur: Variance of Laplacian di area kedua mata (ambang realistis kamera HP/webcam)
 function checkBlur(l, w, h){
  const eyeL = patch(l[133].x*w, l[133].y*h, 32);
  const eyeR = patch(l[362].x*w, l[362].y*h, 32);
@@ -653,7 +638,8 @@ function checkBlur(l, w, h){
  const varR = calcLaplacianVar(eyeR);
  const avgVar = (varL + varR) / 2;
 
- if(avgVar < 42){
+ // Nilai batas 22 disesuaikan untuk kamera depan laptop/HP tanpa filter berlebih
+ if(avgVar < 22){
   return { pass: false, msg: "Kamera blur, bersihkan lensa / tahan ponsel stabil" };
  }
  return { pass: true, msg: "Fokus tajam" };
@@ -1175,7 +1161,18 @@ $("btnSubmitQuest").onclick = () => {
  x.fillText("Mode Kuesioner", 112, 112);
 
  render(tp, cp, null, 50, true);
-};
+// Tombol Refresh Cek di HUD kamera
+const btnRefresh = $("btnRefreshGate");
+if(btnRefresh){
+ btnRefresh.onclick = () => {
+  resetCheckUI();
+  stablePassStart = null;
+  $("autoProgressBar").style.width = "0%";
+  $("gatePill").className = "gate-status-pill wait";
+  $("gatePillTxt").textContent = "Pemeriksaan Ulang…";
+  say("Mengecek ulang kondisi…", "Posisikan wajah lurus dan rileks");
+ };
+}
 
 init();
 if (window._userWantsCam || $("s1").classList.contains("on")) {
