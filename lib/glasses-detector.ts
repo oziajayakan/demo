@@ -1,5 +1,6 @@
 // lib/glasses-detector.ts
-// Precision Multi-Feature Glasses & Eye Occlusion Detection Engine
+// Calibrated Glasses & Eye Occlusion Detection Engine
+// Designed to prevent false positives on bare faces while detecting real eyeglass frames
 
 export interface Landmark {
   x: number;
@@ -14,6 +15,7 @@ export interface GlassesCheckResult {
   hasPhysicalBridge: boolean;
   rimSignals: number;
   glares: number;
+  confidence: number;
 }
 
 function getLum(data: Uint8ClampedArray, idx: number): number {
@@ -21,7 +23,7 @@ function getLum(data: Uint8ClampedArray, idx: number): number {
 }
 
 /**
- * Extracts a sub-patch of pixels around (cx, cy) from video or canvas
+ * Extracts a small sub-patch of pixels around (cx, cy)
  */
 function samplePatch(
   ctx: CanvasRenderingContext2D,
@@ -32,11 +34,12 @@ function samplePatch(
   const half = Math.floor(sz / 2);
   const x = Math.max(0, Math.floor(cx - half));
   const y = Math.max(0, Math.floor(cy - half));
-  return ctx.getImageData(x, y, sz, sz).data;
+  return ctx.getImageData(x, y, Math.max(1, sz), Math.max(1, sz)).data;
 }
 
 /**
- * Checks whether the user is wearing glasses using 468 MediaPipe facial landmarks
+ * Checks whether the user is wearing glasses using 468 MediaPipe facial landmarks.
+ * Carefully avoids eyebrows, pupils, eyelashes, and natural facial contours.
  */
 export function checkGlassesWithLandmarks(
   landmarks: Landmark[],
@@ -48,98 +51,87 @@ export function checkGlassesWithLandmarks(
     return checkGlassesFallback(ctx, w, h);
   }
 
-  const samplePoint = (pt: Landmark, sz = 16) => {
-    const d = samplePatch(ctx, pt.x * w, pt.y * h, sz);
-    let s = 0,
-      min = 255,
-      max = 0,
-      edge = 0;
-    const count = sz * sz;
-    for (let i = 0; i < count; i++) {
-      const v = getLum(d, i * 4);
-      s += v;
-      if (v < min) min = v;
-      if (v > max) max = v;
-      if (i % sz < sz - 1) edge += Math.abs(v - getLum(d, i * 4 + 4));
+  // Helper to compute average luminance in a small 6x6 patch (prevents overlapping eyebrows/pupils)
+  const sampleAvgLum = (pt: Landmark, patchSize = 6) => {
+    const data = samplePatch(ctx, pt.x * w, pt.y * h, patchSize);
+    let sum = 0;
+    const count = data.length / 4;
+    if (count === 0) return 128;
+    for (let i = 0; i < data.length; i += 4) {
+      sum += getLum(data, i);
     }
-    return { avg: s / count, min, max, span: max - min, edge: edge / count };
+    return sum / count;
   };
 
-  // A. Nose Bridge Analysis (Landmarks 168 & 6 vs Dahi 9 & Ujung Hidung 4)
-  const b168 = samplePoint(landmarks[168], 16);
-  const b6 = samplePoint(landmarks[6], 16);
-  const f9 = samplePoint(landmarks[9], 20);
-  const t4 = samplePoint(landmarks[4], 20);
+  // 1. Skin Reference Luminance (from clean cheeks, avoiding beard or shadow)
+  // Landmark 50: Left cheek center; Landmark 280: Right cheek center
+  const leftCheekLum = sampleAvgLum(landmarks[50], 8);
+  const rightCheekLum = sampleAvgLum(landmarks[280], 8);
+  const skinLum = (leftCheekLum + rightCheekLum) / 2;
 
-  const skinBright = Math.max(f9.avg, t4.avg);
-  const minBridgeLum = Math.min(b168.avg, b6.avg);
-  const maxBridgeSpan = Math.max(b168.span, b6.span);
-  const maxBridgeEdge = Math.max(b168.edge, b6.edge);
+  // 2. Nose Bridge Analysis (strictly on the nasal bone, BELOW the glabella/eyebrows)
+  // Landmark 197: Rhinion/Mid-nasal bone (where glasses bridge rests)
+  // Landmark 195: Lower nasal bridge
+  // Landmark 4: Tip of nose
+  const bridge197Lum = sampleAvgLum(landmarks[197], 6);
+  const bridge195Lum = sampleAvgLum(landmarks[195], 6);
+  const noseTipLum = sampleAvgLum(landmarks[4], 8);
 
-  // Eyeglass bridge creates high-contrast dark line across the nose root
-  const bridgeDarkDrop = skinBright - minBridgeLum;
-  const hasPhysicalBridge =
-    (bridgeDarkDrop > 16 && maxBridgeEdge > 6.0) ||
-    (maxBridgeSpan > 40 && maxBridgeEdge > 7.0) ||
-    minBridgeLum < 75;
+  const avgBridgeLum = (bridge197Lum + bridge195Lum) / 2;
+  const bridgeDarkDrop = skinLum - avgBridgeLum;
+  const bridgeTipDrop = noseTipLum - avgBridgeLum;
 
-  // B. Infraorbital Rim Detection (Under-eye & Outer Eye Frames)
-  // Landmarks: 111 & 340 (infraorbital), 226 & 446 (outer frame rims), 130 & 359
-  const rimPoints = [111, 340, 226, 446, 130, 359];
+  // Eyeglass bridge creates a distinct, continuous dark bar across 197
+  // On a bare face, nasal ridge is smooth and often brighter than or equal to cheeks
+  const hasDarkBridge =
+    bridgeDarkDrop > 34 && bridgeTipDrop > 24 && avgBridgeLum < 85;
+
+  // 3. Lower Rim Analysis (frames resting on cheekbone under the eyes)
+  // Landmark 117 (under left eye rim) vs 205 (cheek below it)
+  // Landmark 346 (under right eye rim) vs 425 (cheek below it)
+  const leftRimLum = sampleAvgLum(landmarks[117], 6);
+  const leftSubCheekLum = sampleAvgLum(landmarks[205], 8);
+  const leftRimDrop = leftSubCheekLum - leftRimLum;
+
+  const rightRimLum = sampleAvgLum(landmarks[346], 6);
+  const rightSubCheekLum = sampleAvgLum(landmarks[425], 8);
+  const rightRimDrop = rightSubCheekLum - rightRimLum;
+
   let rimSignals = 0;
-  for (const idx of rimPoints) {
-    const pt = landmarks[idx];
-    if (!pt) continue;
-    const pD = samplePatch(ctx, pt.x * w, pt.y * h, 18);
-    let pMin = 255,
-      pMax = 0,
-      pVeryDark = 0,
-      pEdge = 0;
-    const count = 18 * 18;
-    for (let i = 0; i < count; i++) {
-      const v = getLum(pD, i * 4);
-      if (v < pMin) pMin = v;
-      if (v > pMax) pMax = v;
-      if (v < 75) pVeryDark++;
-      if (i % 18 < 17) pEdge += Math.abs(v - getLum(pD, i * 4 + 4));
-    }
-    if (
-      (pMax - pMin > 42 && pVeryDark >= 3) ||
-      pVeryDark >= 6 ||
-      pEdge / count > 8.5
-    ) {
-      rimSignals++;
-    }
-  }
+  if (leftRimDrop > 32 && leftRimLum < 80) rimSignals++;
+  if (rightRimDrop > 32 && rightRimLum < 80) rimSignals++;
 
-  // C. Lens Specular Glare & Anti-Reflective Coating Reflection
-  const eyePts = [159, 145, 33, 133, 386, 374, 362, 263];
+  // 4. Outer Temple / Frame Arm Hinges
+  // Landmarks 127 and 356 (outer eye orbital edges)
+  const leftHingeLum = sampleAvgLum(landmarks[127], 6);
+  const rightHingeLum = sampleAvgLum(landmarks[356], 6);
+  if (skinLum - leftHingeLum > 35 && leftHingeLum < 75) rimSignals++;
+  if (skinLum - rightHingeLum > 35 && rightHingeLum < 75) rimSignals++;
+
+  // 5. Specular Lens Reflection / Glare
+  // Check eye center regions for intense white highlights (> 230)
+  // Landmarks 468 (left iris center) and 473 (right iris center) or fallback 159/386
   let glares = 0;
-  for (const idx of eyePts) {
+  const irisPts = [159, 145, 386, 374];
+  for (const idx of irisPts) {
     const pt = landmarks[idx];
     if (!pt) continue;
-    const d = samplePatch(ctx, pt.x * w, pt.y * h, 18);
-    const count = 18 * 18;
-    for (let i = 0; i < count; i++) {
-      const r = d[i * 4];
-      const g = d[i * 4 + 1];
-      const b = d[i * 4 + 2];
-      const isWhiteSpecular = r > 210 && g > 210 && b > 210;
-      const isCoatingTint = g > 130 && g - r > 18 && b > 100;
-      if (isWhiteSpecular || isCoatingTint) {
+    const d = samplePatch(ctx, pt.x * w, pt.y * h, 8);
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235) {
         glares++;
         break;
       }
     }
   }
 
-  // Decision rule: Calibrated to catch prescription glasses reliably
+  // Combined Evidence Rule:
+  // Requires at least TWO distinct optical signals to avoid false positives on bare faces!
   const wearingGlasses =
-    hasPhysicalBridge ||
-    rimSignals >= 1 ||
-    glares >= 2 ||
-    (bridgeDarkDrop > 14 && rimSignals >= 1) ||
-    (bridgeDarkDrop > 14 && glares >= 1);
+    (hasDarkBridge && rimSignals >= 1) ||
+    (hasDarkBridge && glares >= 2) ||
+    rimSignals >= 3 ||
+    (hasDarkBridge && bridgeDarkDrop > 45);
 
   return {
     pass: !wearingGlasses,
@@ -147,33 +139,34 @@ export function checkGlassesWithLandmarks(
       ? 'Mohon lepas kacamata Anda agar area mata dan kulit terbaca'
       : 'Bebas kacamata',
     wearingGlasses,
-    hasPhysicalBridge,
+    hasPhysicalBridge: hasDarkBridge,
     rimSignals,
     glares,
+    confidence: wearingGlasses ? 0.9 : 0.95,
   };
 }
 
 /**
- * Optical CV checker scanning the full eye and nasal bridge band
- * Compares against cheeks and detects dark horizontal frames and rims
+ * Fallback optical CV checker when MediaPipe landmarks are not yet available.
+ * Calibrated strictly to avoid false alarms from pupils or eyebrows.
  */
 export function checkGlassesFallback(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number
 ): GlassesCheckResult {
-  // 1. Reference Skin Lum from Cheeks (not forehead, to avoid bangs/hair bias)
+  // 1. Reference Skin Lum from Cheeks (y = 58% of height, x = 28% and 72%)
   const leftCheek = ctx.getImageData(
-    Math.round(w * 0.25),
-    Math.round(h * 0.54),
-    20,
-    20
+    Math.round(w * 0.28),
+    Math.round(h * 0.58),
+    12,
+    12
   ).data;
   const rightCheek = ctx.getImageData(
-    Math.round(w * 0.65),
-    Math.round(h * 0.54),
-    20,
-    20
+    Math.round(w * 0.72),
+    Math.round(h * 0.58),
+    12,
+    12
   ).data;
 
   let cheekLum = 0;
@@ -185,70 +178,31 @@ export function checkGlassesFallback(
   }
   cheekLum /= (leftCheek.length + rightCheek.length) / 4;
 
-  // 2. Scan Vertical Eye & Bridge Band (from y = 35% to 48% of canvas height)
-  const scanYStart = Math.round(h * 0.35);
-  const scanHeight = Math.round(h * 0.14);
-  const scanXStart = Math.round(w * 0.25);
-  const scanWidth = Math.round(w * 0.5);
+  // 2. Sample narrow nose bridge center strip (x: 47%..53%, y: 41%..45%)
+  // At this position, we are on the nasal bone, between the eyes, safely below eyebrows
+  const bridgeX = Math.round(w * 0.47);
+  const bridgeY = Math.round(h * 0.41);
+  const bridgeW = Math.round(w * 0.06);
+  const bridgeH = Math.round(h * 0.04);
 
-  const bandData = ctx.getImageData(
-    scanXStart,
-    scanYStart,
-    scanWidth,
-    scanHeight
-  ).data;
+  const bridgeData = ctx.getImageData(bridgeX, bridgeY, bridgeW, bridgeH).data;
+  let bridgeLum = 0;
+  let darkPixelCount = 0;
+  const totalBridgePixels = bridgeData.length / 4;
 
-  let darkFramePixels = 0;
-  let specularGlares = 0;
-  let bridgeMinLum = 255;
-  let bridgeTotalLum = 0;
-  let bridgePixelCount = 0;
-
-  // Nasal Bridge column range in the center 16% of width
-  const bridgeLocalXStart = Math.round(scanWidth * 0.42);
-  const bridgeLocalXEnd = Math.round(scanWidth * 0.58);
-
-  for (let y = 0; y < scanHeight; y++) {
-    for (let x = 0; x < scanWidth; x++) {
-      const idx = (y * scanWidth + x) * 4;
-      const l = getLum(bandData, idx);
-      const r = bandData[idx];
-      const g = bandData[idx + 1];
-      const b = bandData[idx + 2];
-
-      // Dark frame pixel threshold (dark plastic or metal frames)
-      if (l < 75) {
-        darkFramePixels++;
-      }
-
-      // Specular reflection on lenses
-      if (r > 215 && g > 215 && b > 215) {
-        specularGlares++;
-      }
-
-      // Nasal bridge center column
-      if (x >= bridgeLocalXStart && x <= bridgeLocalXEnd) {
-        bridgeTotalLum += l;
-        bridgePixelCount++;
-        if (l < bridgeMinLum) bridgeMinLum = l;
-      }
-    }
+  for (let i = 0; i < bridgeData.length; i += 4) {
+    const l = getLum(bridgeData, i);
+    bridgeLum += l;
+    if (l < 55) darkPixelCount++;
   }
+  bridgeLum /= Math.max(1, totalBridgePixels);
 
-  const avgBridgeLum =
-    bridgePixelCount > 0 ? bridgeTotalLum / bridgePixelCount : cheekLum;
-  const bridgeDrop = cheekLum - avgBridgeLum;
+  const bridgeDrop = cheekLum - bridgeLum;
+  const darkRatio = darkPixelCount / Math.max(1, totalBridgePixels);
 
-  // Any dark horizontal bridge or significant frame pixel cluster
-  const totalPixels = scanWidth * scanHeight;
-  const darkRatio = darkFramePixels / (totalPixels || 1);
-
+  // Only consider glasses if bridge is substantially darker than cheek AND has continuous dark bridge line
   const wearingGlasses =
-    bridgeDrop > 18 ||
-    bridgeMinLum < 65 ||
-    darkRatio > 0.045 ||
-    darkFramePixels > 35 ||
-    (bridgeDrop > 12 && specularGlares > 10);
+    cheekLum > 60 && bridgeDrop > 38 && darkRatio > 0.40 && bridgeLum < 65;
 
   return {
     pass: !wearingGlasses,
@@ -256,8 +210,9 @@ export function checkGlassesFallback(
       ? 'Mohon lepas kacamata Anda agar area mata dan kulit terbaca'
       : 'Bebas kacamata',
     wearingGlasses,
-    hasPhysicalBridge: bridgeDrop > 16,
-    rimSignals: darkFramePixels > 30 ? 1 : 0,
-    glares: specularGlares,
+    hasPhysicalBridge: wearingGlasses,
+    rimSignals: 0,
+    glares: 0,
+    confidence: 0.85,
   };
 }
