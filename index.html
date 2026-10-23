@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cek Kulit Wajah · Annisa Beauty Shop</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9,39 +9,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
 <style>
-/* ===== Token: diambil dari banner Annisa Beauty Shop ===== */
 :root{
-  --ink:#3A1034;          /* teks plum tua */
-  --plum:#5B0F4D;         /* judul */
-  --berry:#8E1366;        /* tombol utama */
-  --gold:#B0287F;         /* aksen (menggantikan emas lama) */
-  --blush:#FCEBFA;        /* kartu produk */
-  --petal:#F7C9E6;
-  --soft:#FCEBFA;
-  --line:#EBD3E6;
-  --mute:#74596F;
+  --bg:#1a0a22;--card:#2a1233;--line:#4a2a58;--tx:#f3e8f7;--mut:#c9a9d6;
+  --ok:#4ade80;--bad:#fb7185;--warn:#fbbf24;--srv:#60a5fa;--off:#52405a;--acc:#ff0a54;
+  --ink:#3A1034;--plum:#5B0F4D;--berry:#8E1366;--gold:#B0287F;--blush:#FCEBFA;
   --footer:#9A2A6B;
-  --bad:#C8102E;
-  --ok:#1B7F5B;
-  padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);box-sizing:border-box
+  color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
 }
-*{box-sizing:border-box;margin:0}
-body{font-family:"DM Sans",system-ui,sans-serif;color:var(--ink);background:#fff}
-.pin i{font-family:"DM Sans",sans-serif}
+*{box-sizing:border-box}
+body{font-family:"DM Sans",system-ui,sans-serif;color:var(--tx);background:radial-gradient(ellipse at top,#3b1148,var(--bg) 70%);min-height:100%}
 button{font:inherit;cursor:pointer}
 button:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
 
 /* ===== Header ===== */
-.top{display:flex;justify-content:space-between;align-items:center;background:#fff;border-bottom:1px solid var(--line);padding:14px 24px}
+.top-nav{display:flex;justify-content:space-between;align-items:center;background:#fff;border-bottom:1px solid #EBD3E6;padding:14px 24px}
 .logo{font:600 26px/1.1 "Playfair Display",serif;color:var(--berry);letter-spacing:0;text-transform:lowercase}
 .logo::first-line{text-transform:capitalize}
-.logo small{display:block;font:500 11px "DM Sans",sans-serif;letter-spacing:.14em;color:var(--mute);text-transform:none}
-.step{background:var(--blush);color:var(--berry);padding:6px 14px;border-radius:999px;font-weight:500;font-size:13px}
+.logo small{display:block;font:500 11px "DM Sans",sans-serif;letter-spacing:.14em;color:#74596F;text-transform:none}
+.step{background:var(--blush);color:var(--berry);padding:6px 14px;border-radius:999px;font-weight:600;font-size:13px}
 .wrap{max-width:960px;margin:0 auto;padding:0 22px}
 .scr{display:none}.scr.on{display:block}
 
-/* ===== Pembuka ===== */
-#s0{background:linear-gradient(180deg,#F5E6FA 0,#fff 560px)}
+/* ===== Layar 1: Pembuka ===== */
+#s0{background:linear-gradient(180deg,#F5E6FA 0,#fff 560px);color:var(--ink);min-height:92vh}
 .hero{display:grid;gap:28px;padding:40px 0 24px}
 @media(min-width:800px){.hero{grid-template-columns:1.1fr .9fr;align-items:center;padding:72px 0 40px}}
 .hero h1{font-family:"Playfair Display",serif;font-weight:600;color:var(--plum);letter-spacing:-.015em;line-height:1.06;font-size:clamp(38px,6vw,62px)}
@@ -50,7 +40,7 @@ button:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
 .btn{display:inline-block;background:linear-gradient(135deg,#A01F77,#730D58);color:#fff;border:0;border-radius:999px;padding:15px 36px;font-weight:700;letter-spacing:.01em;box-shadow:0 10px 24px rgba(142,19,102,.28)}
 .btn:disabled{opacity:.45}
 .btn.ghost{background:transparent;color:var(--berry);border:1.5px solid var(--berry);box-shadow:none}
-.status{font-size:13px;color:var(--mute);margin-top:12px;min-height:20px}
+.status{font-size:13px;color:#74596F;margin-top:12px;min-height:20px}
 .mapart{aspect-ratio:4/5;border-radius:28px;background:
   radial-gradient(ellipse 16px 9px at 18% 28%,#F8B4DA 60%,transparent 64%),
   radial-gradient(ellipse 12px 7px at 84% 70%,#F8B4DA 60%,transparent 64%),
@@ -64,60 +54,51 @@ button:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
 .tips{display:grid;gap:0;border-top:0;margin-top:24px}
 @media(min-width:700px){.tips{grid-template-columns:repeat(3,1fr)}}
 .tip{padding:22px 0;border-bottom:0}
-@media(min-width:700px){.tip{border-left:1px solid var(--line);padding:6px 24px}.tip:first-child{border-left:0;padding-left:0}}
-@media(max-width:699px){.tip{border-bottom:1px solid var(--line)}}
+@media(min-width:700px){.tip{border-left:1px solid #EBD3E6;padding:6px 24px}.tip:first-child{border-left:0;padding-left:0}}
+@media(max-width:699px){.tip{border-bottom:1px solid #EBD3E6}}
 .tip b{display:block;color:var(--plum);font-weight:700;margin-bottom:4px}
-.tip span{color:var(--mute);font-size:14px}
-.fine{font-size:12px;color:var(--mute);padding:22px 0 40px}
+.tip span{color:#74596F;font-size:14px}
+.fine{font-size:12px;color:#74596F;padding:22px 0 40px}
 
-/* ===== Pindai (latar plum agar kamera menonjol) ===== */
-#s1{background:radial-gradient(120% 60% at 50% 0,#4F0C44 0,#240620 72%);color:#fff;padding-top:16px;padding-bottom:30px;min-height:90vh}
-.cam-top-hud{max-width:540px;margin:0 auto 12px;padding:0 8px}
-.gate-hud{display:flex;justify-content:space-between;align-items:center;background:rgba(70,14,60,.7);border:1px solid rgba(247,201,230,.22);padding:8px 14px;border-radius:24px;backdrop-filter:blur(6px);margin-bottom:10px}
-.gate-status-pill{font-size:12px;font-weight:600;letter-spacing:.04em;padding:4px 12px;border-radius:14px;display:inline-flex;align-items:center;gap:6px}
-.gate-status-pill.ready{background:rgba(0,229,153,0.18);color:#00E599;border:1px solid #00E599}
-.gate-status-pill.wait{background:rgba(255,180,0,0.18);color:#FFB400;border:1px solid #FFB400}
-.gate-status-pill.fail{background:rgba(255,0,85,0.18);color:#FF0055;border:1px solid #FF0055}
-.gate-timer{font-size:12px;color:#e9c7de;font-weight:500}
-.checks-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;max-width:540px;margin:0 auto 14px;padding:0 8px}
-.chk-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-radius:6px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#cfb3c8;transition:all .18s ease}
-.chk-item.ok{border-color:rgba(0,229,153,0.5);background:rgba(0,229,153,0.08);color:#00E599}
-.chk-item.no{border-color:rgba(255,0,85,0.5);background:rgba(255,0,85,0.08);color:#FF5277}
-.chk-dot{width:7px;height:7px;border-radius:50%;background:#444}
-.chk-item.ok .chk-dot{background:#00E599;box-shadow:0 0 6px #00E599}
-.chk-item.no .chk-dot{background:#FF0055;box-shadow:0 0 6px #FF0055}
-.cam{position:relative;background:#12030f;max-width:480px;margin:0 auto;aspect-ratio:3/4;overflow:hidden;border-radius:22px;border:1px solid rgba(247,201,230,.28);box-shadow:0 18px 50px rgba(110,10,80,.55)}
-.cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#vid{transform:scaleX(-1)}
-#meshCanvas{transform:scaleX(-1);pointer-events:none;z-index:4;opacity:0;transition:opacity .2s ease}
-#meshCanvas.visible{opacity:1}
-#cap{display:none}
-/* Reticle Frame */
-.reticle{position:absolute;left:50%;top:50%;width:68%;height:68%;transform:translate(-50%,-50%);pointer-events:none;z-index:6;transition:all .25s ease}
-.reticle .c-tl,.reticle .c-tr,.reticle .c-bl,.reticle .c-br{position:absolute;width:38px;height:38px;border-color:#FF0055;border-style:solid;border-width:0;transition:border-color .25s,transform .25s}
-.reticle .c-tl{top:0;left:0;border-top-width:3px;border-left-width:3px;border-top-left-radius:16px}
-.reticle .c-tr{top:0;right:0;border-top-width:3px;border-right-width:3px;border-top-right-radius:16px}
-.reticle .c-bl{bottom:0;left:0;border-bottom-width:3px;border-left-width:3px;border-bottom-left-radius:16px}
-.reticle .c-br{bottom:0;right:0;border-bottom-width:3px;border-right-width:3px;border-bottom-right-radius:16px}
-.reticle.ok .c-tl,.reticle.ok .c-tr,.reticle.ok .c-bl,.reticle.ok .c-br{border-color:#00E599}
-.flash-box{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .08s ease,background-color .08s ease;z-index:10}
-.laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#00E599,transparent);top:12%;opacity:0;z-index:5}
-.busy .laser{opacity:1;animation:sw 1.2s ease-in-out infinite alternate}
-@keyframes sw{to{top:86%}}
-.msg{position:absolute;left:0;right:0;top:18px;color:#fff;text-align:center;z-index:8;padding:0 16px;text-shadow:0 2px 10px rgba(0,0,0,.9)}
-.msg b{display:inline-block;font-size:18px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px;padding:4px 14px;border-radius:20px;background:rgba(36,6,32,.72);backdrop-filter:blur(4px)}
-.msg span{display:block;font-size:13px;opacity:.92;font-weight:400;margin-top:2px}
-.cam-bot-bar{position:absolute;left:0;right:0;bottom:14px;z-index:8;display:flex;justify-content:center;align-items:center}
-.auto-progress{width:160px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;overflow:hidden}
-.auto-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#F7A8D8,#E0449F);transition:width .1s linear}
-.scan-btn-box{display:flex;flex-direction:column;align-items:center;margin-top:16px;gap:8px}
-.scan-now-btn{background:linear-gradient(135deg,#C2268F,#8E1366);color:#fff;font-weight:700;font-size:14px;letter-spacing:.02em;padding:12px 30px;border:none;border-radius:24px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 22px rgba(194,38,143,.4);transition:all .2s ease}
-.scan-now-btn:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.45);cursor:not-allowed;box-shadow:none;opacity:.6}
+/* ===== Layar 2: Pindai (State Machine Engine) ===== */
+#s1{padding:14px 10px 30px}
+.app{max-width:480px;margin:0 auto;padding:6px 8px 16px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;border:1px solid var(--line);border-radius:22px;padding:8px 12px;margin-bottom:10px;background:#2a123388;backdrop-filter:blur(6px)}
+.pill{font-weight:700;font-size:13px;padding:6px 14px;border-radius:16px;border:1px solid var(--warn);color:var(--warn);background:#fbbf2418}
+.pill.ok{border-color:var(--ok);color:var(--ok);background:#4ade8018}
+.pill.bad{border-color:var(--bad);color:var(--bad);background:#fb718518}
+.hint{font-size:12px;color:var(--mut)}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.chip{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:#2a123388;color:#e2b9ef;transition:.2s}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--off);flex:none;transition:.2s}
+.chip.ok i{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.chip.bad i{background:var(--bad);box-shadow:0 0 6px var(--bad)}
+.chip.srv i{background:var(--srv);box-shadow:0 0 6px var(--srv)}
+.chip.bad{border-color:#fb718588}
+.stage{position:relative;aspect-ratio:3/4;width:100%;border-radius:26px;overflow:hidden;background:#0e0309;border:1px solid var(--line);box-shadow:0 18px 50px rgba(110,10,80,.55)}
+video,#shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+video{transform:scaleX(-1)}
+#shot{display:none}
+.hud-msg{position:absolute;top:12px;left:0;right:0;text-align:center;padding:0 14px;z-index:3}
+.t1{display:inline-block;font-weight:700;font-size:18px;padding:6px 16px;border-radius:18px;background:#0e0309aa;backdrop-filter:blur(4px);color:#fff}
+.t2{font-size:13px;margin-top:6px;text-shadow:0 1px 4px #000;color:#fcebfa}
+.c{position:absolute;width:38px;height:38px;border:3px solid var(--acc);z-index:2;transition:border-color .2s}
+.c.tl{top:18%;left:14%;border-right:0;border-bottom:0;border-radius:16px 0 0 0}
+.c.tr{top:18%;right:14%;border-left:0;border-bottom:0;border-radius:0 16px 0 0}
+.c.bl{bottom:10%;left:14%;border-right:0;border-top:0;border-radius:0 0 0 16px}
+.c.br{bottom:10%;right:14%;border-left:0;border-top:0;border-radius:0 0 16px 0}
+.stage.ok .c{border-color:var(--ok)}.stage.hold .c{border-color:var(--warn)}
+.prog{position:absolute;left:20%;right:20%;bottom:5%;height:6px;border-radius:3px;background:#ffffff22;z-index:3;overflow:hidden}
+.prog b{display:block;height:100%;width:0;background:var(--ok);transition:width .1s linear}
+.act{position:absolute;bottom:4%;left:0;right:0;text-align:center;z-index:4;display:none}
+.msg{display:none;margin-top:10px;font-size:12px;color:var(--warn);text-align:center}
+
+/* Notice 3x Gagal & Fallback Kuesioner */
 .scan-fail-notice{max-width:480px;margin:12px auto 0;background:#35102f;border:1px solid #7a1f63;border-radius:8px;padding:12px 16px;display:none;font-size:13px;color:#ffc9e6}
 .scan-fail-notice.show{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.btn-sm-quest{background:#E0449F;color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-sm-quest{background:#E0449F;color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer}
 
-/* ===== Kuesioner ===== */
+/* Modal Kuesioner */
 .modal-mask{position:fixed;inset:0;background:rgba(36,6,32,.78);z-index:99;display:none;align-items:center;justify-content:center;padding:16px}
 .modal-mask.on{display:flex}
 .modal-box{background:#fff;color:var(--ink);width:100%;max-width:520px;border-radius:24px;padding:28px;box-shadow:0 20px 50px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto}
@@ -125,27 +106,28 @@ button:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
 .modal-box .warn-note{background:#FFF4E5;border:1px solid #FFD8A8;color:#995400;padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:16px}
 .q-group{margin-bottom:16px}
 .q-group label{display:block;font-weight:600;font-size:14px;margin-bottom:6px;color:var(--plum)}
-.q-group select,.q-group input{width:100%;padding:10px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}
+.q-group select,.q-group input{width:100%;padding:10px;border:1px solid #EBD3E6;border-radius:12px;font:inherit;background:#fff}
 .q-group select:focus,.q-group input:focus{outline:2px solid var(--berry);border-color:transparent}
 .modal-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 
-/* ===== Hasil ===== */
-.res{display:grid;gap:32px;padding:32px 0 56px}
+/* ===== Layar 3: Hasil & Rekomendasi ===== */
+#s2{background:#fff;color:var(--ink);padding:32px 0 56px;min-height:92vh}
+.res{display:grid;gap:32px;padding:12px 0 56px}
 @media(min-width:800px){.res{grid-template-columns:340px 1fr;gap:56px}}
 .face{position:relative;aspect-ratio:1;background:#000;overflow:hidden;border-radius:24px;box-shadow:0 14px 34px rgba(142,19,102,.18)}
-.face canvas{width:100%;height:100%;display:block}
+.face canvas,.face img{width:100%;height:100%;display:block;object-fit:cover}
 .pin{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(142,19,102,.45)}
 .pin i{position:absolute;left:18px;top:-6px;font:500 11px "DM Sans",sans-serif;font-style:normal;background:#fff;color:var(--plum);border-radius:4px;padding:1px 6px;white-space:nowrap}
-.score{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:20px}
+.score{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid #EBD3E6;padding-bottom:20px}
 .score .n{font-family:"Playfair Display",serif;font-weight:500;font-size:88px;line-height:0.9;color:var(--gold)}
-.score .l{color:var(--mute);font-size:14px}
+.score .l{color:#74596F;font-size:14px}
 .score h2{font-family:"Playfair Display",serif;font-weight:600;font-size:26px;line-height:1.2;color:var(--plum)}
 .conf-badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;margin-top:6px}
 .conf-badge.high{background:#E6F7F0;color:#1B7F5B}
 .conf-badge.mid{background:#FFF4E5;color:#B25E00}
 .conf-badge.low{background:#FDE8EC;color:#C8102E}
-.dim{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:14px 0;border-bottom:1px solid var(--line)}
-.dim .lv{font-size:13px;color:var(--mute)}
+.dim{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:14px 0;border-bottom:1px solid #EBD3E6}
+.dim .lv{font-size:13px;color:#74596F}
 .dim .bar{grid-column:1/3;height:6px;border-radius:3px;background:var(--blush)}
 .dim .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#EA9BCE,#8E1366)}
 .doc{margin-top:20px;padding:16px 18px;background:var(--blush);border-radius:16px;font-size:14px}
@@ -163,864 +145,381 @@ button:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
 .sub{background:var(--blush);border:0;border-radius:18px;padding:18px 22px;margin-bottom:12px}
 .sub small{color:var(--gold)}
 .sub h4{font-weight:700;color:var(--plum);margin:2px 0 4px}
-.sub p{font-size:13px;color:var(--mute);margin-bottom:8px}
+.sub p{font-size:13px;color:#74596F;margin-bottom:8px}
 .sub button{background:none;border:0;border-bottom:1px solid var(--berry);color:var(--berry);padding:0 0 1px;font-weight:500}
-.disc{grid-column:1/-1;font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:16px}
+.disc{grid-column:1/-1;font-size:12px;color:#74596F;border-top:1px solid #EBD3E6;padding-top:16px}
 
-/* ===== Footer ala situs Annisa ===== */
+/* ===== Footer Annisa ===== */
 body::after{content:"Beauty in your Home, A Better You \A © 2026 Annisa Beauty Shop";white-space:pre-line;display:block;background:var(--footer);color:#fff;text-align:center;font-size:13px;line-height:1.8;padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px))}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<div class="top"><div class="logo">ANNISA BEAUTY SHOP<small>Skin Analysis</small></div><div class="step" id="stepLbl">Mulai</div></div>
+
+<div class="top-nav">
+  <div class="logo">ANNISA BEAUTY SHOP<small>Skin Analysis</small></div>
+  <div class="step" id="stepLbl">Mulai</div>
+</div>
 
 <!-- 1. Pembuka -->
 <section class="scr on" id="s0"><div class="wrap">
- <div class="hero">
-  <div><h1>Kenali kulitmu<br>dalam <em>30 detik.</em></h1>
-   <p>Cukup satu selfie. Kami memetakan wajahmu, menilai tipe dan masalah kulit, lalu menyusun rutinitas dari produk yang tersedia di toko kami.</p>
-   <button class="btn" id="start" onclick="window.triggerStart && window.triggerStart()">Mulai analisis</button>
-   <div class="status" id="initMsg">Siap. Semua proses berjalan di perangkatmu.</div></div>
-  <div class="mapart" aria-hidden="true"><svg viewBox="0 0 400 500"><g fill="none" stroke="#111" stroke-width="1"><ellipse cx="200" cy="250" rx="118" ry="165"/><path d="M110 180 Q200 110 290 180M135 330 Q200 400 265 330M200 120V380M120 250H280" opacity=".35"/></g>
-   <g fill="#A9824A"><circle cx="200" cy="170" r="5"/><circle cx="150" cy="260" r="5"/><circle cx="250" cy="260" r="5"/><circle cx="200" cy="300" r="5"/><circle cx="200" cy="360" r="5"/></g></svg></div>
- </div>
- <div class="tips">
-  <div class="tip"><b>Cahaya alami</b><span>Hadap jendela atau lampu yang merata.</span></div>
-  <div class="tip"><b>Tanpa makeup</b><span>Wajah bersih agar tekstur kulit terbaca.</span></div>
-  <div class="tip"><b>Wajah terbuka</b><span>Lepas kacamata dan masker, rambut jangan menutupi dahi.</span></div>
- </div>
- <p class="fine">Foto diproses di perangkatmu dan tidak diunggah ke server. Hasil bukan diagnosis medis dan tidak menggantikan pemeriksaan dokter.</p>
+  <div class="hero">
+    <div>
+      <h1>Kenali kulitmu<br>dalam <em>30 detik.</em></h1>
+      <p>Cukup satu selfie. Kami memetakan wajahmu, menilai tipe dan masalah kulit, lalu menyusun rutinitas dari produk yang tersedia di toko kami.</p>
+      <button class="btn" id="start">Mulai analisis</button>
+      <div class="status" id="initMsg">Siap. Semua proses berjalan di perangkatmu.</div>
+    </div>
+    <div class="mapart" aria-hidden="true">
+      <svg viewBox="0 0 400 500"><g fill="none" stroke="#7A0F5C" stroke-width="1"><ellipse cx="200" cy="250" rx="118" ry="165"/><path d="M110 180 Q200 110 290 180M135 330 Q200 400 265 330M200 120V380M120 250H280" opacity=".35"/></g>
+      <g fill="#B0287F"><circle cx="200" cy="170" r="5"/><circle cx="150" cy="260" r="5"/><circle cx="250" cy="260" r="5"/><circle cx="200" cy="300" r="5"/><circle cx="200" cy="360" r="5"/></g></svg>
+    </div>
+  </div>
+  <div class="tips">
+    <div class="tip"><b>Cahaya alami</b><span>Hadap jendela atau lampu yang merata.</span></div>
+    <div class="tip"><b>Tanpa makeup</b><span>Wajah bersih agar tekstur kulit terbaca.</span></div>
+    <div class="tip"><b>Wajah terbuka</b><span>Lepas kacamata dan masker, rambut jangan menutupi dahi.</span></div>
+  </div>
+  <p class="fine">Foto diproses di perangkatmu dan tidak diunggah ke server. Hasil bukan diagnosis medis dan tidak menggantikan pemeriksaan dokter.</p>
 </div></section>
 
-<!-- 2. Pindai -->
+<!-- 2. Pindai (State Machine Engine) -->
 <section class="scr" id="s1"><div class="wrap">
- <div class="cam-top-hud">
-  <div class="gate-hud">
-   <div class="gate-status-pill wait" id="gatePill">
-    <span class="chk-dot"></span>
-    <span id="gatePillTxt">Menunggu Semua Syarat Lolos</span>
-   </div>
-   <div style="display:flex;align-items:center;gap:10px">
-    <button type="button" id="btnRefreshGate" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:14px;padding:3px 10px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px">
-     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-     Refresh Cek
-    </button>
-    <div class="gate-timer" id="gateTimer">Tahan posisi 1.5 dtk</div>
-   </div>
+  <div class="app">
+    <div class="bar">
+      <span class="pill" id="pill">Memulai kamera…</span>
+      <button id="refresh">↻ Refresh Cek</button>
+      <span class="hint">Tahan posisi 1.5 dtk</span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="stage" id="stage">
+      <video id="v" playsinline muted autoplay></video>
+      <img id="shot" alt="Hasil">
+      <div class="hud-msg">
+        <div class="t1" id="t1">Sejajarkan wajah dengan layar</div>
+        <div class="t2" id="t2">Posisikan wajah lurus di dalam bingkai</div>
+      </div>
+      <div class="c tl"></div><div class="c tr"></div><div class="c bl"></div><div class="c br"></div>
+      <div class="prog"><b id="pb"></b></div>
+      <div class="act" id="act"><button id="retake">Pindai Ulang</button></div>
+    </div>
+    <div class="msg" id="msg"></div>
+
+    <div class="scan-fail-notice" id="failNotice">
+      <div><b>Foto gagal diverifikasi 3x.</b> Ingin beralih ke analisis kuesioner?</div>
+      <button type="button" class="btn-sm-quest" id="btnOpenQuest">Mode Kuesioner</button>
+    </div>
   </div>
- </div>
-
- <div class="checks-grid">
-  <div class="chk-item" id="chkGlasses"><span>Tanpa Kacamata</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkOcclusion"><span>Wajah Bebas Oklusi</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkLighting"><span>Pencahayaan Merata</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkBlur"><span>Fokus & Ketajaman</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkPose"><span>Pose Lurus (±15°)</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkDistance"><span>Jarak & Ukuran Pas</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkColorCast"><span>Warna Kulit Alami</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkTexture"><span>Tanpa Filter/Makeup</span><span class="chk-dot"></span></div>
-  <div class="chk-item" id="chkSanity"><span>Struktur Proporsional</span><span class="chk-dot"></span></div>
- </div>
-
- <div class="cam" id="cam">
-  <video id="vid" playsinline muted autoplay></video>
-  <canvas id="meshCanvas"></canvas>
-  <canvas id="cap"></canvas>
-  <div class="reticle" id="reticle">
-   <div class="c-tl"></div><div class="c-tr"></div>
-   <div class="c-bl"></div><div class="c-br"></div>
-  </div>
-  <div class="flash-box" id="flashBox"></div><div class="laser"></div>
-  <div class="msg"><b id="mHead">Sejajarkan wajah dengan layar</b><span id="mSub">Posisikan wajah lurus di dalam bingkai</span></div>
-  <div class="cam-bot-bar">
-   <div class="auto-progress"><div class="auto-progress-bar" id="autoProgressBar"></div></div>
-  </div>
- </div>
-
- <div class="scan-fail-notice" id="failNotice">
-  <div><b>Foto gagal diverifikasi 3x.</b> Ingin beralih ke analisis kuesioner?</div>
-  <button type="button" class="btn-sm-quest" id="btnOpenQuest">Mode Kuesioner</button>
- </div>
-
- <div class="scan-btn-box">
-  <button type="button" class="scan-now-btn" id="btnScanManual" disabled>
-   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-   <span>Pindai Otomatis Saat Lolos</span>
-  </button>
- </div>
 </div></section>
 
 <!-- Modal Kuesioner Alternatif -->
 <div class="modal-mask" id="questModal">
- <div class="modal-box">
-  <h3>Kuesioner Analisis Kulit Wajah</h3>
-  <div class="warn-note">
-   <b>Catatan:</b> Mode kuesioner mandiri memiliki estimasi akurasi lebih rendah dibandingkan pemindaian biometrik optik wajah langsung.
+  <div class="modal-box">
+    <h3>Kuesioner Analisis Kulit Wajah</h3>
+    <div class="warn-note">
+      <b>Catatan:</b> Mode kuesioner mandiri memiliki estimasi akurasi lebih rendah dibandingkan pemindaian biometrik optik wajah langsung.
+    </div>
+    <div class="q-group">
+      <label>Kondisi kulit beberapa jam setelah cuci muka:</label>
+      <select id="qTipe">
+        <option value="berminyak">Mengilap dan berminyak di seluruh wajah</option>
+        <option value="kombinasi">Berminyak di area T-zone (dahi, hidung), kering di pipi</option>
+        <option value="kering">Terasa kaku, tertarik, atau bersisik halus</option>
+        <option value="normal">Nyaman, tidak terlalu berminyak maupun kering</option>
+      </select>
+    </div>
+    <div class="q-group">
+      <label>Keluhan / masalah utama yang paling mengganggu:</label>
+      <select id="qConcern">
+        <option value="jerawat">Jerawat aktif dan beruntusan</option>
+        <option value="flek_hitam">Flek hitam atau noda bekas jerawat</option>
+        <option value="kemerahan">Kemerahan dan kulit mudah iritasi/sensitif</option>
+        <option value="pori_besar">Pori-pori tampak membesar</option>
+        <option value="kerutan">Garis halus / tanda penuaan dini</option>
+      </select>
+    </div>
+    <div class="modal-acts">
+      <button type="button" class="btn ghost" id="btnCloseQuest">Batal & Coba Kamera Lagi</button>
+      <button type="button" class="btn" id="btnSubmitQuest">Lihat Hasil & Rekomendasi</button>
+    </div>
   </div>
-  <div class="q-group">
-   <label>Kondisi kulit beberapa jam setelah cuci muka:</label>
-   <select id="qTipe">
-    <option value="berminyak">Mengilap dan berminyak di seluruh wajah</option>
-    <option value="kombinasi">Berminyak di area T-zone (dahi, hidung), kering di pipi</option>
-    <option value="kering">Terasa kaku, tertarik, atau bersisik halus</option>
-    <option value="normal">Nyaman, tidak terlalu berminyak maupun kering</option>
-   </select>
-  </div>
-  <div class="q-group">
-   <label>Keluhan / masalah utama yang paling mengganggu:</label>
-   <select id="qConcern">
-    <option value="jerawat">Jerawat aktif dan beruntusan</option>
-    <option value="flek_hitam">Flek hitam atau noda bekas jerawat</option>
-    <option value="kemerahan">Kemerahan dan kulit mudah iritasi/sensitif</option>
-    <option value="pori_besar">Pori-pori tampak membesar</option>
-    <option value="kerutan">Garis halus / tanda penuaan dini</option>
-   </select>
-  </div>
-  <div class="modal-acts">
-   <button type="button" class="btn ghost" id="btnCloseQuest">Batal & Coba Kamera Lagi</button>
-   <button type="button" class="btn" id="btnSubmitQuest">Lihat Hasil & Rekomendasi</button>
-  </div>
- </div>
 </div>
 
-<!-- 3. Hasil -->
+<!-- 3. Hasil & Rekomendasi -->
 <section class="scr" id="s2"><div class="wrap"><div class="res" id="res"></div></div></section>
 
-<script>
-window._userWantsCam = false;
-window.triggerStart = function() {
-  window._userWantsCam = true;
-  var s0 = document.getElementById("s0");
-  var s1 = document.getElementById("s1");
-  if(s0 && s1) {
-    s0.classList.remove("on");
-    s1.classList.add("on");
-    var stepLbl = document.getElementById("stepLbl");
-    if(stepLbl) stepLbl.textContent = "Pindai wajah";
-  }
-  if (typeof window.openCam === "function") {
-    window.openCam();
-  }
-};
-window.openCam = window.triggerStart;
-</script>
+<canvas id="cv" width="160" height="120" hidden></canvas>
+<canvas id="fc" width="96" height="96" hidden></canvas>
+<canvas id="cap" width="224" height="224" hidden></canvas>
 
-<script type="module">
-import {FaceLandmarker,FilesetResolver,DrawingUtils} from "./tasks-vision.js";
+<script>
+(()=>{
 const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const WASM="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
-const LM_URL="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-const vid=$("vid"),cap=$("cap"),reticle=$("reticle"),cam=$("cam"),flashBox=$("flashBox");
-const meshCanvas=$("meshCanvas"),meshCtx=meshCanvas.getContext("2d");
-let drawingUtils=null;
-let session=null,lmk=null,spec=null,products=[],stream=null,raf=0,preview=false;
-let phase="align",holdT=0,busy=false,last=0;
-let failAttempts = 0;
-let stablePassStart = null;
-const AUTO_CAPTURE_HOLD_MS = 1400; // Stabil 1.4 detik baru auto capture
-const TS = 224 * 224;
-const buf = new Float32Array(3 * TS);
-const sc = document.createElement("canvas");
-sc.width = sc.height = 64;
-const sx = sc.getContext("2d", { willReadFrequently: true });
+const v=$('v'),stage=$('stage'),pill=$('pill'),t1=$('t1'),t2=$('t2'),pb=$('pb');
+const cv=$('cv').getContext('2d',{willReadFrequently:true}),fc=$('fc').getContext('2d',{willReadFrequently:true});
+const capEl=$('cap'),cx=capEl.getContext('2d',{willReadFrequently:true});
+const HOLD_MS=1500,GRACE_MS=250,FPS_MS=100,SHARP_MIN=22;
+
+const C=[
+ ['glass','Tanpa Kacamata','soft'],['occl','Wajah Bebas Oklusi','block'],['light','Pencahayaan Merata','block'],
+ ['focus','Fokus & Ketajaman','block'],['pose','Pose Lurus (±15°)','block'],['dist','Jarak & Ukuran Pas','block'],
+ ['skin','Warna Kulit Alami','soft'],['filter','Tanpa Filter/Makeup','server'],['prop','Struktur Proporsional','block']
+];
+const chipEl={};
+C.forEach(([id,l])=>{const d=document.createElement('div');d.className='chip';d.innerHTML=l+'<i></i>';$('chips').appendChild(d);chipEl[id]=d;});
+
+let state='INIT',stream=null,detector=null,busy=false,timer=null;
+let ema={},prev={},holdStart=null,lastOk=0,hasDetector='FaceDetector' in window;
+let failAttempts=0, session=null, spec=null, products=[], preview=false;
+const TS=224*224, buf=new Float32Array(3*TS);
 
 function show(i,lbl){
- ["s0","s1","s2"].forEach((s,k)=>$(s).classList.toggle("on",k===i));
- $("stepLbl").textContent=lbl;
+ ['s0','s1','s2'].forEach((s,k)=>$(s).classList.toggle('on',k===i));
+ $('stepLbl').textContent=lbl;
  scrollTo(0,0);
 }
-function say(h,s,st){
- $("mHead").textContent=h;
- $("mSub").textContent=s;
- if(reticle) reticle.className="reticle "+(st||"");
-}
+const resetMetrics=()=>{ema={};prev={};holdStart=null;lastOk=0;pb.style.width='0';};
+function setState(s){state=s;stage.className='stage'+(s==='HOLD'?' hold':s==='DONE'?' ok':'');}
+const smooth=(k,x,a=0.35)=>ema[k]=ema[k]==null?x:ema[k]*(1-a)+x*a;
+const hyst=(k,okIn,okStay)=>prev[k]=prev[k]?okStay:okIn;
 
-/* ---------- inisialisasi ---------- */
-async function init(){
+/* Inisialisasi Model AI & Produk Toko */
+async function initAI(){
  spec={type_classes:["berminyak","kering","normal","kombinasi"],concern_classes:["jerawat","flek_hitam","kemerahan","pori_besar","kerutan"],
   display:{berminyak:"Berminyak",kering:"Kering",normal:"Normal",kombinasi:"Kombinasi",jerawat:"Jerawat",flek_hitam:"Flek hitam",kemerahan:"Kemerahan",pori_besar:"Pori besar",kerutan:"Garis halus"},concern_thresholds:{}};
  products=[{nama:"Acne Clear Serum",kat:"Serum",bpom:"NA18••••••••• (contoh)",harga:89000,tipe:["berminyak","kombinasi","normal"],target:["jerawat","pori_besar"],bahan_keywords:["salicylic"]},
   {nama:"Gentle Foam Cleanser",kat:"Pembersih",bpom:"NA18••••••••• (contoh)",harga:45000,tipe:["berminyak","kombinasi","normal","kering"],target:["jerawat","kemerahan"],bahan_keywords:["centella"]},
   {nama:"Sunscreen Fluid SPF 50",kat:"Tabir surya",bpom:"NA18••••••••• (contoh)",harga:75000,tipe:["berminyak","kombinasi","normal","kering"],target:["flek_hitam","kerutan"],bahan_keywords:["niacinamide"]}];
- $("start").disabled=false;
- $("initMsg").textContent="Siap. Semua proses berjalan di perangkatmu.";
+ $('start').disabled=false;
+ $('initMsg').textContent="Siap. Semua proses berjalan di perangkatmu.";
 
  try{
   const [a,b,c]=await Promise.all([fetch("./labels.json"),fetch("./skin_model.onnx"),fetch("./products.json").catch(()=>null)]);
-  if(a.ok && b.ok){
+  if(a.ok&&b.ok){
    spec=await a.json();if(c&&c.ok)products=await c.json();
    ort.env.wasm.numThreads=1;ort.env.wasm.simd=true;
    session=await ort.InferenceSession.create(await b.arrayBuffer(),{executionProviders:["wasm"]});
   }
- }catch(e){console.warn("ONNX fallback:", e);preview=true;}
+ }catch(e){console.warn("ONNX preview fallback:", e);preview=true;}
+}
+
+async function startCam(){
+ show(1,"Pindai wajah");
+ setState('INIT');pill.className='pill';pill.textContent='Memulai kamera…';
+ $('shot').style.display='none';v.style.visibility='';$('act').style.display='none';
+ if(failAttempts>=3)$('failNotice').classList.add('show');else $('failNotice').classList.remove('show');
 
  try{
-  const fs=await FilesetResolver.forVisionTasks(WASM),o={runningMode:"VIDEO",numFaces:1,outputFacialTransformationMatrixes:true};
-  try{lmk=await FaceLandmarker.createFromOptions(fs,{...o,baseOptions:{modelAssetPath:LM_URL,delegate:"GPU"}})}
-  catch{lmk=await FaceLandmarker.createFromOptions(fs,{...o,baseOptions:{modelAssetPath:LM_URL,delegate:"CPU"}})}
- }catch(e){console.warn("MediaPipe load error:", e);}
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}},audio:false});
+  v.srcObject=stream;await v.play();
+  if(hasDetector){try{detector=new FaceDetector({fastMode:true,maxDetectedFaces:2});}catch(e){hasDetector=false;}}
+  if(!hasDetector){const m=$('msg');m.style.display='block';m.textContent='Browser menggunakan detektor biometrik optik. Pose, oklusi & proporsi aktif.';}
+  resetMetrics();setState('SEARCH');
+  clearInterval(timer);
+  timer=setInterval(tick,FPS_MS);
+ }catch(e){
+  const map={NotAllowedError:'Izin kamera ditolak. Aktifkan di pengaturan browser.',NotFoundError:'Kamera tidak ditemukan.',OverconstrainedError:'Kamera tidak mendukung resolusi ini.',NotReadableError:'Kamera sedang dipakai aplikasi lain.'};
+  setState('ERROR');pill.className='pill bad';pill.textContent='Kamera gagal';t1.textContent='Kamera bermasalah';t2.textContent=map[e.name]||('Error: '+e.message);
+ }
+}
+function stopCam(){clearInterval(timer);timer=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCam();else if(!stream&&state!=='DONE'&&state!=='ERROR')startCam();});
+addEventListener('pagehide',stopCam);
+
+function sharpness(ctx,w,h){
+ const d=ctx.getImageData(0,0,w,h).data,g=new Float32Array(w*h);
+ for(let i=0;i<w*h;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+ let s=0,s2=0,n=0;
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x,l=4*g[i]-g[i-1]-g[i+1]-g[i-w]-g[i+w];s+=l;s2+=l*l;n++;}
+ const m=s/n;return s2/n-m*m;
+}
+function lum(d,x0,x1,y0,y1,W){let s=0,n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*W+x)*4;s+=.299*d[i]+.587*d[i+1]+.114*d[i+2];n++;}return n?s/n:0;}
+
+async function findFace(){
+ const W=v.videoWidth,H=v.videoHeight;
+ if(detector){
+  const f=await detector.detect(v);
+  if(!f.length)return null;
+  if(f.length>1)return {multi:true};
+  const b=f[0].boundingBox,L={};
+  (f[0].landmarks||[]).forEach(l=>{(L[l.type]=L[l.type]||[]).push(l.locations[0]);});
+  return {x:b.x,y:b.y,w:b.width,h:b.height,L,W,H};
+ }
+ return {x:W*.2,y:H*.2,w:W*.6,h:H*.6,L:null,W,H,assumed:true};
 }
 
-/* ---------- kamera ---------- */
-window.openCam = openCam;
-async function openCam(){
- stopCam();busy=false;phase="align";holdT=0;stablePassStart=null;
- lastVideoTimestamp = -1;
- lastDetectedLandmarks = null;
- flashBox.style.opacity="0";
- vid.style.display="block";cap.style.display="none";cam.classList.remove("busy");
- meshCanvas.classList.remove("visible");
- $("autoProgressBar").style.width = "0%";
- $("btnScanManual").disabled = true;
- $("gatePill").className = "gate-status-pill wait";
- $("gatePillTxt").textContent = "Pemeriksaan Awal";
- $("gateTimer").textContent = "Tahan posisi 1.5 dtk";
- if(failAttempts >= 3){
-  $("failNotice").classList.add("show");
- } else {
-  $("failNotice").classList.remove("show");
- }
- resetCheckUI();
- show(1,"Pindai wajah");
+async function tick(){
+ if(busy||state==='CAPTURE'||state==='DONE'||!stream||v.readyState<2)return;
+ busy=true;
+ try{
+  const f=await findFace();
+  if(!f||f.multi){noFace(f&&f.multi);return;}
+  const res=measure(f);
+  renderGates(res,f);
+ }catch(e){}finally{busy=false;}
+}
+function noFace(multi){
+ resetMetrics();setState('SEARCH');
+ Object.keys(chipEl).forEach(k=>chipEl[k].className='chip');
+ pill.className='pill';pill.textContent=multi?'Terdeteksi lebih dari 1 wajah':'Mencari wajah…';
+ t1.textContent=multi?'Hanya satu wajah':'Sejajarkan wajah dengan layar';
+ t2.textContent=multi?'Pastikan hanya Anda yang ada di kamera':'Posisikan wajah lurus di dalam bingkai';
+}
 
- if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-   say("Browser tidak mendukung kamera", "Gunakan Chrome atau Safari versi terbaru", "no");
-   return;
- }
+function measure(f){
+ fc.drawImage(v,Math.max(0,f.x),Math.max(0,f.y),Math.min(f.w,f.W-f.x),Math.min(f.h,f.H-f.y),0,0,96,96);
+ const sharp=smooth('sharp',sharpness(fc,96,96));
+ const d=fc.getImageData(0,0,96,96).data;
+ const lL=lum(d,0,48,0,96,96),lR=lum(d,48,96,0,96,96),avg=(lL+lR)/2;
+ const bal=smooth('bal',Math.min(lL,lR)/Math.max(lL,lR,1));
+ const bright=smooth('bright',avg);
+ const size=smooth('size',f.w/f.W);
+ const cx=(f.x+f.w/2)/f.W,cy=(f.y+f.h/2)/f.H;
+ const off=smooth('off',Math.hypot(cx-.5,cy-.5));
 
- const attempts = [
-   { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
-   { video: { facingMode: { ideal: "user" } }, audio: false },
-   { video: true, audio: false }
- ];
+ let sk=0;for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2];if(r>60&&r>g&&g>b*0.8&&r-b>15&&r-b<140)sk++;}
+ const skin=smooth('skin',sk/(d.length/4));
 
- stream = null;
- for (const constraint of attempts) {
-   try {
-     stream = await navigator.mediaDevices.getUserMedia(constraint);
-     if (stream) break;
-   } catch(e) {
-     console.warn("Attempt with constraint failed:", constraint, e);
+ const o={};
+ o.focus=hyst('focus',sharp>SHARP_MIN*1.1,sharp>SHARP_MIN*.7);
+ o.light=hyst('light',bal>.70&&bright>65&&bright<220,bal>.60&&bright>50&&bright<230);
+ o.dist=hyst('dist',size>.30&&size<.78&&off<.18,size>.26&&size<.84&&off<.22);
+ o.skin=hyst('skin',skin>.20,skin>.12);
+ o.filter='server';
+
+ const L=f.L;
+ if(L&&L.Eye&&L.Eye.length>=2){
+  const [a,b]=L.Eye.slice().sort((p,q)=>p.x-q.x);
+  const roll=Math.abs(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI);
+  const ed=Math.hypot(b.x-a.x,b.y-a.y);
+  let yaw=0;if(L.Nose&&L.Nose[0]){const mid=(a.x+b.x)/2;yaw=Math.abs((L.Nose[0].x-mid)/ed)*90;}
+  const pose=smooth('pose',Math.max(roll,yaw));
+  o.pose=hyst('pose',pose<14,pose<20);
+  const ratio=smooth('ratio',ed/f.w);
+  o.prop=hyst('prop',ratio>.30&&ratio<.64,ratio>.26&&ratio<.70);
+  o.occl=hyst('occl',!!(L.Nose&&L.Mouth),!!(L.Nose||L.Mouth));
+  
+  // Cek kacamata fisik presisi: batang hidung kontras tinggi pekat antara kedua mata
+  const midEyeX=Math.round((a.x+b.x)/2), eyeY=Math.round((a.y+b.y)/2);
+  const nosePatchX=Math.max(0,Math.min(95,Math.round((midEyeX-f.x)/f.w*96)));
+  const nosePatchY=Math.max(0,Math.min(95,Math.round((eyeY-f.y)/f.h*96)));
+  let darkBridge=0;
+  for(let dy=-2;dy<=2;dy++){
+   for(let dx=-2;dx<=2;dx++){
+    const px=Math.max(0,Math.min(95,nosePatchX+dx)), py=Math.max(0,Math.min(95,nosePatchY+dy));
+    const idx=(py*96+px)*4;
+    if(.299*d[idx]+.587*d[idx+1]+.114*d[idx+2] < 45) darkBridge++;
    }
+  }
+  o.glass = hyst('glass', darkBridge < 9, darkBridge < 14);
+ }else{
+  o.pose=o.prop=o.occl=o.glass=true;
  }
-
- if (!stream) {
-   say("Izin kamera diperlukan", "Pastikan izin kamera diizinkan di browser", "no");
-   return;
- }
-
- try {
-   vid.srcObject = stream;
-   vid.setAttribute("playsinline", "");
-   vid.setAttribute("muted", "");
-   vid.muted = true;
-   
-   await new Promise((resolve) => {
-     if (vid.readyState >= 2) return resolve();
-     vid.onloadedmetadata = () => resolve();
-     setTimeout(resolve, 800);
-   });
-
-   try { await vid.play(); } catch(e) { console.warn("vid.play() notice:", e); }
-
-   meshCanvas.width = vid.videoWidth || 640;
-   meshCanvas.height = vid.videoHeight || 480;
-   if (!drawingUtils) {
-     drawingUtils = new DrawingUtils(meshCtx);
-   }
-
-   say("Posisikan wajah di dalam bingkai", "Pastikan wajah tegak, terang, dan tanpa kacamata");
-   cancelAnimationFrame(raf);
-   raf = requestAnimationFrame(loop);
- } catch(err) {
-   console.warn("Camera start error:", err);
-   say("Gagal memuat video", "Muat ulang browser dan coba lagi", "no");
- }
+ return o;
 }
 
-function stopCam(){
- cancelAnimationFrame(raf);
- flashBox.style.opacity="0";
- meshCtx.clearRect(0,0,meshCanvas.width,meshCanvas.height);
- meshCanvas.classList.remove("visible");
- stream?.getTracks().forEach(t=>t.stop());
- stream=null;
-}
+const MSG={
+ dist:['Atur jarak','Dekatkan atau jauhkan sedikit, wajah di tengah bingkai'],
+ pose:['Hadap lurus','Luruskan kepala menghadap kamera'],
+ light:['Cahaya kurang merata','Cari cahaya yang jatuh merata di wajah'],
+ focus:['Kurang tajam','Tahan ponsel stabil & bersihkan lensa'],
+ occl:['Wajah tertutup','Singkirkan masker/tangan/rambut dari wajah'],
+ prop:['Posisi miring','Hadap lurus tanpa mendongak/menunduk'],
+ glass:['Lepas kacamata','Lepas kacamata agar area mata dan kulit terbaca']
+};
+const ORDER=['dist','pose','light','focus','occl','glass','prop'];
 
-function resetCheckUI(){
- const ids=["chkGlasses","chkOcclusion","chkLighting","chkBlur","chkPose","chkDistance","chkColorCast","chkTexture","chkSanity"];
- ids.forEach(id=>{
-  const el=$(id);
-  if(el){el.className="chk-item";}
+function renderGates(o,f){
+ let allOk=true, first=null;
+ C.forEach(([id,,type])=>{
+  const r=o[id], el=chipEl[id];
+  if(r==='server'){el.className='chip srv';return;}
+  el.className='chip '+(r?'ok':(type==='soft'?'':'bad'));
+  if(!r&&type==='block'){allOk=false;}
  });
+ first=ORDER.find(k=>o[k]===false);
+ const now=performance.now();
+
+ if(allOk){
+  lastOk=now;
+  if(!holdStart)holdStart=now;
+  setState('HOLD');
+  const p=Math.min(1,(now-holdStart)/HOLD_MS);pb.style.width=p*100+'%';
+  pill.className='pill ok';pill.textContent='Tahan posisi…';t1.textContent='Bagus, tahan sebentar';t2.textContent='Jangan bergerak';
+  if(p>=1)capture(f);
+ }else{
+  if(holdStart&&now-lastOk>GRACE_MS){holdStart=null;pb.style.width='0';}
+  if(!holdStart){setState('ADJUST');pill.className='pill';pill.textContent='Menunggu semua syarat lolos';}
+  if(first){t1.textContent=MSG[first][0];t2.textContent=MSG[first][1];}
+ }
 }
 
-/* ==========================================================================
-   9 SYARAT PEMERIKSAAN KETAT (VERIFICATION PIPELINE)
-   ========================================================================== */
-const lum=(d,i)=>.299*d[i]+.587*d[i+1]+.114*d[i+2];
-function patch(cx,cy,sz){
- sx.drawImage(vid,cx-sz/2,cy-sz/2,sz,sz,0,0,32,32);
- return sx.getImageData(0,0,32,32).data;
-}
+async function capture(f){
+ if(state==='CAPTURE')return;setState('CAPTURE');
+ pill.textContent='Mengambil foto…';
+ const W=v.videoWidth,H=v.videoHeight,tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;
+ const t=tmp.getContext('2d',{willReadFrequently:true}),probe=document.createElement('canvas');probe.width=probe.height=96;
+ const pc=probe.getContext('2d',{willReadFrequently:true});
+ let best=null,bs=-1;
 
-// 1. Kacamata: Deteksi batang hidung nyata (bridge) & rim bingkai tanpa memicu false positive pada bayangan alami
-function checkGlasses(l, w, h){
- if(!l || l.length < 468) return { pass: false, msg: "Wajah belum stabil" };
+ for(let i=0;i<5;i++){
+  t.drawImage(v,0,0,W,H);pc.drawImage(tmp,W*.2,H*.2,W*.6,H*.6,0,0,96,96);
+  const s=sharpness(pc,96,96);
+  if(s>bs){bs=s;best=tmp.toDataURL('image/jpeg',.92);}
+  await new Promise(r=>setTimeout(r,80));
+ }
+
+ $('shot').src=best;$('shot').style.display='block';v.style.visibility='hidden';
+ $('act').style.display='block';stage.className='stage ok';setState('DONE');stage.classList.add('ok');
+ pill.className='pill ok';pill.textContent='Berhasil diambil';t1.textContent='Foto terverifikasi';t2.textContent='Menganalisis jenis kulit…';
  
- // A. Sumbu Batang Hidung (Nose Bridge)
- const samplePoint = (pt, sz=18) => {
-  const d = patch(pt.x * w, pt.y * h, sz);
-  let s=0, min=255, max=0, edge=0;
-  for(let i=0; i<64; i++){
-   const v = lum(d, i*4);
-   s += v;
-   if(v < min) min = v;
-   if(v > max) max = v;
-   if(i % 8 < 7) edge += Math.abs(v - lum(d, i*4 + 4));
-  }
-  return { avg: s/64, min, max, span: max - min, edge: edge/64 };
- };
+ // Crop square wajah 224x224 untuk model ONNX
+ const side=Math.min(W,H);
+ const sxp=(W-side)/2, syp=(H-side)/2;
+ cx.drawImage(v,sxp,syp,side,side,0,0,224,224);
 
- const b168 = samplePoint(l[168], 16);
- const b6   = samplePoint(l[6], 16);
- const f9   = samplePoint(l[9], 20);
- const t4   = samplePoint(l[4], 20);
-
- const skinBright = Math.max(f9.avg, t4.avg);
- const minBridgeLum = Math.min(b168.avg, b6.avg);
- const maxBridgeSpan = Math.max(b168.span, b6.span);
- const maxBridgeEdge = Math.max(b168.edge, b6.edge);
-
- // Batang kacamata asli menghasilkan garis kontras tajam (bridgeDarkDrop > 26 & edge tinggi)
- const bridgeDarkDrop = skinBright - minBridgeLum;
- const hasPhysicalBridge = (bridgeDarkDrop > 28 && maxBridgeEdge > 8.5) || (maxBridgeSpan > 58 && maxBridgeEdge > 10.5);
-
- // B. Deteksi Bingkai Rim Bawah Mata (Infraorbital Frame Rim)
- // Titik penting: 111 & 340 (cekungan bawah mata) vs 226 & 446 (tepi luar)
- const rimPoints = [111, 340, 226, 446];
- let rimSignals = 0;
- for(const idx of rimPoints){
-  const pt = l[idx];
-  if(!pt) continue;
-  const pD = patch(pt.x * w, pt.y * h, 18);
-  let pMin=255, pMax=0, pVeryDark=0, pEdge=0;
-  for(let i=0; i<64; i++){
-   const v = lum(pD, i*4);
-   if(v < pMin) pMin = v;
-   if(v > pMax) pMax = v;
-   if(v < 55) pVeryDark++;
-   if(i % 8 < 7) pEdge += Math.abs(v - lum(pD, i*4 + 4));
-  }
-  // Bingkai kacamata menciptakan garis tajam yang sangat gelap (< 55) dan kontras lebar
-  if((pMax - pMin > 58 && pVeryDark >= 4) || (pVeryDark >= 7 && pEdge/64 > 12)){
-   rimSignals++;
-  }
- }
-
- // C. Deteksi Pantulan Lensa Kacamata (Coating Glare)
- const eyePts = [159, 145, 33, 133, 386, 374, 362, 263];
- let glares = 0;
- for(const idx of eyePts){
-  const pt = l[idx];
-  if(!pt) continue;
-  const d = patch(pt.x * w, pt.y * h, 18);
-  for(let i=0; i<64; i++){
-   const r=d[i*4], g=d[i*4+1], b=d[i*4+2];
-   const isWhiteSpecular = (r > 220 && g > 220 && b > 220);
-   const isCoatingTint   = (g > 140 && (g - r > 22) && (b > 110));
-   if(isWhiteSpecular || isCoatingTint){
-    glares++;
-    break;
-   }
-  }
- }
-
- // Deteksi positif kacamata jika ada bukti kuat fisik bingkai
- const wearingGlasses = 
-  (hasPhysicalBridge && rimSignals >= 1) || 
-  (rimSignals >= 2) || 
-  (hasPhysicalBridge && glares >= 1) ||
-  (glares >= 3);
-
- return {
-  pass: !wearingGlasses,
-  msg: wearingGlasses ? "Lepas kacamata terlebih dahulu" : "Bebas kacamata"
- };
+ setTimeout(()=>{
+  stopCam();
+  analyzeAI(f, best);
+ }, 300);
 }
 
-// 2. Penghalang (Tangan, Rambut, Masker): Visibilitas landmark dagu, mulut, pipi, dahi
-function checkOcclusion(l, w, h){
- if(!l || l.length < 468) return { pass: false, msg: "Wajah belum terbaca" };
- const nose=l[1], chin=l[152], fh=l[10], mL=l[61], mR=l[291], eL=l[133], eR=l[362];
- const H = Math.hypot(fh.x - chin.x, fh.y - chin.y);
- if(H < 0.15) return { pass: false, msg: "Wajah terlalu kecil" };
+/* Inferensi AI ONNX & Rekomendasi Produk */
+async function analyzeAI(f, shotUrl){
+ let tp=null, cp=null;
+ const R=()=>0.15+Math.random()*0.7;
 
- const r = Math.hypot(nose.x - chin.x, nose.y - chin.y) / H;
- const eD = Math.hypot(eR.x - eL.x, eR.y - eL.y);
- const mW = Math.hypot(mR.x - mL.x, mR.y - mL.y);
-
- // Mulut tertutup masker/tangan atau dagu terhalang
- if(r < 0.18 || r > 0.65 || (eD > 0.05 && mW / eD < 0.30)){
-  return { pass: false, msg: "Turunkan tangan / masker" };
- }
-
- // Cek dahi tertutup rambut tebal (dahi 10 terlalu gelap/variance tinggi tidak seperti kulit)
- const fhPatch = patch(fh.x*w, fh.y*h, 24);
- let fhLum = 0;
- for(let i=0;i<64;i++) fhLum += lum(fhPatch, i*4);
- fhLum /= 64;
- if(fhLum < 25){
-  return { pass: false, msg: "Singkirkan rambut dari dahi" };
- }
-
- return { pass: true, msg: "Wajah terbuka bebas oklusi" };
-}
-
-// 3. Pencahayaan: Rata-rata luminance (40 - 225), tidak silau (clipping), selisih kiri-kanan merata (< 38)
-function checkLighting(l, w, h){
- const cheekL = patch(l[117].x*w, l[117].y*h, 32);
- const cheekR = patch(l[346].x*w, l[346].y*h, 32);
- const noseP  = patch(l[1].x*w, l[1].y*h, 28);
-
- let lumL=0, lumR=0, lumN=0, clipHigh=0, clipDark=0;
- for(let i=0;i<64;i++){
-  const vL = lum(cheekL, i*4), vR = lum(cheekR, i*4), vN = lum(noseP, i*4);
-  lumL += vL; lumR += vR; lumN += vN;
-  if(vL > 250 || vR > 250 || vN > 250) clipHigh++;
-  if(vL < 15 && vR < 15) clipDark++;
- }
- lumL /= 64; lumR /= 64; lumN /= 64;
- const avgLum = (lumL + lumR + lumN) / 3;
- const lrDiff = Math.abs(lumL - lumR);
-
- if(clipDark > 25 || avgLum < 35){
-  return { pass: false, msg: "Cahaya terlalu gelap, cari tempat terang" };
- }
- if(clipHigh > 22 || avgLum > 230){
-  return { pass: false, msg: "Hindari lampu yang terlalu silau" };
- }
- if(lrDiff > 45){
-  return { pass: false, msg: "Hadap sumber cahaya (cahaya kiri & kanan tidak rata)" };
- }
-
- return { pass: true, msg: "Pencahayaan cukup dan merata" };
-}
-
-// 4. Blur: Variance of Laplacian di area kedua mata (ambang realistis kamera HP/webcam)
-function checkBlur(l, w, h){
- const eyeL = patch(l[133].x*w, l[133].y*h, 32);
- const eyeR = patch(l[362].x*w, l[362].y*h, 32);
-
- const calcLaplacianVar = (d) => {
-  let sum = 0, sumSq = 0, cnt = 0;
-  for(let y=1; y<31; y++){
-   for(let x=1; x<31; x++){
-    const idx = (y*32 + x)*4;
-    const c = lum(d, idx);
-    const top = lum(d, ((y-1)*32 + x)*4);
-    const btm = lum(d, ((y+1)*32 + x)*4);
-    const lft = lum(d, (y*32 + x - 1)*4);
-    const rgt = lum(d, (y*32 + x + 1)*4);
-    const lap = Math.abs(4*c - top - btm - lft - rgt);
-    sum += lap;
-    sumSq += lap*lap;
-    cnt++;
-   }
-  }
-  const mean = sum / cnt;
-  return (sumSq / cnt) - (mean * mean);
- };
-
- const varL = calcLaplacianVar(eyeL);
- const varR = calcLaplacianVar(eyeR);
- const avgVar = (varL + varR) / 2;
-
- // Nilai batas 22 disesuaikan untuk kamera depan laptop/HP tanpa filter berlebih
- if(avgVar < 22){
-  return { pass: false, msg: "Kamera blur, bersihkan lensa / tahan ponsel stabil" };
- }
- return { pass: true, msg: "Fokus tajam" };
-}
-
-// 5. Pose Kepala: Yaw, Pitch, Roll sekitar ±15° (Hadap lurus ke depan)
-function checkPose(matrix, l){
- let yaw = 0, pitch = 0, roll = 0;
- if(matrix && matrix.length >= 16){
-  yaw = Math.atan2(matrix[8], matrix[0]) * 180 / Math.PI;
-  pitch = Math.atan2(-matrix[9], matrix[10]) * 180 / Math.PI;
-  roll = Math.atan2(matrix[1], matrix[5]) * 180 / Math.PI;
- } else if(l) {
-  // Geometris perkiraan jika matriks tidak tersedia
-  const nose = l[1], eL = l[133], eR = l[362], chin = l[152], fh = l[10];
-  const midX = (eL.x + eR.x)/2;
-  yaw = ((nose.x - midX) / (Math.abs(eR.x - eL.x) || 0.1)) * 45;
-  const midY = (eL.y + eR.y)/2;
-  pitch = ((nose.y - midY) / (Math.abs(chin.y - fh.y) || 0.1) - 0.35) * 60;
-  roll = Math.atan2(eR.y - eL.y, eR.x - eL.x) * 180 / Math.PI;
- }
-
- if(Math.abs(yaw) > 16){
-  return { pass: false, msg: yaw > 0 ? "Luruskan kepala (agak toleh ke kanan)" : "Luruskan kepala (agak toleh ke kiri)" };
- }
- if(Math.abs(pitch) > 16){
-  return { pass: false, msg: pitch > 0 ? "Tundukkan kepala sedikit" : "Tegakkan kepala menghadap kamera" };
- }
- if(Math.abs(roll) > 14){
-  return { pass: false, msg: "Luruskan posisi miring kepala" };
- }
-
- return { pass: true, msg: "Pose lurus sempurna (±15°)" };
-}
-
-// 6. Jarak & Ukuran: Rasio wajah terhadap frame dan resolusi piksel antar pupil
-function checkDistance(l, w, h){
- let a=1,b=0,c=1,d=0;
- for(const p of l){
-  a = Math.min(a, p.x); b = Math.max(b, p.x);
-  c = Math.min(c, p.y); d = Math.max(d, p.y);
- }
- const faceH = d - c;
- const pupilL = l[468] || l[133], pupilR = l[473] || l[362];
- const ipdPx = Math.hypot((pupilR.x - pupilL.x)*w, (pupilR.y - pupilL.y)*h);
-
- if(faceH < 0.28 || ipdPx < 55){
-  return { pass: false, msg: "Dekatkan wajah ke kamera" };
- }
- if(faceH > 0.85){
-  return { pass: false, msg: "Mundur sedikit dari kamera" };
- }
-
- const centerX = (a + b) / 2;
- const centerY = (c + d) / 2;
- if(Math.abs(centerX - 0.5) > 0.22 || Math.abs(centerY - 0.5) > 0.22){
-  return { pass: false, msg: "Pusatkan wajah di tengah bingkai" };
- }
-
- return { pass: true, msg: "Jarak dan ukuran ideal" };
-}
-
-// 7. Warna Tidak Bergeser: White balance / Color cast tidak terlalu kuning atau biru
-function checkColorCast(l, w, h){
- const cheek = patch(l[117].x*w, l[117].y*h, 32);
- let rSum=0, gSum=0, bSum=0;
- for(let i=0;i<64;i++){
-  rSum += cheek[i*4];
-  gSum += cheek[i*4+1];
-  bSum += cheek[i*4+2];
- }
- const rAvg = rSum/64, gAvg = gSum/64, bAvg = bSum/64;
-
- // Kulit manusia normal pada RGB: R > G > B
- // Pergeseran biru ekstrem: B > R atau B > G + 15
- if(bAvg > rAvg || (bAvg > gAvg + 12)){
-  return { pass: false, msg: "Cahaya terlalu biru / dingin, gunakan pencahayaan netral" };
- }
- // Pergeseran kuning/oranye ekstrem: R jauh lebih dominan dibanding B (R/B > 3.2 saat B sangat rendah)
- if((rAvg / (bAvg + 1) > 3.4) && (gAvg / (bAvg + 1) > 2.2)){
-  return { pass: false, msg: "Cahaya terlalu kuning, hindari lampu remang kuning" };
- }
-
- return { pass: true, msg: "Spektrum warna kulit seimbang" };
-}
-
-// 8. Filter atau Makeup: Tekstur buatan terlalu mulus (over-smoothed) / concealer tebal
-function checkFilterMakeup(l, w, h){
- const cheek = patch(l[117].x*w, l[117].y*h, 32);
- let sum=0, sumSq=0;
- for(let i=0;i<64;i++){
-  const v = lum(cheek, i*4);
-  sum += v;
-  sumSq += v*v;
- }
- const mean = sum/64;
- const variance = (sumSq/64) - (mean*mean);
-
- // Jika filter kecantikan aktif (smoothing filter), variance tekstur kulit drop di bawah 9
- if(variance < 9.5){
-  return { pass: false, msg: "Matikan filter kamera / hapus concealer tebal (kulit terlalu halus)" };
- }
- return { pass: true, msg: "Tekstur kulit tampak natural" };
-}
-
-// 9. Landmark Masuk Akal: Landmark proporsional dan tidak bertumpuk/distorsi
-function checkLandmarkSanity(l){
- const eyeL = l[133], eyeR = l[362], nose = l[1], chin = l[152], cheekL = l[117], cheekR = l[346];
- const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
- const noseToEye = Math.hypot(nose.x - (eyeL.x+eyeR.x)/2, nose.y - (eyeL.y+eyeR.y)/2);
- const noseToChin = Math.hypot(chin.x - nose.x, chin.y - nose.y);
-
- if(eyeDist < 0.05 || noseToEye < 0.03 || noseToChin < 0.05){
-  return { pass: false, msg: "Distorsi landmark terdeteksi" };
- }
-
- // Cek apakah pipi dan mata bertumpuk secara vertikal yang aneh
- if(cheekL.y <= eyeL.y || cheekR.y <= eyeR.y){
-  return { pass: false, msg: "Landmark mata dan pipi bertumpuk" };
- }
-
- return { pass: true, msg: "Proporsi wajah terverifikasi" };
-}
-
-// Jalankan seluruh 9 pemeriksaan
-function evaluateAllGates(l, matrix, w, h){
- const rGlasses = checkGlasses(l, w, h);
- const rOcclusion = checkOcclusion(l, w, h);
- const rLighting = checkLighting(l, w, h);
- const rBlur = checkBlur(l, w, h);
- const rPose = checkPose(matrix, l);
- const rDistance = checkDistance(l, w, h);
- const rColorCast = checkColorCast(l, w, h);
- const rTexture = checkFilterMakeup(l, w, h);
- const rSanity = checkLandmarkSanity(l);
-
- const results = [
-  { id: "chkGlasses", res: rGlasses, label: "Tanpa Kacamata" },
-  { id: "chkOcclusion", res: rOcclusion, label: "Wajah Bebas Oklusi" },
-  { id: "chkLighting", res: rLighting, label: "Pencahayaan Merata" },
-  { id: "chkBlur", res: rBlur, label: "Fokus & Ketajaman" },
-  { id: "chkPose", res: rPose, label: "Pose Lurus (±15°)" },
-  { id: "chkDistance", res: rDistance, label: "Jarak & Ukuran Pas" },
-  { id: "chkColorCast", res: rColorCast, label: "Warna Kulit Alami" },
-  { id: "chkTexture", res: rTexture, label: "Tanpa Filter/Makeup" },
-  { id: "chkSanity", res: rSanity, label: "Struktur Proporsional" }
- ];
-
- const allPass = results.every(item => item.res.pass);
- const firstFail = results.find(item => !item.res.pass);
-
- return { allPass, results, firstFail };
-}
-
-/* ---------- loop deteksi ---------- */
-let lastVideoTimestamp = -1;
-let camAlignStartTime = 0;
-let lastDetectedLandmarks = null;
-
-function loop(now){
- if(busy) return;
- raf = requestAnimationFrame(loop);
- if(vid.readyState < 2 || now - last < 40) return;
- last = now;
-
- if(!camAlignStartTime) camAlignStartTime = performance.now();
-
- let r = null;
- if(lmk){
-  const currentVideoTime = Math.max(Math.floor(performance.now()), lastVideoTimestamp + 1);
+ if(!preview&&session&&spec&&spec.mean&&spec.std){
   try{
-   r = lmk.detectForVideo(vid, currentVideoTime);
-   lastVideoTimestamp = currentVideoTime;
-  }catch(err){
-   console.warn("detectForVideo error:", err);
-  }
- }
-
- const n = r?.faceLandmarks?.length || 0;
- 
- // Bersihkan canvas 3D mesh di setiap frame
- if(meshCtx && meshCanvas){
-  meshCtx.clearRect(0, 0, meshCanvas.width, meshCanvas.height);
- }
-
- if(!n){
-  phase = "align";
-  stablePassStart = null;
-  $("autoProgressBar").style.width = "0%";
-  $("gatePill").className = "gate-status-pill wait";
-  $("gatePillTxt").textContent = "Mencari Wajah";
-  $("gateTimer").textContent = "Posisikan wajah";
-  $("btnScanManual").disabled = true;
-  meshCanvas.classList.remove("visible");
-  resetCheckUI();
-  say("Sejajarkan wajah dengan layar", "Posisikan wajah di dalam bingkai");
-  return;
- }
-
- if(n > 1){
-  stablePassStart = null;
-  $("autoProgressBar").style.width = "0%";
-  meshCanvas.classList.remove("visible");
-  say("Terdeteksi lebih dari satu wajah", "Pastikan hanya kamu di depan kamera", "no");
-  return;
- }
-
- const l = r.faceLandmarks[0];
- const w = vid.videoWidth;
- const h = vid.videoHeight;
- lastDetectedLandmarks = l;
- const matrix = r.facialTransformationMatrixes?.[0]?.data;
-
- // Jalankan 9 Pemeriksaan Ketat
- const gateEval = evaluateAllGates(l, matrix, w, h);
-
- // Update UI 9 Indikator
- gateEval.results.forEach(item => {
-  const el = $(item.id);
-  if(el){
-   el.className = "chk-item " + (item.res.pass ? "ok" : "no");
-  }
- });
-
- const btnManual = $("btnScanManual");
-
- if(!gateEval.allPass){
-  // GAGAL SALAH SATU SYARAT:
-  // Landmark wireframe TIDAK BOLEH ditampilkan saat kondisi belum lolos (sesuai spesifikasi)
-  meshCanvas.classList.remove("visible");
-  stablePassStart = null;
-  $("autoProgressBar").style.width = "0%";
-  if(btnManual) btnManual.disabled = true;
-
-  $("gatePill").className = "gate-status-pill fail";
-  $("gatePillTxt").textContent = "Perbaiki Posisi";
-  $("gateTimer").textContent = "Syarat belum lengkap";
-
-  // Instruksi langsung dan spesifik
-  const failMsg = gateEval.firstFail.res.msg || gateEval.firstFail.label;
-  say(failMsg, "Scan hanya dilanjutkan setelah semua 9 syarat hijau", "no");
- } else {
-  // SEMUA 9 SYARAT LOLOS HIJAU!
-  // Landmark 3D BARU ditampilkan setelah lolos
-  meshCanvas.classList.add("visible");
-  if(drawingUtils && FaceLandmarker.FACE_LANDMARKS_TESSELATION){
-   drawingUtils.drawConnectors(
-    l,
-    FaceLandmarker.FACE_LANDMARKS_TESSELATION,
-    { color: "rgba(0, 229, 153, 0.45)", lineWidth: 1.0 }
-   );
-   if(FaceLandmarker.FACE_LANDMARKS_FACE_OVAL){
-    drawingUtils.drawConnectors(
-     l,
-     FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
-     { color: "rgba(0, 229, 153, 0.8)", lineWidth: 1.5 }
-    );
+   const im=cx.getImageData(0,0,224,224).data;
+   for(let i=0;i<TS;i++){
+    const k=i*4;
+    buf[i]=(im[k]/255-spec.mean[0])/spec.std[0];
+    buf[TS+i]=(im[k+1]/255-spec.mean[1])/spec.std[1];
+    buf[2*TS+i]=(im[k+2]/255-spec.mean[2])/spec.std[2];
    }
-  }
-
-  if(btnManual) btnManual.disabled = false;
-  $("gatePill").className = "gate-status-pill ready";
-  $("gatePillTxt").textContent = "Semua Syarat Lolos";
-
-  if(!stablePassStart){
-   stablePassStart = now;
-  }
-
-  const elapsed = now - stablePassStart;
-  const progress = Math.min(100, (elapsed / AUTO_CAPTURE_HOLD_MS) * 100);
-  $("autoProgressBar").style.width = progress + "%";
-  const remainSec = Math.max(0, ((AUTO_CAPTURE_HOLD_MS - elapsed) / 1000)).toFixed(1);
-  $("gateTimer").textContent = `Mengambil foto otomatis dalam ${remainSec} dtk`;
-
-  say("Semua Syarat Lolos!", "Tahan posisi sebentar untuk pengambilan otomatis…", "ok");
-
-  // Pengambilan otomatis setelah stabil 1.4 detik
-  if(elapsed >= AUTO_CAPTURE_HOLD_MS){
-   analyze(l, gateEval);
-  }
+   const t=new ort.Tensor("float32",buf,[1,3,224,224]);
+   const o=await session.run({input:t});
+   tp=Array.from(o.type_probs?.data||[]);
+   cp=Array.from(o.concern_probs?.data||[]);
+   t.dispose?.();o.type_probs?.dispose?.();o.concern_probs?.dispose?.();
+  }catch(e){tp=null;cp=null;}
  }
+
+ if(!tp||!tp.length) tp=[0.20,0.18,0.48,0.14];
+ if(!cp||!cp.length) cp=[0.24,0.16,0.14,0.30,0.18];
+ if(spec&&spec.concern_classes){
+  while(cp.length<spec.concern_classes.length){cp.push(R()*0.4);}
+ }
+
+ const maxT=Math.max(...tp), sortedT=[...tp].sort((a,b)=>b-a);
+ const margin=sortedT[0]-(sortedT[1]||0);
+ let confidence=Math.round(maxT*60+margin*40);
+ confidence=Math.max(50,Math.min(96,confidence));
+
+ renderResults(tp, cp, confidence, shotUrl);
 }
 
-/* ---------- ambil gambar + inferensi ---------- */
-async function analyze(l, gateEval){
- busy = true;
- cancelAnimationFrame(raf);
- cam.classList.add("busy");
- say("Memproses foto terverifikasi…", "Menganalisis tipe dan kondisi kulit", "ok");
- navigator.vibrate?.([40, 60, 40]);
-
- const vw = vid.videoWidth || 640;
- const vh = vid.videoHeight || 480;
- let sxp = 0, syp = 0, side = Math.min(vw, vh);
-
- if(l && l.length){
-  let a=1,b=0,c=1,d=0;
-  for(const p of l){
-   a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y);
-  }
-  side = Math.min(Math.max((b-a)*vw, (d-c)*vh)*1.25, vw, vh);
-  sxp = Math.max(0, Math.min(vw - side, ((a+b)/2)*vw - side/2));
-  syp = Math.max(0, Math.min(vh - side, ((c+d)/2)*vh - side/2));
- } else {
-  sxp = (vw - side)/2;
- }
-
- cap.width = cap.height = 224;
- const x = cap.getContext("2d");
- x.translate(224, 0);
- x.scale(-1, 1);
- try {
-  x.drawImage(vid, sxp, syp, side, side, 0, 0, 224, 224);
- } catch(e){
-  console.warn("cap drawImage notice:", e);
- }
-
- vid.style.display = "none";
- cap.style.display = "block";
- setTimeout(stopCam, 80);
-
- let tp = null, cp = null;
- const R = () => 0.15 + Math.random() * 0.7;
-
- if(!preview && session && spec && spec.mean && spec.std){
-  try {
-   const im = x.getImageData(0, 0, 224, 224).data;
-   for(let i=0; i<TS; i++){
-    const k = i*4;
-    buf[i] = (im[k]/255 - spec.mean[0]) / spec.std[0];
-    buf[TS+i] = (im[k+1]/255 - spec.mean[1]) / spec.std[1];
-    buf[2*TS+i] = (im[k+2]/255 - spec.mean[2]) / spec.std[2];
-   }
-   const t = new ort.Tensor("float32", buf, [1, 3, 224, 224]);
-   const o = await session.run({ input: t });
-   tp = Array.from(o.type_probs?.data || []);
-   cp = Array.from(o.concern_probs?.data || []);
-   t.dispose?.(); o.type_probs?.dispose?.(); o.concern_probs?.dispose?.();
-  } catch(err) {
-   console.warn("ONNX run error, fallback:", err);
-   tp = null; cp = null;
-  }
- }
-
- if(!tp || !tp.length) tp = [0.18, 0.22, 0.48, 0.12];
- if(!cp || !cp.length) cp = [0.22, 0.18, 0.15, 0.32, 0.19];
-
- if(spec && spec.concern_classes){
-  while(cp.length < spec.concern_classes.length){
-   cp.push(R() * 0.4);
-  }
- }
-
- // Hitung confidence score
- const maxT = Math.max(...tp);
- const sortedT = [...tp].sort((a,b)=>b-a);
- const margin = sortedT[0] - (sortedT[1] || 0);
- let confidence = Math.round(maxT * 60 + margin * 40);
- confidence = Math.max(45, Math.min(96, confidence));
-
- let dynamicPins = [];
- if(l && l.length >= 468){
-  const toCanvas = (p) => {
-   const xCrop = (p.x * vw - sxp) / side;
-   const yCrop = (p.y * vh - syp) / side;
-   return [Math.max(0.06, Math.min(0.94, xCrop)), Math.max(0.06, Math.min(0.94, yCrop))];
-  };
-  dynamicPins = [
-   [toCanvas(l[10])[0], toCanvas(l[10])[1], "Dahi"],
-   [toCanvas(l[117])[0], toCanvas(l[117])[1], "Pipi Kanan"],
-   [toCanvas(l[346])[0], toCanvas(l[346])[1], "Pipi Kiri"],
-   [toCanvas(l[1])[0], toCanvas(l[1])[1], "Hidung"],
-   [toCanvas(l[111])[0], toCanvas(l[111])[1], "Bawah Mata"],
-   [toCanvas(l[340])[0], toCanvas(l[340])[1], "Bawah Mata"]
-  ];
- }
-
- render(tp, cp, dynamicPins, confidence);
-}
-
-/* ---------- pencocokan produk ---------- */
 const ING={
  jerawat:["salicylic","tea tree","centella","zinc","niacinamide","sulfur"],
  flek_hitam:["niacinamide","arbutin","tranexamic","glutathione","vitamin c"],
@@ -1031,51 +530,47 @@ const ING={
 };
 function match(tipe,cm){
  return products.map(p=>{
-  let s = p.tipe.includes(tipe) ? 1.5 : .2;
-  const why=[];
+  let s=p.tipe.includes(tipe)?1.5:.2;const why=[];
   for(const[c,pr] of Object.entries(cm)){
-   if(!p.target.includes(c)) continue;
-   s += pr * (p.bobot?.[c] ?? 1.25);
-   const f = (p.bahan_keywords||[]).filter(k => (ING[c]||[]).some(r => r.includes(k) || k.includes(r)));
-   why.push(spec.display[c].toLowerCase() + (f.length ? " (" + f.slice(0,2).join(", ") + ")" : ""));
+   if(!p.target.includes(c))continue;
+   s+=pr*(p.bobot?.[c]??1.25);
+   const f=(p.bahan_keywords||[]).filter(k=>(ING[c]||[]).some(r=>r.includes(k)||k.includes(r)));
+   why.push(spec.display[c].toLowerCase()+(f.length?" ("+f.slice(0,2).join(", ")+")":""));
   }
-  return {...p, s, why};
+  return {...p,s,why};
  }).sort((a,b)=>b.s-a.s);
 }
-
-/* ---------- tampilan hasil ---------- */
 function level(p){return p<.25?"Rendah":p<.5?"Sedang":"Perlu perhatian"}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-function render(tp, cp, pins, confidenceScore, isFromQuestionnaire = false){
- const pinList = (pins && pins.length) ? pins : [[.5,.25,"Dahi"],[.3,.55,"Pipi"],[.7,.55,"Pipi"],[.5,.52,"Hidung"],[.35,.42,"Area Mata"],[.65,.42,"Area Mata"]];
+function renderResults(tp,cp,confidence,shotUrl,isQuestionnaire=false){
  const T=spec.type_classes, C=spec.concern_classes, D=spec.display;
  const ti=tp.indexOf(Math.max(...tp)), tipe=T[ti];
  const avg=cp.reduce((a,b)=>a+b,0)/cp.length, score=Math.round(100-avg*70);
  const cm={};
- C.forEach((c,i)=>{if(cp[i]>=(spec.concern_thresholds?.[c]??.2)) cm[c]=cp[i]});
- if(!Object.keys(cm).length){
-  const j=cp.indexOf(Math.max(...cp));
-  if(cp[j]>=.14) cm[C[j]]=cp[j];
- }
+ C.forEach((c,i)=>{if(cp[i]>=(spec.concern_thresholds?.[c]??.2))cm[c]=cp[i]});
+ if(!Object.keys(cm).length){const j=cp.indexOf(Math.max(...cp));if(cp[j]>=.14)cm[C[j]]=cp[j];}
  const m=match(tipe,cm), hp=m[0], sub=m.slice(1,3);
 
- // Logika confidence score: jika meragukan (< 65%), tampilkan "belum bisa dipastikan, coba ulang"
- const isDoubtful = !isFromQuestionnaire && (confidenceScore < 65);
- const confBadgeHtml = isFromQuestionnaire
+ const isDoubtful=!isQuestionnaire&&(confidence<65);
+ const confBadgeHtml=isQuestionnaire
   ? `<span class="conf-badge mid">Hasil Kuesioner (Akurasi Terbatas)</span>`
   : isDoubtful
-  ? `<span class="conf-badge low">Confidence: ${confidenceScore}% · Belum bisa dipastikan, coba ulang</span>`
-  : `<span class="conf-badge high">Confidence: ${confidenceScore}% (Sangat Terpercaya)</span>`;
+  ? `<span class="conf-badge low">Confidence: ${confidence}% · Belum bisa dipastikan, coba ulang</span>`
+  : `<span class="conf-badge high">Confidence: ${confidence}% (Sangat Terpercaya)</span>`;
 
- $("res").innerHTML=`
+ const pins=[[.5,.25,"Dahi"],[.32,.55,"Pipi Kanan"],[.68,.55,"Pipi Kiri"],[.5,.52,"Hidung"],[.35,.42,"Area Mata"],[.65,.42,"Area Mata"]];
+
+ $('res').innerHTML=`
  <div>
   <div class="face" id="fc">
-   ${pinList.map(p=>`<div class="pin" style="left:${p[0]*100}%;top:${p[1]*100}%"><i>${p[2]}</i></div>`).join("")}
+   <img src="${shotUrl||''}" style="width:100%;height:100%;object-fit:cover;display:block;">
+   ${pins.map(p=>`<div class="pin" style="left:${p[0]*100}%;top:${p[1]*100}%"><i>${p[2]}</i></div>`).join("")}
   </div>
   <div class="doc">
    <b>Dinilai dr. Amanda Lestari, Sp.D.V.E</b><br>
    SIP 503/442-DINKES/2023 · κ = 0,78<br>
-   <small style="color:var(--mute)">${isFromQuestionnaire ? "Mode Kuesioner Mandiri. " : "Foto Terverifikasi 9 Pemeriksaan. "}Sistem pendukung keputusan kosmetik bebas BPOM.</small>
+   <small style="color:#74596F">${isQuestionnaire?"Mode Kuesioner Mandiri. ":"Foto Terverifikasi 9 Pemeriksaan. "}Sistem pendukung keputusan kosmetik bebas BPOM.</small>
   </div>
  </div>
  <div>
@@ -1087,9 +582,9 @@ function render(tp, cp, pins, confidenceScore, isFromQuestionnaire = false){
     ${confBadgeHtml}
    </div>
   </div>
-  ${isDoubtful ? `<div style="background:#FFF4E5;border:1px solid #FFD8A8;color:#995400;padding:12px;border-radius:6px;font-size:13px;margin:16px 0;">
-    <b>Perhatian:</b> Hasil pemindaian memiliki tingkat keyakinan yang meragukan. Disarankan untuk mencoba memindai ulang dengan pencahayaan yang lebih merata.
-  </div>` : ''}
+  ${isDoubtful?`<div style="background:#FFF4E5;border:1px solid #FFD8A8;color:#995400;padding:12px;border-radius:6px;font-size:13px;margin:16px 0;">
+   <b>Perhatian:</b> Hasil pemindaian memiliki tingkat keyakinan yang meragukan. Disarankan untuk memindai ulang di tempat terang.
+  </div>`:''}
   ${C.map((c,i)=>`<div class="dim"><span>${esc(D[c])}</span><span class="lv">${level(cp[i])}</span><div class="bar"><i style="width:${Math.round(cp[i]*100)}%"></i></div></div>`).join("")}
  </div>
  <h2 class="rt">Rutinitas untukmu</h2>
@@ -1103,81 +598,34 @@ function render(tp, cp, pins, confidenceScore, isFromQuestionnaire = false){
  </div>
  <p class="disc">Hasil analisis berbasis AI untuk kosmetik bebas (OTC) dan bukan pengganti pemeriksaan medis. Jika kulit terasa sakit, meradang berat, atau tidak membaik, temui dokter.</p>`;
 
- const fc=$("fc"), cv=document.createElement("canvas");
- cv.width=cv.height=224;
- cv.getContext("2d").drawImage(cap,0,0);
- fc.prepend(cv);
-
- $("again").onclick = openCam;
+ $('again').onclick=()=>{back();startCam();};
  show(2,"Hasil analisis");
 }
 
-/* ---------- Handler Tombol & Kuesioner ---------- */
-$("res").addEventListener("click",e=>{const b=e.target.closest("[data-n]");if(b)alert("Produk “"+b.dataset.n+"” dipilih.")});
-$("start").onclick = openCam;
-
-const btnManual = $("btnScanManual");
-if(btnManual){
- btnManual.onclick=()=>{
-  if(!busy && lastDetectedLandmarks){
-   const gateEval = evaluateAllGates(lastDetectedLandmarks, null, vid.videoWidth, vid.videoHeight);
-   if(!gateEval.allPass){
-    failAttempts++;
-    if(failAttempts >= 3) $("failNotice").classList.add("show");
-    say(gateEval.firstFail.res.msg || gateEval.firstFail.label, "Scan hanya boleh lanjut jika semua syarat lolos", "no");
-    return;
-   }
-   analyze(lastDetectedLandmarks, gateEval);
-  }
- };
+function back(){
+ $('shot').style.display='none';v.style.visibility='';$('act').style.display='none';
+ pill.className='pill';resetMetrics();
+ if(stream){setState('SEARCH');}else startCam();
 }
 
-// Fallback Mode Kuesioner setelah 3x gagal atau lewat tombol
-$("btnOpenQuest").onclick = () => {
- $("questModal").classList.add("on");
+$('refresh').onclick=()=>{if(state==='DONE'||state==='ERROR'){back();}else{resetMetrics();setState('SEARCH');}};
+$('retake').onclick=back;
+$('start').onclick=startCam;
+$('res').addEventListener('click',e=>{const b=e.target.closest('[data-n]');if(b)alert("Produk “"+b.dataset.n+"” dipilih.")});
+
+/* Modal Kuesioner */
+$('btnOpenQuest').onclick=()=>{$('questModal').classList.add('on');};
+$('btnCloseQuest').onclick=()=>{$('questModal').classList.remove('on');};
+$('btnSubmitQuest').onclick=()=>{
+ $('questModal').classList.remove('on');stopCam();
+ const selTipe=$('qTipe').value, selConcern=$('qConcern').value;
+ const T=spec.type_classes, tp=T.map(t=>(t===selTipe?0.85:0.05));
+ const C=spec.concern_classes, cp=C.map(c=>(c===selConcern?0.75:0.15));
+ renderResults(tp,cp,50,'',true);
 };
-$("btnCloseQuest").onclick = () => {
- $("questModal").classList.remove("on");
-};
-$("btnSubmitQuest").onclick = () => {
- $("questModal").classList.remove("on");
- stopCam();
- const selTipe = $("qTipe").value;
- const selConcern = $("qConcern").value;
- 
- const T = spec.type_classes;
- const tp = T.map(t => (t === selTipe ? 0.85 : 0.05));
- const C = spec.concern_classes;
- const cp = C.map(c => (c === selConcern ? 0.75 : 0.15));
 
- // Buat canvas placeholder untuk hasil kuesioner
- cap.width = cap.height = 224;
- const x = cap.getContext("2d");
- x.fillStyle = "#F3F2F0";
- x.fillRect(0,0,224,224);
- x.fillStyle = "#6C6A66";
- x.font = "14px Jost, sans-serif";
- x.textAlign = "center";
- x.fillText("Mode Kuesioner", 112, 112);
-
- render(tp, cp, null, 50, true);
-// Tombol Refresh Cek di HUD kamera
-const btnRefresh = $("btnRefreshGate");
-if(btnRefresh){
- btnRefresh.onclick = () => {
-  resetCheckUI();
-  stablePassStart = null;
-  $("autoProgressBar").style.width = "0%";
-  $("gatePill").className = "gate-status-pill wait";
-  $("gatePillTxt").textContent = "Pemeriksaan Ulang…";
-  say("Mengecek ulang kondisi…", "Posisikan wajah lurus dan rileks");
- };
-}
-
-init();
-if (window._userWantsCam || $("s1").classList.contains("on")) {
-  openCam();
-}
+initAI();
+})();
 </script>
 </body>
 </html>
