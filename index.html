@@ -370,41 +370,43 @@ function occlusion(l){
  const r=Math.hypot(nose.x-chin.x,nose.y-chin.y)/H,eD=Math.hypot(eR.x-eL.x,eR.y-eL.y),mW=Math.hypot(mR.x-mL.x,mR.y-mL.y);
  if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
 
-// Deteksi Kacamata yang Akurat (Termasuk Bingkai Gelap/Transparan, Bridge Hidung, dan Lensa Anti-Radiasi)
+// Deteksi Kacamata yang Akurat (Spesifik Bingkai Kacamata & Lensa, tanpa salah mendeteksi alis/hidung)
 function glasses(l,w,h){
  if(!l||l.length<468) return false;
  
- // 1. Deteksi Bingkai Kacamata di Pangkal Hidung (Bridge / Landmark 168 & 6)
- const bridge=l[168];
- const bPatch=patch(bridge.x*w, bridge.y*h, 32);
- let bMin=255, bMax=0, bEdges=0, darkPixels=0;
+ // 1. Deteksi Garis Bingkai di Pangkal Hidung (Bridge / Landmark 168)
+ // Membandingkan luminansi pangkal hidung (168) terhadap dahi atasnya (9) dan kulit sampingnya
+ const bridge=l[168], fore=l[9];
+ const bPatch=patch(bridge.x*w, bridge.y*h, 24);
+ const fPatch=patch(fore.x*w, fore.y*h, 24);
+ let bLum=0, fLum=0, bEdges=0;
  for(let i=0;i<64;i++){
-  const v=lum(bPatch, i*4);
-  bMin=Math.min(bMin, v);
-  bMax=Math.max(bMax, v);
-  if(v < 75) darkPixels++;
-  if(i%8<7) bEdges+=Math.abs(v-lum(bPatch, i*4+4));
+  const bv=lum(bPatch, i*4), fv=lum(fPatch, i*4);
+  bLum+=bv; fLum+=fv;
+  if(i%8<7) bEdges+=Math.abs(bv-lum(bPatch, i*4+4));
  }
- const hasBridgeFrame = (bMax - bMin > 50 && bEdges/64 > 9) || (darkPixels > 12);
+ bLum/=64; fLum/=64;
+ // Bingkai kacamata di hidung menghasilkan bayangan/garis solid yang jauh lebih gelap dari dahi dengan tepi tajam
+ const hasBridgeFrame = (fLum - bLum > 35 && bEdges/64 > 14);
 
- // 2. Deteksi Bingkai Kacamata di Sekeliling Pelipis & Alis (Eyebrow/Temple Rim)
- const rimPoints = [70, 63, 105, 66, 107, 336, 296, 334, 293, 300, 111, 340, 226, 446];
- let rimContrastHits = 0;
- for(const idx of rimPoints){
-  const pt=l[idx];
+ // 2. Deteksi Bingkai Bawah Mata (Lower Rim / Cheek Rim pada landmark 111 & 340)
+ // Kacamata memiliki garis bingkai melintang di bawah kantung mata yang menciptakan tepi tajam
+ let rimCount=0;
+ for(const rimIdx of [111, 340]){
+  const pt=l[rimIdx];
   if(!pt) continue;
-  const rPatch=patch(pt.x*w, pt.y*h, 24);
-  let rMin=255, rMax=0, rDark=0;
+  const rPatch=patch(pt.x*w, pt.y*h, 20);
+  let rMin=255, rMax=0, rEdges=0;
   for(let i=0;i<64;i++){
    const v=lum(rPatch, i*4);
    rMin=Math.min(rMin, v);
    rMax=Math.max(rMax, v);
-   if(v < 70) rDark++;
+   if(i%8<7) rEdges+=Math.abs(v-lum(rPatch, i*4+4));
   }
-  if((rMax - rMin > 60) || (rDark >= 8)) rimContrastHits++;
+  if((rMax - rMin > 75) && (rEdges/64 > 12)) rimCount++;
  }
 
- // 3. Deteksi Pantulan Lensa (Termasuk lapisan anti-radiasi / blue-chromic / green glare)
+ // 3. Deteksi Pantulan Lensa (Lapisan anti-radiasi / green-cyan glare / pantulan cahaya putih)
  const eyePoints=[159,145,33,133,158,153,386,374,362,263,385,380,468,473];
  let glares=0;
  for(const idx of eyePoints){
@@ -413,8 +415,8 @@ function glasses(l,w,h){
   const d=patch(pt.x*w, pt.y*h, 20);
   for(let i=0;i<64;i++){
    const r=d[i*4], g=d[i*4+1], b=d[i*4+2];
-   const isWhiteGlare = (r > 210 && g > 210 && b > 210);
-   const isGreenCyanGlare = (g > 130 && (g - r > 20) && (b > 100));
+   const isWhiteGlare = (r > 230 && g > 230 && b > 230);
+   const isGreenCyanGlare = (g > 155 && (g - r > 32) && (b > 115));
    if(isWhiteGlare || isGreenCyanGlare){
     glares++;
     break;
@@ -422,7 +424,7 @@ function glasses(l,w,h){
   }
  }
 
- return hasBridgeFrame || (rimContrastHits >= 3) || (glares >= 2);
+ return (hasBridgeFrame && rimCount >= 1) || (rimCount >= 2) || (glares >= 2);
 }
 
 function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
@@ -525,8 +527,8 @@ function loop(now){
    chk("cFlash","ok","Pantulan Valid");
    chk("cLive","ok","Wajah Asli Terverifikasi");
    holdT||=now;
-   if(now-holdT > 750){
-    // Posisi pas dan stabil selama ~0.75 detik, langsung eksekusi analisis!
+   if(now-holdT > 450){
+    // Posisi pas dan stabil selama ~0.45 detik, langsung eksekusi analisis!
     analyze(l);
    }
   }else{
