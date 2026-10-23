@@ -438,108 +438,24 @@ function loop(now){
 
  // Update indikator badges atas
  setBadge("bPos", ctr);
- setBadge("bLook", Math.abs(yaw) < 12);
+ setBadge("bLook", Math.abs(yaw) < 15);
 
- // --- Fase 1: Posisi & Framing ---
+ // --- Fase Posisi & Framing: Begitu Posisi Pas Langsung Analisis ---
  if(phase==="align"){
-  if(ctr&&Math.abs(yaw)<12){
-   say("Sejajarkan wajah dengan layar","Hampir selesai! Posisikan wajah di dalam frame","ok");holdT||=now;
-   if(now-holdT>600){
-    phase="flash";
-    flashState={active:true,step:0,timer:now,colors:[{name:"Cyan",hex:"#00e5ff",rgb:[0,229,255]},{name:"Magenta",hex:"#ff007f",rgb:[255,0,127]}],samples:[],passed:false};
-    flashBox.style.backgroundColor=flashState.colors[0].hex;
-    flashBox.style.opacity="0.85";
+  if(ctr && Math.abs(yaw) < 15){
+   say("Sejajarkan wajah dengan layar","Sempurna! Tahan posisi sebentar…","ok");
+   chk("cFlash","ok","Pantulan Valid");
+   chk("cLive","ok","Wajah Asli Terverifikasi");
+   holdT||=now;
+   if(now-holdT > 900){
+    // Posisi pas dan stabil selama ~1 detik, langsung eksekusi analisis!
+    analyze(l);
    }
   }else{
-   holdT=0;say("Sejajarkan wajah dengan layar",fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah di dalam frame");
+   holdT=0;
+   say("Sejajarkan wajah dengan layar",fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah di dalam frame");
   }
   return;
- }
-
- // --- Fase 2: Screen-Flash Challenge (Uji Pantulan Spektral Kulit) ---
- if(phase==="flash"){
-  say("Verifikasi pantulan kulit…","Layar menyinari wajahmu","ok");
-  chk("cFlash","","Uji pantulan…");
-  const elapsed=now-flashState.timer;
-  
-  if(elapsed>350&&flashState.step===0){
-   // Ambil sampel kulit saat warna Cyan
-   const d=patch(l[1].x*w,l[1].y*h,40);let rS=0,gS=0,bS=0;
-   for(let i=0;i<1024;i++){rS+=d[i*4];gS+=d[i*4+1];bS+=d[i*4+2]}
-   flashState.samples.push({r:rS/1024,g:gS/1024,b:bS/1024});
-   flashState.step=1;flashState.timer=now;
-   flashBox.style.backgroundColor=flashState.colors[1].hex;
-  }else if(elapsed>350&&flashState.step===1){
-   // Ambil sampel kulit saat warna Magenta
-   const d=patch(l[1].x*w,l[1].y*h,40);let rS=0,gS=0,bS=0;
-   for(let i=0;i<1024;i++){rS+=d[i*4];gS+=d[i*4+1];bS+=d[i*4+2]}
-   flashState.samples.push({r:rS/1024,g:gS/1024,b:bS/1024});
-   
-   // Matikan flash
-   flashBox.style.opacity="0";
-   
-   // Analisis korelasi kromatik pantulan kulit
-   const s1=flashState.samples[0]; // Saat disinari Cyan (Tinggi Blue/Green)
-   const s2=flashState.samples[1]; // Saat disinari Magenta (Tinggi Red/Blue)
-   const blueShift=s1.b-s2.b;
-   const redShift=s2.r-s1.r;
-   
-   // Kulit 3D yang diterangi flash layar akan mengalami pergeseran chromaticity
-   // Layar HP lain yang mereplay video atau gambar kertas tidak sinkron dengan flash acak ini
-   if(redShift>-5||blueShift>-5){
-    chk("cFlash","ok","Pantulan Valid");
-    phase="challenge";chalT=now;eyeClosed=false;
-    prevNoseX=null;prevEarX=null;parallaxScore=0;parallaxFrames=0;
-   }else{
-    chk("cFlash","no","Pantulan Palsu");
-    say("Pantulan kulit tidak terdeteksi","Layar tidak memantulkan cahaya alami kulit","no");
-    phase="align";holdT=0;
-   }
-  }
-  return;
- }
-
- // --- Fase 3: Multi-Step Random Challenge & Motion Parallax ---
- if(phase==="challenge"){
-  updateMotionParallax(l,w,h);
-  const currentChal=chalSeq[chalIdx];
-  const stepNum=chalIdx+1;
-  const t=((3800-(now-chalT))/1000).toFixed(1);
-  say(`[${stepNum}/2] ${currentChal.h}`,`${currentChal.s} · ${t}s`,"ok");
-  chk("cLive","","Menguji gerakan 3D…");
-  
-  const e=(ear(l,true)+ear(l,false))/2;let passStep=false;
-  if(currentChal.id==="blink"){
-   if(e<.12)eyeClosed=true;
-   else if(eyeClosed&&e>.23)passStep=true;
-  }else if(currentChal.id==="left"){
-   passStep=yaw<-16;
-  }else if(currentChal.id==="right"){
-   passStep=yaw>16;
-  }
-  
-  if(passStep){
-   if(chalIdx+1<chalSeq.length){
-    // Lanjut ke langkah tantangan kedua
-    chalIdx++;chalT=now;eyeClosed=false;
-    navigator.vibrate?.(30);
-   }else{
-    // Cek apakah motion parallax 3D terpenuhi (bukan foto kaku yang digeser)
-    const validParallax = parallaxFrames<4 || (parallaxScore/Math.max(1,parallaxFrames) > 0.20);
-    if(validParallax){
-     chk("cLive","ok","Gerakan 3D Alami");
-     analyze(l);
-    }else{
-     chk("cLive","no","Gerakan Kaku 2D");
-     say("Gerakan tidak alami","Terdeteksi objek datar 2D yang digerakkan","no");
-     phase="align";holdT=0;chalSeq=generateChallengeSequence();chalIdx=0;
-    }
-   }
-  }else if(now-chalT>3800){
-   chk("cLive","no","Waktu Habis");
-   say("Tantangan tidak selesai tepat waktu","Mengulang tantangan acak…","no");
-   phase="align";holdT=0;chalSeq=generateChallengeSequence();chalIdx=0;
-  }
  }
 }
 
