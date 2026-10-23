@@ -4,9 +4,9 @@ import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Analisis Kulit Wajah · Annisa Beauty Shop',
+  title: 'Clinical Skin Diagnosis · Annisa Derma Clinic',
   description:
-    'Sistem pemindai kondisi kulit wajah real-time berbasis deep learning dengan verifikasi anti-spoofing biometrik dan rekomendasi produk BPOM.',
+    'Sistem pemindai kondisi kulit wajah real-time berbasis deep learning dengan verifikasi anti-spoofing biometrik dan rekomendasi resep klinis BPOM.',
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Young+Serif&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Young+Serif&display=swap"
           rel="stylesheet"
         />
         <Script
