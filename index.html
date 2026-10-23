@@ -370,12 +370,41 @@ function occlusion(l){
  const r=Math.hypot(nose.x-chin.x,nose.y-chin.y)/H,eD=Math.hypot(eR.x-eL.x,eR.y-eL.y),mW=Math.hypot(mR.x-mL.x,mR.y-mL.y);
  if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
 
-// Deteksi Kacamata yang Akurat (Termasuk Lensa Anti-Radiasi Hijau/Cyan & Bingkai Kacamata)
+// Deteksi Kacamata yang Akurat (Termasuk Bingkai Gelap/Transparan, Bridge Hidung, dan Lensa Anti-Radiasi)
 function glasses(l,w,h){
  if(!l||l.length<468) return false;
  
- // 1. Deteksi Pantulan Lensa (Termasuk lapisan anti-radiasi / blue-chromic / green glare)
- // Pada kacamata anti-radiasi, pantulan layar menghasilkan saturasi hijau/cyan tinggi (G > R)
+ // 1. Deteksi Bingkai Kacamata di Pangkal Hidung (Bridge / Landmark 168 & 6)
+ const bridge=l[168];
+ const bPatch=patch(bridge.x*w, bridge.y*h, 32);
+ let bMin=255, bMax=0, bEdges=0, darkPixels=0;
+ for(let i=0;i<64;i++){
+  const v=lum(bPatch, i*4);
+  bMin=Math.min(bMin, v);
+  bMax=Math.max(bMax, v);
+  if(v < 75) darkPixels++;
+  if(i%8<7) bEdges+=Math.abs(v-lum(bPatch, i*4+4));
+ }
+ const hasBridgeFrame = (bMax - bMin > 50 && bEdges/64 > 9) || (darkPixels > 12);
+
+ // 2. Deteksi Bingkai Kacamata di Sekeliling Pelipis & Alis (Eyebrow/Temple Rim)
+ const rimPoints = [70, 63, 105, 66, 107, 336, 296, 334, 293, 300, 111, 340, 226, 446];
+ let rimContrastHits = 0;
+ for(const idx of rimPoints){
+  const pt=l[idx];
+  if(!pt) continue;
+  const rPatch=patch(pt.x*w, pt.y*h, 24);
+  let rMin=255, rMax=0, rDark=0;
+  for(let i=0;i<64;i++){
+   const v=lum(rPatch, i*4);
+   rMin=Math.min(rMin, v);
+   rMax=Math.max(rMax, v);
+   if(v < 70) rDark++;
+  }
+  if((rMax - rMin > 60) || (rDark >= 8)) rimContrastHits++;
+ }
+
+ // 3. Deteksi Pantulan Lensa (Termasuk lapisan anti-radiasi / blue-chromic / green glare)
  const eyePoints=[159,145,33,133,158,153,386,374,362,263,385,380,468,473];
  let glares=0;
  for(const idx of eyePoints){
@@ -384,9 +413,8 @@ function glasses(l,w,h){
   const d=patch(pt.x*w, pt.y*h, 20);
   for(let i=0;i<64;i++){
    const r=d[i*4], g=d[i*4+1], b=d[i*4+2];
-   // Pantulan putih terang ATAU pantulan hijau toska anti-radiasi yang kuat
-   const isWhiteGlare = (r > 220 && g > 220 && b > 220);
-   const isGreenCyanGlare = (g > 150 && (g - r > 30) && (b > 110));
+   const isWhiteGlare = (r > 210 && g > 210 && b > 210);
+   const isGreenCyanGlare = (g > 130 && (g - r > 20) && (b > 100));
    if(isWhiteGlare || isGreenCyanGlare){
     glares++;
     break;
@@ -394,34 +422,7 @@ function glasses(l,w,h){
   }
  }
 
- // 2. Deteksi Garis Bingkai di Pangkal Hidung (Bridge)
- const bridge=l[168];
- const bPatch=patch(bridge.x*w, bridge.y*h, 26);
- let bMin=255, bMax=0, bEdges=0;
- for(let i=0;i<64;i++){
-  const v=lum(bPatch, i*4);
-  bMin=Math.min(bMin, v);
-  bMax=Math.max(bMax, v);
-  if(i%8<7) bEdges+=Math.abs(v-lum(bPatch, i*4+4));
- }
- const hasBridge = (bMax - bMin > 75 && bEdges/64 > 14);
-
- // 3. Deteksi Bingkai Bawah Mata (Lower Rim) pada landmark 111 & 340
- let rimCount=0;
- for(const rimIdx of [111, 340]){
-  const pt=l[rimIdx];
-  if(!pt) continue;
-  const rPatch=patch(pt.x*w, pt.y*h, 20);
-  let rMin=255, rMax=0;
-  for(let i=0;i<64;i++){
-   const v=lum(rPatch, i*4);
-   rMin=Math.min(rMin, v);
-   rMax=Math.max(rMax, v);
-  }
-  if(rMax - rMin > 80) rimCount++;
- }
-
- return (glares >= 2) || (hasBridge && rimCount >= 1);
+ return hasBridgeFrame || (rimContrastHits >= 3) || (glares >= 2);
 }
 
 function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
@@ -459,27 +460,10 @@ function loop(now){
  }
 
  if(!n){
-  // Jika model MediaPipe masih belum mendeteksi wajah atau sedang load
-  const waitingTime = performance.now() - camAlignStartTime;
-  if(!lmk || waitingTime > 4000){
-   // Wajah tampak di kamera atau model tertunda: berikan fleksibilitas
-   setBadge("bLight", true);
-   setBadge("bPos", true);
-   setBadge("bLook", true);
-   chk("cScreen","ok","Kamera Fisik");
-   chk("cLive","ok","Sensor Aktif");
-   say("Wajah Siap Dipindai","Ketuk 'Pindai Sekarang' atau tahan posisi","ok");
-   // Jika sudah stabil di frame lebih dari 5.5 detik, auto trigger analisis
-   if(waitingTime > 5500 && !busy){
-    analyze(null);
-    return;
-   }
-  } else {
-   phase="align";holdT=0;flashState.active=false;flashBox.style.opacity="0";
-   setBadge("bPos", false);
-   setBadge("bLook", false);
-   say("Sejajarkan wajah dengan layar","Posisikan wajah di dalam frame");
-  }
+  phase="align";holdT=0;flashState.active=false;flashBox.style.opacity="0";
+  setBadge("bPos", false);
+  setBadge("bLook", false);
+  say("Sejajarkan wajah dengan layar","Posisikan wajah di dalam frame");
   return;
  }
 
@@ -615,18 +599,19 @@ async function analyze(l){
 
  let dynamicPins = [];
  if(l && l.length >= 468){
+  // Koordinat canvas dicerminkan secara horizontal (scaleX -1), sehingga koordinat x dinormalisasi dengan (p.x * vw - sxp) / side
   const toCanvas = (p) => {
-   const xCrop = (side - (p.x * vw - sxp)) / side;
+   const xCrop = (p.x * vw - sxp) / side;
    const yCrop = (p.y * vh - syp) / side;
    return [Math.max(0.06, Math.min(0.94, xCrop)), Math.max(0.06, Math.min(0.94, yCrop))];
   };
   dynamicPins = [
    [toCanvas(l[10])[0], toCanvas(l[10])[1], "Dahi"],
-   [toCanvas(l[117])[0], toCanvas(l[117])[1], "Pipi"],
-   [toCanvas(l[346])[0], toCanvas(l[346])[1], "Pipi"],
+   [toCanvas(l[117])[0], toCanvas(l[117])[1], "Pipi Kanan"],
+   [toCanvas(l[346])[0], toCanvas(l[346])[1], "Pipi Kiri"],
    [toCanvas(l[1])[0], toCanvas(l[1])[1], "Hidung"],
-   [toCanvas(l[111])[0], toCanvas(l[111])[1], "Area Mata"],
-   [toCanvas(l[340])[0], toCanvas(l[340])[1], "Area Mata"]
+   [toCanvas(l[111])[0], toCanvas(l[111])[1], "Bawah Mata"],
+   [toCanvas(l[340])[0], toCanvas(l[340])[1], "Bawah Mata"]
   ];
  }
 
@@ -682,6 +667,11 @@ const btnManual = $("btnScanManual");
 if(btnManual){
  btnManual.onclick=()=>{
   if(!busy){
+   if(lastDetectedLandmarks && glasses(lastDetectedLandmarks, vid.videoWidth, vid.videoHeight)){
+    chk("cGlass","no","Kacamata Terdeteksi");
+    say("Lepas kacamata terlebih dahulu","Agar tekstur kulit dan area mata terbaca akurat","no");
+    return;
+   }
    analyze(lastDetectedLandmarks);
   }
  };
@@ -689,6 +679,11 @@ if(btnManual){
 $("cam").onclick=(e)=>{
  // Jika user mengetuk area kamera saat scanning
  if(!busy && $("s1").classList.contains("on")){
+  if(lastDetectedLandmarks && glasses(lastDetectedLandmarks, vid.videoWidth, vid.videoHeight)){
+   chk("cGlass","no","Kacamata Terdeteksi");
+   say("Lepas kacamata terlebih dahulu","Agar tekstur kulit dan area mata terbaca akurat","no");
+   return;
+  }
   analyze(lastDetectedLandmarks);
  }
 };
