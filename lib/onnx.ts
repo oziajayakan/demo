@@ -6,16 +6,20 @@ export interface PredictionResult {
     type: string;
     label: string;
     probability: number;
-    allTypes: { type: string; label: string; prob: number }[];
+    percentage: number;
+    allTypes: { type: string; label: string; prob: number; percentage: number }[];
   };
   concerns: {
     code: string;
     label: string;
     prob: number;
+    percentage: number;
+    thresholdPercentage: number;
     active: boolean;
     threshold: number;
   }[];
   confidence: number;
+  skinScore: number;
 }
 
 let sessionInstance: any = null;
@@ -138,19 +142,24 @@ export async function runSkinInference(
   results.type_probs?.dispose?.();
   results.concern_probs?.dispose?.();
 
-  // Process skin types
+  // Process skin types with transparent percentage
   const typeClasses: string[] = spec.type_classes;
-  const allTypes = typeClasses.map((t, idx) => ({
-    type: t,
-    label: spec.display[t] || t,
-    prob: typeProbsData[idx] || 0,
-  }));
+  const allTypes = typeClasses.map((t, idx) => {
+    const p = typeProbsData[idx] || 0;
+    return {
+      type: t,
+      label: spec.display[t] || t,
+      prob: p,
+      percentage: Math.round(p * 1000) / 10, // e.g. 48.5%
+    };
+  });
   allTypes.sort((a, b) => b.prob - a.prob);
 
   const dominantType = {
     type: allTypes[0].type,
     label: allTypes[0].label,
     probability: allTypes[0].prob,
+    percentage: allTypes[0].percentage,
     allTypes,
   };
 
@@ -159,23 +168,30 @@ export async function runSkinInference(
   let confidence = Math.round(dominantType.probability * 60 + margin * 40);
   confidence = Math.max(50, Math.min(98, confidence));
 
-  // Process concerns
+  // Process concerns with transparent threshold comparison
   const concernClasses: string[] = spec.concern_classes;
   const concerns = concernClasses.map((c, idx) => {
-    const prob = concernProbsData[idx] || 0;
+    const rawProb = concernProbsData[idx] || 0;
     const threshold = spec.concern_thresholds?.[c] ?? 0.45;
     return {
       code: c,
       label: spec.display[c] || c,
-      prob: Math.round(prob * 100) / 100,
-      active: prob >= threshold,
+      prob: Math.round(rawProb * 100) / 100,
+      percentage: Math.round(rawProb * 100),
+      thresholdPercentage: Math.round(threshold * 100),
+      active: rawProb >= threshold,
       threshold,
     };
   });
+
+  // Calculate overall skin health score (0-100)
+  const avgConcern = concerns.reduce((acc, c) => acc + c.prob, 0) / (concerns.length || 1);
+  const skinScore = Math.max(40, Math.min(98, Math.round(100 - avgConcern * 70)));
 
   return {
     skinType: dominantType,
     concerns,
     confidence,
+    skinScore,
   };
 }

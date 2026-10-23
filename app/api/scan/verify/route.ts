@@ -43,9 +43,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Anti-Replay Timestamp Audit (TTL 45 seconds)
+    // 2. Anti-Replay Timestamp Audit (TTL 15 Menit agar user tidak terburu-buru)
     const nowSec = Math.floor(Date.now() / 1000);
-    if (nowSec - issuedAt > 60 || issuedAt > nowSec + 10) {
+    if (nowSec - issuedAt > 900 || issuedAt > nowSec + 30) {
       return NextResponse.json(
         {
           status: 'error',
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
         skinType: prediction.skinType,
         concerns: prediction.concerns,
         confidence: prediction.confidence,
+        skinScore: prediction.skinScore || 85,
         livenessMetrics: livenessResult.metrics,
       },
       recommendations: {
