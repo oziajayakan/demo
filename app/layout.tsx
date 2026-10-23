@@ -4,9 +4,9 @@ import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Skin Analysis Anti-Manipulasi · Annisa Beauty Shop',
+  title: 'Analisis Kulit Wajah · Annisa Beauty Shop',
   description:
-    'Sistem pemindai kondisi kulit wajah cerdas berbasis Deep Learning ONNX dengan proteksi anti-spoofing Dynamic Screen Flash dan validasi dermatolog.',
+    'Sistem pemindai kondisi kulit wajah berbasis deep learning dengan proteksi anti-manipulasi dan rekomendasi produk resmi BPOM.',
 };
 
 export default function RootLayout({
@@ -32,47 +32,45 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="min-h-screen flex flex-col bg-[#0B0314] text-[#F8EDF9] antialiased selection:bg-[#FF2A85] selection:text-white">
-        {/* Navigation Bar */}
-        <header className="border-b border-plum-700/40 bg-[#160523]/80 backdrop-blur-md sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#8E1366] to-[#FF2A85] flex items-center justify-center font-serif font-bold text-lg text-white shadow-lg shadow-[#8E1366]/40">
+      <body className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased">
+        {/* Simple Clean Header */}
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+          <div className="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-brand-700 flex items-center justify-center font-serif font-bold text-white text-base">
                 A
               </div>
               <div>
-                <span className="font-serif font-bold text-xl tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-white via-[#FCEBFA] to-[#FF80BF]">
+                <span className="font-serif font-bold text-lg text-slate-900 tracking-tight">
                   ANNISA BEAUTY SHOP
                 </span>
-                <span className="block text-[10px] tracking-widest text-plum-400 uppercase font-semibold">
-                  Skin Biometric & Clinical AI
+                <span className="block text-[11px] text-slate-500 font-medium">
+                  Skin Analysis
                 </span>
               </div>
             </div>
+
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30">
-                <span className="w-2 h-2 rounded-full bg-[#00F0FF] animate-ping" />
-                Anti-Spoofing Active
-              </span>
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-plum-800 text-plum-300 border border-plum-700">
-                v2.0 Vercel Edition
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                Anti-Spoofing
               </span>
             </div>
           </div>
         </header>
 
-        {/* Content */}
+        {/* Main Body */}
         <main className="flex-1">{children}</main>
 
-        {/* Footer */}
-        <footer className="border-t border-plum-800/60 bg-[#090210] py-6 text-center text-xs text-plum-400/80">
-          <p className="font-serif text-sm text-plum-300 mb-1">
-            Beauty in your Home, A Better You
-          </p>
-          <p>© 2026 Annisa Beauty Shop · Tervalidasi Klinis Dokter Spesialis Kulit (Sp.D.V.E)</p>
-          <p className="text-[11px] text-plum-500 mt-1 max-w-xl mx-auto px-4">
-            Foto wajah diproses lokal secara aman di memori perangkat dan tidak diunggah ke server cloud. Hasil pemindaian bertujuan untuk rekomendasi perawatan kosmetik dan bukan merupakan diagnosis medis pengganti dokter.
-          </p>
+        {/* Clean Standard Footer */}
+        <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+          <div className="max-w-5xl mx-auto px-4 space-y-1">
+            <p className="font-medium text-slate-700">
+              Beauty in your Home, A Better You · © 2026 Annisa Beauty Shop
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Foto wajah diproses langsung di peramban dan tidak disimpan di server. Hasil pemindaian bertujuan sebagai panduan perawatan kosmetik dan bukan merupakan diagnosis medis.
+            </p>
+          </div>
         </footer>
       </body>
     </html>

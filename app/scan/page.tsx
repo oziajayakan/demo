@@ -11,10 +11,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  Sparkles,
   ShoppingBag,
   ArrowLeft,
-  Lock,
 } from 'lucide-react';
 import { runSkinInference, PredictionResult } from '@/lib/onnx';
 import {
@@ -49,7 +47,7 @@ export default function ScanPage() {
   // Challenge session state from Edge API
   const [sessionData, setSessionData] = useState<any>(null);
   const [scanState, setScanState] = useState<ScanState>('INIT');
-  const [statusMessage, setStatusMessage] = useState('Menginisialisasi sistem...');
+  const [statusMessage, setStatusMessage] = useState('Memulai kamera...');
   const [errorMessage, setErrorMessage] = useState('');
 
   // Real-time checks
@@ -90,7 +88,7 @@ export default function ScanPage() {
     } catch (err: any) {
       console.error(err);
       setScanState('ERROR');
-      setErrorMessage('Koneksi Vercel Edge API terganggu: ' + err.message);
+      setErrorMessage('Koneksi server terganggu: ' + err.message);
       return null;
     }
   }, []);
@@ -98,7 +96,7 @@ export default function ScanPage() {
   // 2. Start Video Camera with Strict Device Policies
   const startCamera = useCallback(async () => {
     setScanState('INIT');
-    setStatusMessage('Menghubungkan ke sensor kamera fisik...');
+    setStatusMessage('Memulai kamera...');
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -118,14 +116,14 @@ export default function ScanPage() {
 
       setGates((prev) => ({ ...prev, camLock: true }));
       setScanState('SEARCH');
-      setStatusMessage('Posisikan wajah Anda tegak di dalam oval');
+      setStatusMessage('Posisikan wajah Anda di dalam bingkai oval');
     } catch (err: any) {
       console.error(err);
       setScanState('ERROR');
       setErrorMessage(
         err.name === 'NotAllowedError'
-          ? 'Izin akses kamera ditolak. Berikan izin di browser Anda.'
-          : 'Kamera fisik tidak dapat diakses: ' + err.message
+          ? 'Izin kamera ditolak. Berikan izin di browser Anda.'
+          : 'Kamera tidak dapat diakses: ' + err.message
       );
     }
   }, []);
@@ -152,10 +150,8 @@ export default function ScanPage() {
         });
         if (active) {
           landmarkerRef.current = lm;
-          console.log('FaceLandmarker GPU loaded successfully');
         }
       } catch (e) {
-        console.warn('FaceLandmarker GPU failed, falling back to CPU/CV:', e);
         try {
           const { FaceLandmarker, FilesetResolver } = await import(
             '@mediapipe/tasks-vision'
@@ -174,10 +170,9 @@ export default function ScanPage() {
           });
           if (active) {
             landmarkerRef.current = lm;
-            console.log('FaceLandmarker CPU loaded successfully');
           }
         } catch (err) {
-          console.warn('MediaPipe offline, using CV fallback:', err);
+          console.warn('FaceLandmarker offline, using CV fallback');
         }
       }
     }
@@ -198,9 +193,6 @@ export default function ScanPage() {
       if (!video || video.readyState < 2 || !probeCanvasRef.current) {
         return;
       }
-
-      const vw = video.videoWidth || 640;
-      const vh = video.videoHeight || 480;
 
       const pCanvas = probeCanvasRef.current;
       pCanvas.width = 160;
@@ -296,7 +288,7 @@ export default function ScanPage() {
         } else if (!isLightOk) {
           setStatusMessage(
             avgLuma < 65
-              ? 'Cahaya kurang, cari tempat lebih terang'
+              ? 'Cahaya kurang, hadap ke tempat lebih terang'
               : 'Cahaya terlalu silau'
           );
         } else {
@@ -313,13 +305,10 @@ export default function ScanPage() {
   const triggerFlashChallenge = async () => {
     setScanState('FLASH');
     clearInterval(timerRef.current);
-    setStatusMessage('⚡ Verifikasi Cahaya Spektral (Dynamic Flash)... Tahan!');
+    setStatusMessage('Memeriksa pantulan cahaya... Tahan!');
 
     const video = videoRef.current;
     if (!video || !probeCanvasRef.current || !cropCanvasRef.current) return;
-
-    const vw = video.videoWidth || 640;
-    const vh = video.videoHeight || 480;
 
     const pCanvas = probeCanvasRef.current;
     pCanvas.width = 160;
@@ -354,9 +343,9 @@ export default function ScanPage() {
 
     if (!liveness.passed) {
       setScanState('FAILED');
-      setStatusMessage('❌ ' + liveness.reason);
+      setStatusMessage(liveness.reason || 'Verifikasi gagal');
       setErrorMessage(
-        'Sistem mendeteksi kemungkinan foto cetak, layar HP lain, atau pantulan tidak wajar. Harap gunakan wajah asli Anda.'
+        'Sistem mendeteksi kemungkinan foto cetak, layar HP lain, atau pantulan tidak alami. Harap gunakan wajah asli Anda.'
       );
       return;
     }
@@ -368,7 +357,7 @@ export default function ScanPage() {
   // 5. Execute ONNX WebAssembly Inference & Edge Verification
   const executeInference = async (liveness: LivenessResult) => {
     setScanState('INFERRING');
-    setStatusMessage('🧠 Menjalankan inferensi model ONNX...');
+    setStatusMessage('Menganalisis kondisi kulit...');
 
     const video = videoRef.current;
     const cCanvas = cropCanvasRef.current;
@@ -377,7 +366,6 @@ export default function ScanPage() {
     const vw = video.videoWidth || 640;
     const vh = video.videoHeight || 480;
 
-    // Crop square 224x224 center face
     cCanvas.width = 224;
     cCanvas.height = 224;
     const cCtx = cCanvas.getContext('2d', { willReadFrequently: true });
@@ -392,13 +380,11 @@ export default function ScanPage() {
     setCapturedThumbnail(thumbnail);
 
     try {
-      // Run ONNX MobileNetV3 multi-head model
       const prediction: PredictionResult = await runSkinInference(cCanvas);
 
       setScanState('VERIFYING');
-      setStatusMessage('🔒 Memvalidasi integritas dengan Vercel Edge Security...');
+      setStatusMessage('Menyiapkan rekomendasi produk...');
 
-      // Post to Vercel Serverless API
       const verifyRes = await fetch('/api/scan/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -420,16 +406,15 @@ export default function ScanPage() {
 
       setVerificationData(verifyData);
       setScanState('SUCCESS');
-      setStatusMessage('✅ Pemindaian berhasil dan terverifikasi!');
+      setStatusMessage('Pemindaian selesai');
 
-      // Stop camera stream to free resources
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
     } catch (err: any) {
       console.error(err);
       setScanState('ERROR');
-      setErrorMessage(err.message || 'Gagal memproses model ONNX');
+      setErrorMessage(err.message || 'Gagal memproses model');
     }
   };
 
@@ -460,12 +445,12 @@ export default function ScanPage() {
   }, [fetchChallenge, startCamera]);
 
   return (
-    <div className="min-h-[92vh] py-6 px-3 sm:px-6 relative flex flex-col items-center">
+    <div className="py-6 px-4 sm:px-6 flex flex-col items-center">
       {/* Dynamic Screen Flash Fullscreen Overlay */}
       {isFlashing && (
         <div
           className="fixed inset-0 z-[999] pointer-events-none transition-opacity duration-75"
-          style={{ backgroundColor: flashColor, opacity: 0.95 }}
+          style={{ backgroundColor: flashColor, opacity: 0.9 }}
         />
       )}
 
@@ -473,31 +458,36 @@ export default function ScanPage() {
       <canvas ref={probeCanvasRef} className="hidden" />
       <canvas ref={cropCanvasRef} className="hidden" />
 
-      <div className="w-full max-w-lg space-y-4">
+      <div className="w-full max-w-md space-y-4">
         {/* Top Header Bar */}
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs text-plum-300 hover:text-white transition"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
             Kembali
           </Link>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-plum-800 border border-plum-700 text-plum-200">
-              <Lock className="w-3 h-3 text-[#00F0FF]" />
-              Zero-Biometric Upload
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              holdStartRef.current = null;
+              setHoldProgress(0);
+              setStatusMessage('Mengecek ulang kondisi...');
+            }}
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 transition font-medium cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh Cek
+          </button>
         </div>
 
         {/* Scanner Viewport or Result View */}
         {scanState !== 'SUCCESS' ? (
           <div className="space-y-4">
             {/* Viewfinder Card */}
-            <div className="glass-card rounded-3xl p-3 sm:p-4 relative overflow-hidden border-plum-700/60 shadow-2xl">
-              {/* Radar Stage */}
-              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm relative overflow-hidden">
+              <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center">
                 <video
                   ref={videoRef}
                   playsInline
@@ -506,325 +496,240 @@ export default function ScanPage() {
                   className="absolute inset-0 w-full h-full object-cover -scale-x-100"
                 />
 
-                {/* Laser scan line when holding or inferring */}
-                {(scanState === 'HOLD' || scanState === 'INFERRING') && (
-                  <div className="laser-line" />
-                )}
-
                 {/* Oval Guide Overlay */}
                 <div
-                  className={`absolute inset-x-8 inset-y-8 rounded-[50%] border-2 transition-all duration-300 pointer-events-none ${
-                    scanState === 'HOLD'
-                      ? 'border-[#00F0FF] shadow-[0_0_20px_#00F0FF] animate-radar'
-                      : scanState === 'FLASH'
-                      ? 'border-white shadow-[0_0_30px_#fff]'
+                  className={`absolute inset-x-8 inset-y-8 rounded-[50%] border-2 transition-all duration-200 pointer-events-none ${
+                    !gates.noGlasses
+                      ? 'border-red-500'
+                      : scanState === 'HOLD'
+                      ? 'border-brand-500 shadow-md'
                       : gates.flashReady
-                      ? 'border-emerald-400 shadow-[0_0_12px_#34d399]'
-                      : 'border-[#FF2A85]/80'
+                      ? 'border-green-400'
+                      : 'border-white/80'
                   }`}
                 />
 
-                {/* Progress Bar inside Oval during HOLD */}
+                {/* Progress Bar during HOLD */}
                 {scanState === 'HOLD' && (
-                  <div className="absolute bottom-6 inset-x-14 h-2 bg-black/60 backdrop-blur rounded-full overflow-hidden border border-plum-600/40">
+                  <div className="absolute bottom-4 inset-x-12 h-1.5 bg-black/40 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[#00F0FF] to-[#FF2A85] transition-all duration-75"
+                      className="h-full bg-brand-600 transition-all duration-75"
                       style={{ width: `${holdProgress * 100}%` }}
                     />
                   </div>
                 )}
 
-                {/* Glasses Occlusion Warning Overlay */}
+                {/* Glasses Warning Banner */}
                 {!gates.noGlasses && (
-                  <div className="absolute inset-x-6 top-16 z-20 flex justify-center">
-                    <div className="px-4 py-2.5 rounded-2xl bg-rose-950/90 border border-rose-500 text-rose-200 text-xs font-bold flex items-center gap-2 shadow-2xl backdrop-blur-md animate-bounce">
-                      <XCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                      Lepas kacamata Anda untuk melanjutkan
+                  <div className="absolute inset-x-4 top-14 z-20 flex justify-center">
+                    <div className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md">
+                      <XCircle className="w-4 h-4 flex-shrink-0" />
+                      Mohon lepas kacamata Anda
                     </div>
                   </div>
                 )}
 
-                {/* Instruction HUD Badge */}
-                <div className="absolute top-4 inset-x-4 text-center pointer-events-none">
+                {/* Instruction Badge */}
+                <div className="absolute top-3 inset-x-4 text-center pointer-events-none">
                   <div
-                    className={`inline-block px-4 py-1.5 rounded-full backdrop-blur-md border font-medium text-xs sm:text-sm shadow-lg ${
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-medium shadow-sm ${
                       !gates.noGlasses
-                        ? 'bg-rose-950/80 border-rose-500 text-rose-200'
-                        : 'bg-black/75 border-plum-600/50 text-white'
+                        ? 'bg-red-700 text-white'
+                        : 'bg-black/70 text-white'
                     }`}
                   >
                     {statusMessage}
                   </div>
                 </div>
-
-                {/* Challenge & Refresh Bar */}
-                <div className="absolute bottom-4 inset-x-4 z-10 flex items-center justify-between">
-                  {sessionData ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur border border-plum-700/60 text-[10px] text-plum-300">
-                      <Zap className="w-3 h-3 text-[#00F0FF]" />
-                      Flash Target: {sessionData.challenge?.flashName}
-                    </span>
-                  ) : <span />}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      holdStartRef.current = null;
-                      setHoldProgress(0);
-                      setStatusMessage('Mengecek ulang kondisi wajah...');
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-plum-900/80 hover:bg-plum-800 border border-plum-600/60 text-white text-[10px] font-semibold transition cursor-pointer backdrop-blur shadow"
-                  >
-                    <RefreshCw className="w-3 h-3 text-plum-300" />
-                    Refresh Cek
-                  </button>
-                </div>
               </div>
             </div>
 
-            {/* Real-time Checklist Chips */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+            {/* Checklist Chips */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
               <div
                 className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
                   gates.noGlasses
-                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                    : 'bg-rose-950/40 border-rose-500/60 text-rose-300 ring-1 ring-rose-500/40 animate-pulse'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-red-50 border-red-200 text-red-800 font-medium'
                 }`}
               >
                 {gates.noGlasses ? (
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                 ) : (
-                  <XCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                  <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                 )}
                 <span>{gates.noGlasses ? 'Tanpa Kacamata' : 'Lepas Kacamata'}</span>
               </div>
 
               <div
                 className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
-                  gates.camLock
-                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                    : 'bg-plum-950/40 border-plum-800 text-plum-400'
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-                <span>Kamera Terkunci</span>
-              </div>
-
-              <div
-                className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
                   gates.focus
-                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                    : 'bg-plum-950/40 border-plum-800 text-plum-400'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-                <span>Ketajaman Pori</span>
+                <CheckCircle2
+                  className={`w-4 h-4 flex-shrink-0 ${
+                    gates.focus ? 'text-emerald-600' : 'text-slate-400'
+                  }`}
+                />
+                <span>Ketajaman Wajah</span>
               </div>
 
               <div
                 className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
                   gates.light
-                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                    : 'bg-plum-950/40 border-plum-800 text-plum-400'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-                <span>Cahaya Merata</span>
+                <CheckCircle2
+                  className={`w-4 h-4 flex-shrink-0 ${
+                    gates.light ? 'text-emerald-600' : 'text-slate-400'
+                  }`}
+                />
+                <span>Cahaya Cukup</span>
               </div>
 
               <div
                 className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
                   gates.flashReady
-                    ? 'bg-[#00F0FF]/10 border-[#00F0FF]/40 text-[#00F0FF]'
-                    : 'bg-plum-950/40 border-plum-800 text-plum-400'
+                    ? 'bg-brand-50 border-brand-200 text-brand-800 font-medium'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
-                <Zap className="w-4 h-4 flex-shrink-0" />
-                <span>Siap Flash</span>
-              </div>
-
-              <div
-                className={`flex items-center gap-2 p-2.5 rounded-xl border transition ${
-                  sessionData
-                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                    : 'bg-plum-950/40 border-plum-800 text-plum-400'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-                <span>Edge Nonce Valid</span>
+                <Zap
+                  className={`w-4 h-4 flex-shrink-0 ${
+                    gates.flashReady ? 'text-brand-600' : 'text-slate-400'
+                  }`}
+                />
+                <span>Siap Scan</span>
               </div>
             </div>
 
-            {/* Error or Fail Notice */}
+            {/* Error Notice */}
             {(scanState === 'FAILED' || scanState === 'ERROR') && (
-              <div className="glass-card rounded-2xl p-4 border-l-4 border-l-rose-500 bg-rose-950/20 space-y-2">
-                <div className="flex items-center gap-2 text-rose-300 font-semibold text-xs">
-                  <AlertCircle className="w-4 h-4 text-rose-400" />
-                  Verifikasi Gagal
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200 space-y-2">
+                <div className="flex items-center gap-1.5 text-red-800 font-semibold text-xs">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  Pemindaian Dibatalkan
                 </div>
-                <p className="text-xs text-rose-200/90 leading-relaxed">
-                  {errorMessage || 'Wajah tidak memenuhi standar validasi anti-manipulasi.'}
+                <p className="text-xs text-red-700 leading-relaxed">
+                  {errorMessage || 'Wajah tidak memenuhi syarat pemindaian.'}
                 </p>
                 <button
                   onClick={handleRetake}
-                  className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition cursor-pointer"
+                  className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-800 text-white font-medium text-xs transition cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  Coba Pindai Ulang
+                  Coba Lagi
                 </button>
               </div>
             )}
           </div>
         ) : (
-          /* RESULT VIEW: Verified Skin Diagnostic & Recommendations */
-          <div className="space-y-6 animate-fadeIn">
-            {/* Header Result Card */}
-            <div className="glass-card-glow rounded-3xl p-6 sm:p-7 space-y-6">
-              <div className="flex items-start justify-between gap-4 border-b border-plum-700/50 pb-5">
+          /* RESULT VIEW: Simple Clean Card Layout */
+          <div className="space-y-5">
+            {/* Diagnosis Summary Card */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-2">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Terverifikasi Anti-Manipulasi
+                  <span className="inline-block text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 mb-1.5">
+                    Hasil Terverifikasi
                   </span>
-                  <h2 className="font-serif text-3xl font-bold text-white capitalize">
+                  <h2 className="font-serif text-2xl font-bold text-slate-900 capitalize">
                     Kulit {verificationData?.analysis?.skinType?.label}
                   </h2>
-                  <p className="text-xs text-plum-300 mt-1">
-                    Tingkat Keyakinan Diagnosa: {verificationData?.analysis?.confidence}%
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Tingkat Keyakinan: {verificationData?.analysis?.confidence}%
                   </p>
                 </div>
 
                 {capturedThumbnail && (
-                  <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-plum-600/60 flex-shrink-0 shadow-lg">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
                     <img
                       src={capturedThumbnail}
-                      alt="Crop wajah"
+                      alt="Wajah"
                       className="w-full h-full object-cover"
                     />
                   </div>
                 )}
               </div>
 
-              {/* Liveness Audit Metrics */}
-              <div className="grid grid-cols-3 gap-2 text-center p-3 rounded-2xl bg-plum-950/50 border border-plum-800/60">
-                <div>
-                  <span className="text-[10px] text-plum-400 uppercase tracking-wider block">
-                    Respon Flash
-                  </span>
-                  <span className="text-sm font-bold text-[#00F0FF]">
-                    {verificationData?.analysis?.livenessMetrics?.chromaticShift}%
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-plum-400 uppercase tracking-wider block">
-                    Ketajaman Pori
-                  </span>
-                  <span className="text-sm font-bold text-emerald-400">
-                    {verificationData?.analysis?.livenessMetrics?.laplacianSharpness}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-plum-400 uppercase tracking-wider block">
-                    Bebas Moiré
-                  </span>
-                  <span className="text-sm font-bold text-[#FF80BF]">
-                    100% Asli
-                  </span>
-                </div>
-              </div>
-
               {/* Concern Breakdown */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-plum-300">
-                  Pemetaan Kondisi & Masalah Kulit:
+              <div className="space-y-2.5">
+                <h4 className="text-xs font-semibold text-slate-700">
+                  Kondisi & Masalah Kulit:
                 </h4>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {verificationData?.analysis?.concerns?.map((c: any) => (
                     <div
                       key={c.code}
-                      className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-plum-900/40 border border-plum-800/40"
+                      className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50 border border-slate-100"
                     >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`w-2.5 h-2.5 rounded-full ${
-                            c.active ? 'bg-[#FF2A85]' : 'bg-plum-600'
-                          }`}
-                        />
-                        <span className={c.active ? 'text-white font-medium' : 'text-plum-400'}>
-                          {c.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-plum-300 text-[11px]">
-                          {(c.prob * 100).toFixed(0)}%
-                        </span>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${
-                            c.active
-                              ? 'bg-[#FF2A85]/20 text-[#FF80BF] border border-[#FF2A85]/30'
-                              : 'bg-plum-800/40 text-plum-400'
-                          }`}
-                        >
-                          {c.active ? 'Perlu Perawatan' : 'Terkontrol'}
-                        </span>
-                      </div>
+                      <span className="text-slate-700 font-medium">{c.label}</span>
+                      <span
+                        className={`text-[11px] px-2 py-0.5 rounded font-medium ${
+                          c.active
+                            ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {c.active ? 'Perlu Perawatan' : 'Terkontrol'}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Doctor Endorsement Note */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-plum-900/60 to-[#8E1366]/20 border border-plum-700/50 text-xs space-y-1">
-                <div className="font-semibold text-white flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  {verificationData?.validationDoctor?.name}
-                </div>
-                <p className="text-[11px] text-plum-300">
-                  SIP: {verificationData?.validationDoctor?.sip} · {verificationData?.validationDoctor?.institution}
-                </p>
+              {/* Doctor Note */}
+              <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+                Tervalidasi oleh <strong>{verificationData?.validationDoctor?.name}</strong> ({verificationData?.validationDoctor?.sip})
               </div>
             </div>
 
-            {/* Recommended Products Section */}
+            {/* Recommendations */}
             {verificationData?.recommendations?.heroProduct && (
-              <div className="space-y-4">
-                <h3 className="font-serif text-2xl font-bold text-white flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-[#FF2A85]" />
-                  Rekomendasi Skincare Terpilih
+              <div className="space-y-3">
+                <h3 className="font-semibold text-base text-slate-900 flex items-center gap-1.5">
+                  <ShoppingBag className="w-4 h-4 text-brand-700" />
+                  Rekomendasi Produk
                 </h3>
 
                 {/* Hero Product Card */}
-                <div className="glass-card rounded-3xl p-6 border-l-4 border-l-[#00F0FF] space-y-4">
-                  <div className="flex justify-between items-start gap-3">
+                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex justify-between items-start gap-2">
                     <div>
-                      <span className="inline-block px-2.5 py-0.5 rounded-md bg-[#00F0FF]/10 text-[#00F0FF] text-[10px] font-bold uppercase tracking-wider mb-1.5 border border-[#00F0FF]/30">
-                        #1 Paling Sesuai
+                      <span className="inline-block px-2 py-0.5 rounded bg-brand-50 text-brand-700 text-[10px] font-bold uppercase mb-1">
+                        Paling Cocok
                       </span>
-                      <h4 className="font-serif font-bold text-xl text-white">
+                      <h4 className="font-semibold text-base text-slate-900">
                         {verificationData.recommendations.heroProduct.nama}
                       </h4>
-                      <p className="text-xs text-plum-300">
+                      <p className="text-xs text-slate-500">
                         {verificationData.recommendations.heroProduct.merek} · {verificationData.recommendations.heroProduct.kat}
                       </p>
                     </div>
 
                     <div className="text-right">
-                      <span className="text-sm font-bold text-[#FF80BF]">
+                      <span className="text-sm font-bold text-slate-900 block">
                         Rp {verificationData.recommendations.heroProduct.harga?.toLocaleString('id-ID')}
                       </span>
-                      <span className="block text-[10px] text-plum-400">
+                      <span className="text-[10px] text-slate-400 block">
                         BPOM: {verificationData.recommendations.heroProduct.bpom}
                       </span>
                     </div>
                   </div>
 
                   {verificationData.recommendations.heroProduct.reasons?.length > 0 && (
-                    <div className="text-xs text-plum-200 bg-plum-950/60 p-3 rounded-xl border border-plum-800">
-                      <strong className="text-white block mb-1">Alasan Rekomendasi:</strong>
-                      <ul className="list-disc list-inside space-y-0.5 text-plum-300">
-                        {verificationData.recommendations.heroProduct.reasons.map((r: string, idx: number) => (
-                          <li key={idx}>{r}</li>
-                        ))}
+                    <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      <strong className="text-slate-700 block mb-1">Alasan Kecocokan:</strong>
+                      <ul className="list-disc list-inside space-y-0.5 text-slate-500 text-[11px]">
+                        {verificationData.recommendations.heroProduct.reasons.map(
+                          (r: string, idx: number) => (
+                            <li key={idx}>{r}</li>
+                          )
+                        )}
                       </ul>
                     </div>
                   )}
@@ -832,26 +737,23 @@ export default function ScanPage() {
 
                 {/* Supporting Products */}
                 {verificationData.recommendations.supportingProducts?.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
                     {verificationData.recommendations.supportingProducts.map((p: any) => (
                       <div
                         key={p.id}
-                        className="glass-card rounded-2xl p-4 space-y-2 border-plum-800"
+                        className="bg-white rounded-xl p-3 border border-slate-200 flex justify-between items-center"
                       >
-                        <div className="flex justify-between items-start">
-                          <span className="text-[10px] font-semibold text-plum-400 uppercase">
-                            {p.kat}
-                          </span>
-                          <span className="text-xs font-bold text-[#FF80BF]">
-                            Rp {p.harga?.toLocaleString('id-ID')}
+                        <div>
+                          <h5 className="font-medium text-xs text-slate-800">
+                            {p.nama}
+                          </h5>
+                          <span className="text-[11px] text-slate-400">
+                            {p.kat} · BPOM: {p.bpom}
                           </span>
                         </div>
-                        <h5 className="font-semibold text-sm text-white line-clamp-1">
-                          {p.nama}
-                        </h5>
-                        <p className="text-[11px] text-plum-300 line-clamp-2">
-                          BPOM: {p.bpom}
-                        </p>
+                        <span className="text-xs font-semibold text-slate-900">
+                          Rp {p.harga?.toLocaleString('id-ID')}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -859,14 +761,14 @@ export default function ScanPage() {
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="text-center pt-4">
+            {/* Retake Button */}
+            <div className="text-center pt-2">
               <button
                 onClick={handleRetake}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-plum-800 hover:bg-plum-700 text-white font-semibold text-xs tracking-wider transition cursor-pointer border border-plum-600"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition cursor-pointer border border-slate-200"
               >
-                <RefreshCw className="w-4 h-4" />
-                Pindai Ulang Wajah
+                <RefreshCw className="w-3.5 h-3.5" />
+                Pindai Ulang
               </button>
             </div>
           </div>

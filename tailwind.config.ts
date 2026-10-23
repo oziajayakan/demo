@@ -9,26 +9,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#0D0614',
-        foreground: '#F5EDF8',
-        plum: {
-          900: '#1A0624',
-          800: '#2A0B3B',
-          700: '#43125C',
-          600: '#5F1982',
-          500: '#7F22AD',
-          400: '#A439DC',
-        },
-        rose: {
-          highlight: '#FF2A85',
-        },
-        cyan: {
-          neon: '#00F0FF',
+        brand: {
+          50: '#FDF2F8',
+          100: '#FCE7F3',
+          200: '#FBCFE8',
+          500: '#EC4899',
+          600: '#DB2777',
+          700: '#BE185D',
+          800: '#9D174D',
+          900: '#831843',
         },
       },
       fontFamily: {
-        sans: ['DM Sans', 'sans-serif'],
-        serif: ['Playfair Display', 'serif'],
+        sans: ['DM Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        serif: ['Playfair Display', 'Georgia', 'serif'],
       },
     },
   },
