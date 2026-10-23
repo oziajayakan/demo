@@ -35,21 +35,34 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 @media(min-width:700px){.tip{padding:26px 24px 26px 0;border-bottom:0}}
 .tip b{display:block;font-weight:500;margin-bottom:4px}.tip span{color:var(--mute);font-size:14px}
 .fine{font-size:12px;color:var(--mute);padding:22px 0 40px}
-/* scan */
-.cam{position:relative;background:#000;max-width:520px;margin:20px auto 0;aspect-ratio:3/4;overflow:hidden}
+/* scan tech / futuristic */
+#s1{background:#000;color:#fff;padding-top:20px;padding-bottom:30px;min-height:90vh}
+.scan-badges{display:flex;justify-content:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.s-badge{font-size:12px;font-weight:600;letter-spacing:.05em;padding:6px 16px;border:1.5px solid #00E599;color:#00E599;background:rgba(0,229,153,.07);border-radius:2px;text-transform:uppercase;transition:all .2s ease}
+.s-badge.warn{border-color:#FF0055;color:#FF0055;background:rgba(255,0,85,.07)}
+.cam{position:relative;background:#050505;max-width:500px;margin:0 auto;aspect-ratio:3/4;overflow:hidden;border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.8)}
 .cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#vid{transform:scaleX(-1)}#cap{display:none}
-.oval{position:absolute;left:50%;top:50%;width:68%;height:74%;transform:translate(-50%,-50%);border-radius:50%/46%;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 0 999px rgba(0,0,0,.5);transition:border-color .25s}
-.oval.ok{border-color:#7BE0B4}.oval.no{border-color:#FF6B7F}
+#vid{transform:scaleX(-1)}
+#meshCanvas{transform:scaleX(-1);pointer-events:none;z-index:4}
+#cap{display:none}
+/* Modern Face Reticle / Corner Brackets */
+.reticle{position:absolute;left:50%;top:50%;width:66%;height:68%;transform:translate(-50%,-50%);pointer-events:none;z-index:6;transition:all .25s ease}
+.reticle .c-tl,.reticle .c-tr,.reticle .c-bl,.reticle .c-br{position:absolute;width:40px;height:40px;border-color:#FF0055;border-style:solid;border-width:0;transition:border-color .25s,transform .25s}
+.reticle .c-tl{top:0;left:0;border-top-width:4px;border-left-width:4px;border-top-left-radius:18px}
+.reticle .c-tr{top:0;right:0;border-top-width:4px;border-right-width:4px;border-top-right-radius:18px}
+.reticle .c-bl{bottom:0;left:0;border-bottom-width:4px;border-left-width:4px;border-bottom-left-radius:18px}
+.reticle .c-br{bottom:0;right:0;border-bottom-width:4px;border-right-width:4px;border-bottom-right-radius:18px}
+.reticle.ok .c-tl,.reticle.ok .c-tr,.reticle.ok .c-bl,.reticle.ok .c-br{border-color:#00E599}
 .flash-box{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .08s ease,background-color .08s ease;z-index:10}
-.laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#E8C98F,transparent);top:12%;opacity:0;z-index:5}
+.laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#FF0055,transparent);top:12%;opacity:0;z-index:5}
 .busy .laser{opacity:1;animation:sw 1.2s ease-in-out infinite alternate}
 @keyframes sw{to{top:86%}}
-.msg{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;padding:40px 20px 18px;text-align:center}
-.msg b{display:block;font-size:19px;font-weight:500}.msg span{font-size:14px;opacity:.85}
-.checks{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;max-width:520px;margin:14px auto 40px}
-.chk{font-size:13px;padding:5px 12px;border:1px solid var(--line);color:var(--mute)}
-.chk.ok{border-color:var(--ok);color:var(--ok)}.chk.no{border-color:var(--bad);color:var(--bad)}
+.msg{position:absolute;left:0;right:0;top:20px;color:#fff;text-align:center;z-index:8;padding:0 20px;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.msg b{display:block;font-size:20px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px}
+.msg span{font-size:14px;opacity:.9;font-weight:400}
+.checks{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;max-width:520px;margin:18px auto 20px}
+.chk{font-size:12px;padding:4px 12px;border:1px solid #333;color:#888;border-radius:2px}
+.chk.ok{border-color:#00E599;color:#00E599}.chk.no{border-color:#FF0055;color:#FF0055}
 /* hasil */
 .res{display:grid;gap:32px;padding:32px 0 56px}
 @media(min-width:800px){.res{grid-template-columns:340px 1fr;gap:56px}}
@@ -102,10 +115,21 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 
 <!-- 2. Pindai -->
 <section class="scr" id="s1"><div class="wrap">
+ <div class="scan-badges">
+  <span class="s-badge" id="bLight">Pencahayaan</span>
+  <span class="s-badge warn" id="bPos">Posisi Wajah</span>
+  <span class="s-badge" id="bLook">Pandangan Lurus</span>
+ </div>
  <div class="cam" id="cam">
-  <video id="vid" playsinline muted autoplay></video><canvas id="cap"></canvas>
-  <div class="oval" id="oval"></div><div class="flash-box" id="flashBox"></div><div class="laser"></div>
-  <div class="msg"><b id="mHead">Posisikan wajah di oval</b><span id="mSub">Hadap lurus ke kamera</span></div>
+  <video id="vid" playsinline muted autoplay></video>
+  <canvas id="meshCanvas"></canvas>
+  <canvas id="cap"></canvas>
+  <div class="reticle" id="reticle">
+   <div class="c-tl"></div><div class="c-tr"></div>
+   <div class="c-bl"></div><div class="c-br"></div>
+  </div>
+  <div class="flash-box" id="flashBox"></div><div class="laser"></div>
+  <div class="msg"><b id="mHead">Sejajarkan wajah dengan layar</b><span id="mSub">Hampir selesai! Posisikan wajah di dalam frame</span></div>
  </div>
  <div class="checks"><span class="chk" id="cScreen">Spektrum Layar</span><span class="chk" id="cFlash">Pantulan Kulit</span><span class="chk" id="cMask">Wajah Terbuka</span><span class="chk" id="cGlass">Tanpa Kacamata</span><span class="chk" id="cLive">Gerakan 3D</span></div>
 </div></section>
@@ -114,12 +138,14 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 <section class="scr" id="s2"><div class="wrap"><div class="res" id="res"></div></div></section>
 
 <script type="module">
-import {FaceLandmarker,FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+import {FaceLandmarker,FilesetResolver,DrawingUtils} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const WASM="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
 const LM_URL="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-const vid=$("vid"),cap=$("cap"),oval=$("oval"),cam=$("cam"),flashBox=$("flashBox");
+const vid=$("vid"),cap=$("cap"),reticle=$("reticle"),cam=$("cam"),flashBox=$("flashBox");
+const meshCanvas=$("meshCanvas"),meshCtx=meshCanvas.getContext("2d");
+let drawingUtils=null;
 let session=null,lmk=null,spec=null,products=[],stream=null,raf=0,preview=false;
 let phase="align",holdT=0,chalSeq=[],chalIdx=0,chalT=0,eyeClosed=false,busy=false,last=0;
 let prevNoseX=null,prevEarX=null,parallaxScore=0,parallaxFrames=0;
@@ -142,8 +168,17 @@ function generateChallengeSequence(){
 }
 
 function show(i,lbl){["s0","s1","s2"].forEach((s,k)=>$(s).classList.toggle("on",k===i));$("stepLbl").textContent=lbl;scrollTo(0,0)}
-function chk(id,state,txt){const e=$(id);e.className="chk "+state;if(txt)e.textContent=txt}
-function say(h,s,st){$("mHead").textContent=h;$("mSub").textContent=s;oval.className="oval "+(st||"")}
+function chk(id,state,txt){const e=$(id);if(e){e.className="chk "+state;if(txt)e.textContent=txt}}
+function say(h,s,st){
+ $("mHead").textContent=h;
+ $("mSub").textContent=s;
+ if(reticle) reticle.className="reticle "+(st||"");
+}
+function setBadge(id,isOk){
+ const b=$(id);
+ if(!b)return;
+ b.className="s-badge "+(isOk?"":"warn");
+}
 
 /* ---------- inisialisasi ---------- */
 async function init(){
@@ -183,6 +218,9 @@ async function openCam(){
  flashBox.style.opacity="0";
  vid.style.display="block";cap.style.display="none";cam.classList.remove("busy");
  ["cScreen","cFlash","cMask","cGlass","cLive"].forEach(i=>chk(i,""));
+ setBadge("bLight", true);
+ setBadge("bPos", false);
+ setBadge("bLook", false);
  show(1,"Pindai wajah");
  try{
   const dv = (await navigator.mediaDevices.enumerateDevices().catch(()=>[])).filter(d=>d.kind==="videoinput");
@@ -205,8 +243,13 @@ async function openCam(){
 
   vid.srcObject = stream;
   await vid.play();
+  
+  meshCanvas.width = vid.videoWidth || 640;
+  meshCanvas.height = vid.videoHeight || 480;
+  drawingUtils = new DrawingUtils(meshCtx);
+
   chk("cScreen", "ok", "Kamera fisik");
-  say("Posisikan wajah di oval", "Hadap lurus ke kamera");
+  say("Sejajarkan wajah dengan layar", "Hampir selesai! Posisikan wajah di dalam frame");
   raf = requestAnimationFrame(loop);
  }catch(err){
   console.warn("Camera error:", err);
@@ -216,6 +259,7 @@ async function openCam(){
 function stopCam(){
  cancelAnimationFrame(raf);
  flashBox.style.opacity="0";
+ meshCtx.clearRect(0,0,meshCanvas.width,meshCanvas.height);
  stream?.getTracks().forEach(t=>t.stop());
  stream=null;
 }
@@ -311,12 +355,36 @@ function loop(now){
  if(!lmk){say("Menunggu model 3D…","Sedang memuat MediaPipe");return}
  let r;try{r=lmk.detectForVideo(vid,now)}catch{return}
  const n=r?.faceLandmarks?.length||0;
+ 
+ // Bersihkan canvas 3D mesh di setiap frame
+ if(meshCtx && meshCanvas){
+  meshCtx.clearRect(0,0,meshCanvas.width,meshCanvas.height);
+ }
+
  if(!n){
   phase="align";holdT=0;flashState.active=false;flashBox.style.opacity="0";
-  say("Wajah belum terdeteksi","Posisikan wajah di oval");
+  setBadge("bPos", false);
+  setBadge("bLook", false);
+  say("Sejajarkan wajah dengan layar","Posisikan wajah di dalam frame");
   return}
  if(n>1){say("Terdeteksi lebih dari satu wajah","Pastikan hanya kamu di depan kamera","no");return}
  const l=r.faceLandmarks[0],w=vid.videoWidth,h=vid.videoHeight;
+
+ // Gambar 3D Face Mesh Wireframe merah neon seperti di referensi
+ if(drawingUtils && FaceLandmarker.FACE_LANDMARKS_TESSELATION){
+  drawingUtils.drawConnectors(
+   l,
+   FaceLandmarker.FACE_LANDMARKS_TESSELATION,
+   { color: "rgba(255, 20, 75, 0.55)", lineWidth: 1.0 }
+  );
+  if(FaceLandmarker.FACE_LANDMARKS_FACE_OVAL){
+   drawingUtils.drawConnectors(
+    l,
+    FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
+    { color: "rgba(255, 40, 90, 0.8)", lineWidth: 1.5 }
+   );
+  }
+ }
 
  // 1. Analisis Spektrum Frekuensi & Anti-Moiré
  const sp=screenFrequencySpoof(l,w,h);
@@ -336,10 +404,14 @@ function loop(now){
  const fh=d-c,ctr=Math.abs((a+b)/2-.5)<.22&&Math.abs((c+d)/2-.48)<.22&&fh>.28&&fh<.9;
  const yaw=yawOf(r.facialTransformationMatrixes?.[0]?.data);
 
+ // Update indikator badges atas
+ setBadge("bPos", ctr);
+ setBadge("bLook", Math.abs(yaw) < 12);
+
  // --- Fase 1: Posisi & Framing ---
  if(phase==="align"){
   if(ctr&&Math.abs(yaw)<12){
-   say("Posisi pas","Tahan sebentar…","ok");holdT||=now;
+   say("Sejajarkan wajah dengan layar","Hampir selesai! Posisikan wajah di dalam frame","ok");holdT||=now;
    if(now-holdT>600){
     phase="flash";
     flashState={active:true,step:0,timer:now,colors:[{name:"Cyan",hex:"#00e5ff",rgb:[0,229,255]},{name:"Magenta",hex:"#ff007f",rgb:[255,0,127]}],samples:[],passed:false};
@@ -347,7 +419,7 @@ function loop(now){
     flashBox.style.opacity="0.85";
    }
   }else{
-   holdT=0;say(fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah","Hadap lurus ke kamera");
+   holdT=0;say("Sejajarkan wajah dengan layar",fh<=.28?"Dekatkan wajah":fh>=.9?"Mundur sedikit":"Pusatkan wajah di dalam frame");
   }
   return;
  }
