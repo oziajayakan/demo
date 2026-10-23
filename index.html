@@ -336,28 +336,33 @@ function occlusion(l){
  const r=Math.hypot(nose.x-chin.x,nose.y-chin.y)/H,eD=Math.hypot(eR.x-eL.x,eR.y-eL.y),mW=Math.hypot(mR.x-mL.x,mR.y-mL.y);
  if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
 
-// Deteksi Kacamata yang Akurat berbasis Pantulan Lensa & Bingkai Mata
+// Deteksi Kacamata yang Akurat (Termasuk Lensa Anti-Radiasi Hijau/Cyan & Bingkai Kacamata)
 function glasses(l,w,h){
  if(!l||l.length<468) return false;
  
- // 1. Deteksi Pantulan Lensa (Specular Reflection) di area mata
- // Saat memakai kacamata, lensa kaca memantulkan cahaya lampu/layar putih silau
- const eyeL=[159,145,33,133,158,153], eyeR=[386,374,362,263,385,380];
+ // 1. Deteksi Pantulan Lensa (Termasuk lapisan anti-radiasi / blue-chromic / green glare)
+ // Pada kacamata anti-radiasi, pantulan layar menghasilkan saturasi hijau/cyan tinggi (G > R)
+ const eyePoints=[159,145,33,133,158,153,386,374,362,263,385,380,468,473];
  let glares=0;
- for(const idx of [...eyeL, ...eyeR]){
+ for(const idx of eyePoints){
   const pt=l[idx];
-  const d=patch(pt.x*w, pt.y*h, 16);
+  if(!pt) continue;
+  const d=patch(pt.x*w, pt.y*h, 20);
   for(let i=0;i<64;i++){
-   if(d[i*4]>235 && d[i*4+1]>235 && d[i*4+2]>235){
+   const r=d[i*4], g=d[i*4+1], b=d[i*4+2];
+   // Pantulan putih terang ATAU pantulan hijau toska anti-radiasi yang kuat
+   const isWhiteGlare = (r > 220 && g > 220 && b > 220);
+   const isGreenCyanGlare = (g > 150 && (g - r > 30) && (b > 110));
+   if(isWhiteGlare || isGreenCyanGlare){
     glares++;
     break;
    }
   }
  }
 
- // 2. Deteksi Garis Bingkai di Pangkal Hidung (Bridge kacamata antar kedua mata)
- const bridge=l[168]; // Titik di tengah kedua mata
- const bPatch=patch(bridge.x*w, bridge.y*h, 24);
+ // 2. Deteksi Garis Bingkai di Pangkal Hidung (Bridge)
+ const bridge=l[168];
+ const bPatch=patch(bridge.x*w, bridge.y*h, 26);
  let bMin=255, bMax=0, bEdges=0;
  for(let i=0;i<64;i++){
   const v=lum(bPatch, i*4);
@@ -365,9 +370,24 @@ function glasses(l,w,h){
   bMax=Math.max(bMax, v);
   if(i%8<7) bEdges+=Math.abs(v-lum(bPatch, i*4+4));
  }
+ const hasBridge = (bMax - bMin > 75 && bEdges/64 > 14);
 
- // Kacamata terdeteksi jika ada pantulan silau khas lensa kaca ATAU ada bingkai hidung yang jelas
- return (glares >= 2) || (bMax - bMin > 95 && bEdges/64 > 18);
+ // 3. Deteksi Bingkai Bawah Mata (Lower Rim) pada landmark 111 & 340
+ let rimCount=0;
+ for(const rimIdx of [111, 340]){
+  const pt=l[rimIdx];
+  if(!pt) continue;
+  const rPatch=patch(pt.x*w, pt.y*h, 20);
+  let rMin=255, rMax=0;
+  for(let i=0;i<64;i++){
+   const v=lum(rPatch, i*4);
+   rMin=Math.min(rMin, v);
+   rMax=Math.max(rMax, v);
+  }
+  if(rMax - rMin > 80) rimCount++;
+ }
+
+ return (glares >= 2) || (hasBridge && rimCount >= 1);
 }
 
 function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
@@ -507,7 +527,29 @@ async function analyze(l){
 
    t.dispose?.();o.type_probs?.dispose?.();o.concern_probs?.dispose?.();
   }
-  render(tp,cp)}
+  let dynamicPins = [];
+  if(l && l.length >= 468){
+   const toCanvas = (p) => {
+    const xCrop = (side - (p.x * vw - sxp)) / side;
+    const yCrop = (p.y * vh - syp) / side;
+    return [Math.max(0.06, Math.min(0.94, xCrop)), Math.max(0.06, Math.min(0.94, yCrop))];
+   };
+   const ptDahi = toCanvas(l[10]);
+   const ptHidung = toCanvas(l[1]);
+   const ptPipiL = toCanvas(l[117]);
+   const ptPipiR = toCanvas(l[346]);
+   const ptMataL = toCanvas(l[111]);
+   const ptMataR = toCanvas(l[340]);
+   dynamicPins = [
+    [ptDahi[0], ptDahi[1], "Dahi"],
+    [ptPipiL[0], ptPipiL[1], "Pipi"],
+    [ptPipiR[0], ptPipiR[1], "Pipi"],
+    [ptHidung[0], ptHidung[1], "Hidung"],
+    [ptMataL[0], ptMataL[1], "Area Mata"],
+    [ptMataR[0], ptMataR[1], "Area Mata"]
+   ];
+  }
+  render(tp,cp,dynamicPins)}
 
 /* ---------- pencocokan produk ---------- */
 const ING={
@@ -525,13 +567,14 @@ function match(tipe,cm){return products.map(p=>{let s=p.tipe.includes(tipe)?1.5:
 
 /* ---------- tampilan hasil ---------- */
 function level(p){return p<.25?"Rendah":p<.5?"Sedang":"Perlu perhatian"}
-function render(tp,cp){
+function render(tp,cp,pins){
+ const pinList = (pins && pins.length) ? pins : [[.5,.25,"Dahi"],[.3,.55,"Pipi"],[.7,.55,"Pipi"],[.5,.52,"Hidung"],[.35,.42,"Area Mata"],[.65,.42,"Area Mata"]];
  const T=spec.type_classes,C=spec.concern_classes,D=spec.display,ti=tp.indexOf(Math.max(...tp)),tipe=T[ti];
  const avg=cp.reduce((a,b)=>a+b,0)/cp.length,score=Math.round(100-avg*70);
  const cm={};C.forEach((c,i)=>{if(cp[i]>=(spec.concern_thresholds?.[c]??.2))cm[c]=cp[i]});
  if(!Object.keys(cm).length){const j=cp.indexOf(Math.max(...cp));if(cp[j]>=.14)cm[C[j]]=cp[j]}
  const m=match(tipe,cm),hp=m[0],sub=m.slice(1,3);
- const pins=[[".5",".3","Dahi"],[".28",".55","Pipi"],[".72",".55","Pipi"],[".5",".58","Hidung"],[".35",".44","Area Mata"],[".65",".44","Area Mata"]];
+ const pins=pinList;
  $("res").innerHTML=`
  <div><div class="face" id="fc">${pins.map(p=>`<div class="pin" style="left:${p[0]*100}%;top:${p[1]*100}%"><i>${p[2]}</i></div>`).join("")}</div>
   <div class="doc"><b>Dinilai dr. Amanda Lestari, Sp.D.V.E</b><br>SIP 503/442-DINKES/2023 · κ = 0,78<br><small style="color:var(--mute)">${preview?"Data contoh. ":""}Sistem pendukung keputusan kosmetik bebas BPOM.</small></div></div>
