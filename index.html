@@ -138,7 +138,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 <section class="scr" id="s2"><div class="wrap"><div class="res" id="res"></div></div></section>
 
 <script type="module">
-import {FaceLandmarker,FilesetResolver,DrawingUtils} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+import {FaceLandmarker,FilesetResolver,DrawingUtils} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const WASM="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
@@ -196,7 +196,9 @@ async function init(){
    try{lmk=await FaceLandmarker.createFromOptions(fs,{...o,baseOptions:{modelAssetPath:LM_URL,delegate:"GPU"}})}
    catch{lmk=await FaceLandmarker.createFromOptions(fs,{...o,baseOptions:{modelAssetPath:LM_URL,delegate:"CPU"}})}
   })();
-  await Promise.all([onnx,mp]);$("initMsg").textContent="Siap. Semua proses berjalan di perangkatmu.";
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout load AI")), 5000));
+  await Promise.race([Promise.all([onnx,mp]), timeout]);
+  $("initMsg").textContent="Siap. Semua proses berjalan di perangkatmu.";
  }catch(e){
   console.warn(e);preview=true;
   spec={type_classes:["berminyak","kering","normal","kombinasi"],concern_classes:["jerawat","flek_hitam","kemerahan","pori_besar","kerutan"],
