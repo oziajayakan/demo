@@ -4,35 +4,27 @@
 
 @layer base {
   :root {
-    --bg-main: #F8FAFC;
-    --card-bg: #FFFFFF;
-    --border-color: #E2E8F0;
+    --bg-main: #000000;
+    --card-bg: #121214;
+    --border-color: #27272a;
   }
 
   body {
-    background-color: var(--bg-main);
-    color: #1E293B;
+    background-color: #000000;
+    color: #ffffff;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
   }
 }
 
-/* Simple clean card */
-.clean-card {
-  background: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 16px;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-}
-
-/* Custom subtle scrollbar */
+/* Custom dark scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: #09090b;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #27272a;
   border-radius: 999px;
 }
