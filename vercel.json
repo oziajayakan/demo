@@ -1,16 +1,7 @@
 {
   "headers": [
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/skin_model.onnx",
+      "source": "/models/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

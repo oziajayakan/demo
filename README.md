@@ -1,57 +1,128 @@
-# Sistem Analisis Kondisi Kulit Wajah & Rekomendasi Klinis BPOM
+# Sistem Analisis Kondisi Kulit Wajah Anti-Manipulasi (Next.js 14 + ONNX Web)
 
-Aplikasi web pemindaian wajah cerdas berbasis **Deep Learning (MobileNetV3 ONNX Web)** yang dirancang dengan sistem proteksi **Anti-Manipulasi Fisik (*Anti-Spoofing & Active 3D Liveness*)**, validasi diagnosa klinis berlisensi **Dokter Spesialis Kulit (Sp.D.V.E)**, serta mesin rekomendasi produk kosmetik resmi **BPOM RI**.
+Aplikasi web analisis biometrik kulit wajah dan pendukung keputusan rekomendasi kosmetik **BPOM RI** berbasis **Deep Learning (MobileNetV3 Multitask ONNX)** yang dilengkapi dengan sistem pertahanan **Anti-Manipulasi Berlapis (*Presentation Attack Detection & Cryptographic Anti-Tampering*)** serta tervalidasi klinis oleh **Dokter Spesialis Kulit (Sp.D.V.E)**.
+
+Didesain khusus untuk berjalan dengan performa tinggi dan biaya komputasi server **nol rupiah (Zero Server-Compute Cost)** di platform **Vercel**.
 
 ---
 
-## 🌟 Fitur Utama
+## 🌟 Fitur Utama & Proteksi Anti-Manipulasi
 
-### 1. Sistem Anti-Manipulasi Berlapis (*Multi-Layer Presentation Attack Detection*)
-- **Screen-Flash Challenge (Chromaticity Reflection)**: Layar memancarkan sekuens kilatan warna acak (*Cyan* lalu *Magenta*) untuk mengukur respon kromatik dan penyerapan cahaya pada lapisan epidermis kulit. Foto cetak atau layar HP replay tidak dapat memantulkan spektrum ini secara sinkron.
-- **Analisis Frekuensi Tinggi & Moiré Pattern**: High-pass filtering pada patch kulit wajah untuk mendeteksi kisi piksel periodik (*pixel grid*) dan artefak interferensi Moiré khas display LCD/OLED HP.
-- **Konsistensi Temporal & 3D Motion Parallax**: Memeriksa diferensial vektor pergerakan antara ujung hidung (*nose tip*) dan sumbu lateral telinga/pelipis selama tantangan gerakan. Foto atau benda datar bergerak sebagai satu bidang kaku (*planar rigid*), sedangkan wajah 3D nyata menghasilkan paralaks gerak non-linear.
-- **Multi-Step Randomized Challenge (2 Langkah Dinamis)**: Urutan tantangan acak (kombinasi toleh kiri, kanan, kedip riil dengan EAR threshold) dengan batas waktu ketat (*strict timing window*).
-- **Deteksi Hardware Kamera Fisik**: Menolak virtual driver (*OBS, ManyCam, DroidCam*) dan mengunci ke sensor kamera fisik asli.
+### 1. Dynamic Screen Flash Challenge (Anti-Foto & Anti-Layar Replay)
+- **Pengukuran Respon Spektral**: Saat wajah pengguna terdeteksi stabil di bingkai oval, layar memancarkan kilatan spektrum warna acak (*Cyan, Magenta, atau Amber*) selama 160 milidetik.
+- **Kromatisitas Difus Kulit Asli**: Sistem mengukur pergeseran kromatisitas ($\Delta \text{RGB}$) pada lapisan epidermis kulit. Kulit manusia asli menyerap dan memantulkan spektrum cahaya dinamis secara difus, sedangkan foto cetak kertas dan layar gadget lain (yang memiliki emisi *backlight* sendiri) gagal memantulkan warna ini secara sinkron.
+- **Deteksi Moiré & Tekstur**: Analisis varians Laplacian ($\text{Var}(\nabla^2 I)$) untuk memvalidasi tekstur pori-pori mikro dan menolak interferensi kisi piksel (*Moiré pattern*) dari layar monitor/laptop.
 
-### 2. Sertifikasi Klinis Dermatologi
+### 2. Hardware Camera Lock (Zero-Upload Policy)
+- Pemindaian diwajibkan melalui sensor kamera fisik langsung (`facingMode: "user"`).
+- Tidak menyediakan tombol unggah berkas dari galeri untuk mencegah manipulasi foto hasil filter kecantikan (*beauty cam*), editan Photoshop, atau video loop dari *virtual camera* (OBS/ManyCam).
+
+### 3. Integritas Kriptografis (Vercel Edge & Serverless Nonce)
+- **One-Time Challenge Nonce**: Sebelum pemindaian, browser meminta token tantangan berumur pendek (TTL 45 detik) dari `/api/session/challenge`.
+- **Anti-DevTools Tampering**: Hasil inferensi ditandatangani menggunakan tanda tangan kriptografis HMAC-SHA256 sebelum diverifikasi di `/api/scan/verify`. Pengguna tidak dapat memanipulasi skor probabilitas di konsol peramban JavaScript.
+
+### 4. Inferensi Super Cepat di Browser (WASM SIMD)
+- Menggunakan model `skin_model.onnx` berukuran hanya **4.68 MB**.
+- Berjalan via **ONNX Runtime Web** memanfaatkan akselerasi WebAssembly SIMD. Inferensi selesai dalam 30–60 ms di sisi peramban klien tanpa membebani kuota server Vercel.
+- **100% Client-Side Privacy**: Citra wajah diproses secara lokal di RAM perangkat dan tidak pernah diunggah ke server cloud (*Zero-Biometric Upload*).
+
+### 5. Validasi Klinis Dermatolog & Mesin Rekomendasi BPOM
 - **Lisensi Dokter Penilai**: Tervalidasi oleh **dr. Amanda Lestari, Sp.D.V.E** (SIP: `503/442-DINKES/2023`).
-- **Tingkat Kesepakatan Klinis**: Cohen's Kappa $\kappa = 0.78$ (*Substantial Agreement*) dengan akurasi evaluasi klinis $87.5\%$.
-- **Kepatuhan Regulasi**: Sistem pendukung keputusan kosmetik *Over-The-Counter* (OTC) terdaftar BPOM.
-
-### 3. Tampilan Hasil Terfokus: Rekomendasi Produk Terbaik
-- **Kartu Rekomendasi Utama (#1 Best Match)**: Menampilkan produk dengan tingkat kecocokan tertinggi, nomor izin edar BPOM, dan penjelasan sinergi bahan aktif (*Active Ingredients*).
-- **Rekomendasi Pendukung Ringkas**: Sabun pembersih (*Cleanser*) atau tabir surya (*Sunscreen*) pelengkap rutinitas perawatan.
-
-### 4. Performa Super Ringan di Semua Perangkat
-- **Zero Heap Allocation**: Alokasi `Float32Array` statis sehingga ramah memori (*RAM*) pada perangkat menengah ke bawah.
-- **WASM SIMD Acceleration**: Inferensi selesai dalam 30–50 milidetik langsung di peramban pengguna.
-- **100% Client-Side Privacy**: Citra wajah tidak pernah dikirim ke server luar (*Zero-Biometric Upload*).
+- **Tingkat Kesepakatan Klinis**: Cohen's Kappa $\kappa = 0.78$ (*Substantial Agreement*).
+- **Rekomendasi Terkurasi**: Menghubungkan tipe kulit (*Normal, Berminyak, Kering, Kombinasi*) dan masalah kulit (*Jerawat, Flek Hitam, Kemerahan, Pori-pori, Garis Halus*) dengan 32 produk resmi terdaftar BPOM RI beserta alasan kecocokan bahan aktif (*Active Ingredients*).
 
 ---
 
-## 📁 Struktur Direktori
+## 📐 Arsitektur Sistem
 
-```
-demoweb/
-├── index.html          # Antarmuka web baru & logika inferensi client-side
-├── products.json       # Basis data 32 produk kosmetik resmi BPOM
-├── skin_model.onnx     # Model kuantisasi MobileNetV3 (ONNX Web)
-├── labels.json         # Konfigurasi kelas prediksi, mean/std normalisasi
-├── vercel.json         # Konfigurasi deployment serverless Vercel
-├── README.md           # Dokumentasi teknis proyek
-└── .gitignore          # Konfigurasi pengabaian berkas Git
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Pengguna
+    participant Cam as Kamera Fisik (getUserMedia)
+    participant Client as Next.js 14 Client (HUD)
+    participant ONNX as ONNX Runtime Web (WASM)
+    participant Vercel as Vercel Serverless / Edge API
+
+    Pengguna->>Client: Buka halaman /scan
+    Client->>Vercel: GET /api/session/challenge
+    Vercel-->>Client: Nonce Sesi + Kode Warna Flash Acak
+    Client->>Cam: Kunci stream kamera langsung
+    Client->>Client: Evaluasi posisi wajah, cahaya, dan ketajaman pori
+    Note over Client,Cam: Dynamic Screen Flash Challenge
+    Client->>Client: Layar berkedip warna spektral (160 ms)
+    Client->>Cam: Analisis perubahan kromatisitas spektral kulit
+    alt Pantulan Tidak Cocok (Layar HP / Kertas Foto)
+        Client-->>Pengguna: ❌ Ditolak: Layar digital / foto terdeteksi!
+    else Pantulan Kulit Alami Lolos
+        Client->>ONNX: Eksekusi skin_model.onnx (224x224 RGB)
+        ONNX-->>Client: Probabilitas Tipe & Masalah Kulit
+        Client->>Vercel: POST /api/scan/verify (Payload + Nonce HMAC)
+        Vercel-->>Client: Verifikasi Valid + Rekomendasi Produk S'Luv BPOM
+        Client-->>Pengguna: Tampilkan Hasil Diagnosa Terverifikasi
+    end
 ```
 
 ---
 
-## 🚀 Cara Menjalankan
+## 📁 Struktur Direktori Proyek
 
-Aplikasi sepenuhnya bersifat statis (*zero backend requirement*):
+```
+demo/
+├── app/
+│   ├── api/
+│   │   ├── session/
+│   │   │   └── challenge/
+│   │   │       └── route.ts         # Vercel API: Generator Nonce & Flash Challenge
+│   │   └── scan/
+│   │       └── verify/
+│   │           └── route.ts         # Vercel Serverless: Validasi Tamper & Rekomendasi
+│   ├── scan/
+│   │   └── page.tsx                 # Halaman Scan Interaktif (Radar HUD & Flash Screen)
+│   ├── layout.tsx                   # Layout global (Font, Header/Footer, ort.min.js)
+│   ├── globals.css                  # Tailwind styles, glassmorphism, animasi neon
+│   └── page.tsx                     # Landing Page & Lembar Persetujuan (Informed Consent)
+├── lib/
+│   ├── onnx.ts                      # Pipeline inferensi onnxruntime-web & normalisasi NCHW
+│   ├── flash-liveness.ts            # Algoritma evaluasi kromatisitas spektral & Laplacian
+│   └── recommendations.ts           # Mesin pencocokan produk skincare berbasis aturan
+├── public/
+│   ├── models/
+│   │   ├── skin_model.onnx          # Model kuantisasi MobileNetV3 (4.68 MB)
+│   │   └── labels.json              # Konfigurasi kelas & threshold deteksi
+│   └── products.json                # Basis data 32 kosmetik resmi BPOM RI
+├── next.config.mjs                  # Konfigurasi header COOP/COEP & caching ONNX
+├── tailwind.config.ts               # Desain tema Annisa Beauty Shop
+├── vercel.json                      # Konfigurasi caching CDN edge Vercel
+└── package.json                     # Dependensi Next.js 14, React 18, Tailwind
+```
+
+---
+
+## 🚀 Panduan Menjalankan Lokal & Deploy ke Vercel
+
+### 1. Menjalankan di Lokal (Development)
+
+Pastikan telah menginstal [Node.js](https://nodejs.org/) (versi 18 ke atas).
 
 ```bash
-# Jalankan menggunakan server lokal Python
-python -m http.server 5173
+# 1. Clone repositori
+git clone https://github.com/oziajayakan/demo.git
+cd demo
 
-# Buka di browser
-http://localhost:5173
+# 2. Instal dependensi
+npm install
+
+# 3. Jalankan server lokal Next.js
+npm run dev
 ```
+
+Buka peramban di: **`http://localhost:3000`**
+
+### 2. Deploy ke Vercel (Produksi)
+
+Aplikasi ini 100% kompatibel dan siap dideploy langsung ke **Vercel**:
+1. Masuk ke dashboard [Vercel](https://vercel.com).
+2. Pilih **"Add New Project"** lalu impor repositori `https://github.com/oziajayakan/demo`.
+3. Vercel akan otomatis mendeteksi framework **Next.js**.
+4. Klik **"Deploy"**. Proyek akan aktif dalam waktu kurang dari 1 menit!
