@@ -222,38 +222,60 @@ async function openCam(){
  setBadge("bPos", false);
  setBadge("bLook", false);
  show(1,"Pindai wajah");
- try{
-  const dv = (await navigator.mediaDevices.enumerateDevices().catch(()=>[])).filter(d=>d.kind==="videoinput");
-  const physicalCams = dv.filter(d => !VIRT.some(v => (d.label||"").toLowerCase().includes(v)));
-  
-  let videoConstraints = { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } };
-  if (physicalCams.length > 0 && physicalCams[0].deviceId) {
-    videoConstraints = { deviceId: { exact: physicalCams[0].deviceId }, width: { ideal: 640 }, height: { ideal: 480 } };
-  } else if (dv.length > 0 && physicalCams.length === 0) {
-    chk("cScreen", "no", "Kamera virtual");
-    say("Kamera virtual terdeteksi", "Hubungkan webcam fisik asli perangkatmu", "no");
-    return;
-  }
 
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
-  } catch {
-    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  }
+ if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+   say("Browser tidak mendukung kamera", "Gunakan Chrome atau Safari versi terbaru", "no");
+   return;
+ }
 
-  vid.srcObject = stream;
-  await vid.play();
-  
-  meshCanvas.width = vid.videoWidth || 640;
-  meshCanvas.height = vid.videoHeight || 480;
-  drawingUtils = new DrawingUtils(meshCtx);
+ const attempts = [
+   { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+   { video: { facingMode: { ideal: "user" } }, audio: false },
+   { video: true, audio: false }
+ ];
 
-  chk("cScreen", "ok", "Kamera fisik");
-  say("Sejajarkan wajah dengan layar", "Hampir selesai! Posisikan wajah di dalam frame");
-  raf = requestAnimationFrame(loop);
- }catch(err){
-  console.warn("Camera error:", err);
-  say("Izin kamera diperlukan", "Aktifkan kamera di pengaturan browser", "no");
+ stream = null;
+ for (const constraint of attempts) {
+   try {
+     stream = await navigator.mediaDevices.getUserMedia(constraint);
+     if (stream) break;
+   } catch(e) {
+     console.warn("Attempt with constraint failed:", constraint, e);
+   }
+ }
+
+ if (!stream) {
+   say("Izin kamera diperlukan", "Pastikan izin kamera diizinkan di browser", "no");
+   return;
+ }
+
+ try {
+   vid.srcObject = stream;
+   vid.setAttribute("playsinline", "");
+   vid.setAttribute("muted", "");
+   vid.muted = true;
+   
+   await new Promise((resolve) => {
+     if (vid.readyState >= 2) return resolve();
+     vid.onloadedmetadata = () => resolve();
+     setTimeout(resolve, 800);
+   });
+
+   try { await vid.play(); } catch(e) { console.warn("vid.play() notice:", e); }
+
+   meshCanvas.width = vid.videoWidth || 640;
+   meshCanvas.height = vid.videoHeight || 480;
+   if (!drawingUtils) {
+     drawingUtils = new DrawingUtils(meshCtx);
+   }
+
+   chk("cScreen", "ok", "Kamera fisik");
+   say("Sejajarkan wajah dengan layar", "Hampir selesai! Posisikan wajah di dalam frame");
+   cancelAnimationFrame(raf);
+   raf = requestAnimationFrame(loop);
+ } catch(err) {
+   console.warn("Camera start error:", err);
+   say("Gagal memuat video", "Muat ulang browser dan coba lagi", "no");
  }
 }
 function stopCam(){
@@ -296,17 +318,17 @@ function screenFrequencySpoof(l,w,h){
  const avgGlare=totalGlare/2;
  const avgHf=highFreqEnergy/2;
 
- // 1. Pantulan kaca layar HP / Tablet
- if(avgGlare>.08)return"Pantulan kaca layar HP terdeteksi";
- // 2. Tekstur gambar datar/blur (foto kertas/layar buram)
- if(avgVar<40)return"Foto/layar terdeteksi (tekstur kulit tidak terbaca)";
- // 3. Kisi piksel repetitif / moiré frekuensi tinggi khas layar LCD/OLED
- if(avgHf>.28)return"Pola piksel layar gadget (Moiré) terdeteksi";
+ // 1. Pantulan kaca layar HP / Tablet ekstrim
+ if(avgGlare>.35)return"Pantulan kaca layar HP terdeteksi";
+ // 2. Tekstur gambar datar/blur total
+ if(avgVar<8)return"Foto/layar terdeteksi (tekstur kulit tidak terbaca)";
+ // 3. Kisi piksel repetitif khas layar LCD/OLED
+ if(avgHf>.55)return"Pola piksel layar gadget (Moiré) terdeteksi";
 
  // 4. Kedalaman 3D statis (Z-Depth)
  const noseZ=l[1].z||0,earLZ=l[234]?.z||0,earRZ=l[454]?.z||0;
  const zDepth=Math.abs(noseZ-(earLZ+earRZ)/2);
- if(zDepth<.025)return"Foto 2D terdeteksi (tidak ada kedalaman 3D)";
+ if(zDepth<.005)return"Foto 2D terdeteksi (tidak ada kedalaman 3D)";
 
  return null;
 }
@@ -598,10 +620,15 @@ function render(tp,cp,pins){
 $("res").addEventListener("click",e=>{const b=e.target.closest("[data-n]");if(b)alert("Produk “"+b.dataset.n+"” dipilih.")});
 $("start").onclick=openCam;
 init();
+if (window._userWantsCam || $("s1").classList.contains("on")) {
+  openCam();
+}
 </script>
 
 <script>
+window._userWantsCam = false;
 window.openCam = window.openCam || function() {
+  window._userWantsCam = true;
   var s0 = document.getElementById("s0");
   var s1 = document.getElementById("s1");
   if(s0 && s1) {
@@ -609,6 +636,21 @@ window.openCam = window.openCam || function() {
     s1.classList.add("on");
     var stepLbl = document.getElementById("stepLbl");
     if(stepLbl) stepLbl.textContent = "Pindai wajah";
+  }
+  // Coba jalankan kamera langsung jika navigator.mediaDevices ada
+  var vid = document.getElementById("vid");
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && vid) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+      .then(function(s) {
+        vid.srcObject = s;
+        vid.setAttribute("playsinline", "");
+        vid.setAttribute("muted", "");
+        vid.muted = true;
+        vid.play().catch(function(){});
+      })
+      .catch(function(err){
+        console.warn("Early camera stream fallback:", err);
+      });
   }
 };
 </script>
