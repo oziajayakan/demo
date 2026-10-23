@@ -131,7 +131,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
  <div class="hero">
   <div><h1>Kenali kulitmu<br>dalam <em>30 detik.</em></h1>
    <p>Cukup satu selfie. Kami memetakan wajahmu, menilai tipe dan masalah kulit, lalu menyusun rutinitas dari produk yang tersedia di toko kami.</p>
-   <button class="btn" id="start" onclick="window.openCam && window.openCam()">Mulai analisis</button>
+   <button class="btn" id="start" onclick="window.triggerStart && window.triggerStart()">Mulai analisis</button>
    <div class="status" id="initMsg">Siap. Semua proses berjalan di perangkatmu.</div></div>
   <div class="mapart" aria-hidden="true"><svg viewBox="0 0 400 500"><g fill="none" stroke="#111" stroke-width="1"><ellipse cx="200" cy="250" rx="118" ry="165"/><path d="M110 180 Q200 110 290 180M135 330 Q200 400 265 330M200 120V380M120 250H280" opacity=".35"/></g>
    <g fill="#A9824A"><circle cx="200" cy="170" r="5"/><circle cx="150" cy="260" r="5"/><circle cx="250" cy="260" r="5"/><circle cx="200" cy="300" r="5"/><circle cx="200" cy="360" r="5"/></g></svg></div>
@@ -232,6 +232,25 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 <!-- 3. Hasil -->
 <section class="scr" id="s2"><div class="wrap"><div class="res" id="res"></div></div></section>
 
+<script>
+window._userWantsCam = false;
+window.triggerStart = function() {
+  window._userWantsCam = true;
+  var s0 = document.getElementById("s0");
+  var s1 = document.getElementById("s1");
+  if(s0 && s1) {
+    s0.classList.remove("on");
+    s1.classList.add("on");
+    var stepLbl = document.getElementById("stepLbl");
+    if(stepLbl) stepLbl.textContent = "Pindai wajah";
+  }
+  if (typeof window.openCam === "function") {
+    window.openCam();
+  }
+};
+window.openCam = window.triggerStart;
+</script>
+
 <script type="module">
 import {FaceLandmarker,FilesetResolver,DrawingUtils} from "./tasks-vision.js";
 const $=id=>document.getElementById(id);
@@ -242,9 +261,15 @@ const vid=$("vid"),cap=$("cap"),reticle=$("reticle"),cam=$("cam"),flashBox=$("fl
 const meshCanvas=$("meshCanvas"),meshCtx=meshCanvas.getContext("2d");
 let drawingUtils=null;
 let session=null,lmk=null,spec=null,products=[],stream=null,raf=0,preview=false;
+let phase="align",holdT=0,busy=false,last=0;
 let failAttempts = 0;
 let stablePassStart = null;
 const AUTO_CAPTURE_HOLD_MS = 1400; // Stabil 1.4 detik baru auto capture
+const TS = 224 * 224;
+const buf = new Float32Array(3 * TS);
+const sc = document.createElement("canvas");
+sc.width = sc.height = 64;
+const sx = sc.getContext("2d", { willReadFrequently: true });
 
 function show(i,lbl){
  ["s0","s1","s2"].forEach((s,k)=>$(s).classList.toggle("on",k===i));
@@ -1059,36 +1084,5 @@ if (window._userWantsCam || $("s1").classList.contains("on")) {
   openCam();
 }
 </script>
-
-<script>
-window._userWantsCam = false;
-window.openCam = window.openCam || function() {
-  window._userWantsCam = true;
-  var s0 = document.getElementById("s0");
-  var s1 = document.getElementById("s1");
-  if(s0 && s1) {
-    s0.classList.remove("on");
-    s1.classList.add("on");
-    var stepLbl = document.getElementById("stepLbl");
-    if(stepLbl) stepLbl.textContent = "Pindai wajah";
-  }
-  // Coba jalankan kamera langsung jika navigator.mediaDevices ada
-  var vid = document.getElementById("vid");
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && vid) {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-      .then(function(s) {
-        vid.srcObject = s;
-        vid.setAttribute("playsinline", "");
-        vid.setAttribute("muted", "");
-        vid.muted = true;
-        vid.play().catch(function(){});
-      })
-      .catch(function(err){
-        console.warn("Early camera stream fallback:", err);
-      });
-  }
-};
-</script>
-
 </body>
 </html>
