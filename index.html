@@ -370,43 +370,46 @@ function occlusion(l){
  const r=Math.hypot(nose.x-chin.x,nose.y-chin.y)/H,eD=Math.hypot(eR.x-eL.x,eR.y-eL.y),mW=Math.hypot(mR.x-mL.x,mR.y-mL.y);
  if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
 
-// Deteksi Kacamata yang Akurat (Spesifik Bingkai Kacamata & Lensa, tanpa salah mendeteksi alis/hidung)
+// Deteksi Kacamata yang Akurat & Presisi
 function glasses(l,w,h){
  if(!l||l.length<468) return false;
  
- // 1. Deteksi Garis Bingkai di Pangkal Hidung (Bridge / Landmark 168)
- // Membandingkan luminansi pangkal hidung (168) terhadap dahi atasnya (9) dan kulit sampingnya
- const bridge=l[168], fore=l[9];
+ // 1. Deteksi Batang/Jembatan Kacamata (Nose Bridge) pada landmark 168 & 6
+ // Membandingkan kontras gelap bingkai di pangkal hidung (168) terhadap dahi atas (9) dan puncak hidung (4)
+ const bridge=l[168], fore=l[9], tip=l[4];
  const bPatch=patch(bridge.x*w, bridge.y*h, 24);
  const fPatch=patch(fore.x*w, fore.y*h, 24);
- let bLum=0, fLum=0, bEdges=0;
+ const tPatch=patch(tip.x*w, tip.y*h, 24);
+ let bLum=0, fLum=0, tLum=0, bMin=255, bMax=0, bEdges=0;
  for(let i=0;i<64;i++){
-  const bv=lum(bPatch, i*4), fv=lum(fPatch, i*4);
-  bLum+=bv; fLum+=fv;
+  const bv=lum(bPatch, i*4), fv=lum(fPatch, i*4), tv=lum(tPatch, i*4);
+  bLum+=bv; fLum+=fv; tLum+=tv;
+  bMin=Math.min(bMin, bv); bMax=Math.max(bMax, bv);
   if(i%8<7) bEdges+=Math.abs(bv-lum(bPatch, i*4+4));
  }
- bLum/=64; fLum/=64;
- // Bingkai kacamata di hidung menghasilkan bayangan/garis solid yang jauh lebih gelap dari dahi dengan tepi tajam
- const hasBridgeFrame = (fLum - bLum > 35 && bEdges/64 > 14);
+ bLum/=64; fLum/=64; tLum/=64;
+ const skinRef = Math.max(fLum, tLum);
+ // Jika memakai kacamata, terdapat batang frame gelap melintang di hidung (bLum jauh lebih gelap dari kulit sekitarnya atau gradien kontras tinggi)
+ const hasBridge = (skinRef - bLum > 24) || (bMax - bMin > 58 && bEdges/64 > 11);
 
- // 2. Deteksi Bingkai Bawah Mata (Lower Rim / Cheek Rim pada landmark 111 & 340)
- // Kacamata memiliki garis bingkai melintang di bawah kantung mata yang menciptakan tepi tajam
- let rimCount=0;
- for(const rimIdx of [111, 340]){
-  const pt=l[rimIdx];
+ // 2. Deteksi Bingkai Lensa Bawah Mata (Infraorbital Frame Rim)
+ // Mengukur kontras dan garis gelap bingkai pada cekungan bawah mata (landmark 111 & 340)
+ let rimScore=0;
+ for(const idx of [111, 340, 226, 446]){
+  const pt=l[idx];
   if(!pt) continue;
-  const rPatch=patch(pt.x*w, pt.y*h, 20);
-  let rMin=255, rMax=0, rEdges=0;
+  const pData=patch(pt.x*w, pt.y*h, 22);
+  let pMin=255, pMax=0, pDark=0;
   for(let i=0;i<64;i++){
-   const v=lum(rPatch, i*4);
-   rMin=Math.min(rMin, v);
-   rMax=Math.max(rMax, v);
-   if(i%8<7) rEdges+=Math.abs(v-lum(rPatch, i*4+4));
+   const v=lum(pData, i*4);
+   pMin=Math.min(pMin, v);
+   pMax=Math.max(pMax, v);
+   if(v < 68) pDark++;
   }
-  if((rMax - rMin > 75) && (rEdges/64 > 12)) rimCount++;
+  if((pMax - pMin > 60) || (pDark >= 7)) rimScore++;
  }
 
- // 3. Deteksi Pantulan Lensa (Lapisan anti-radiasi / green-cyan glare / pantulan cahaya putih)
+ // 3. Deteksi Pantulan Cahaya / Glare pada Lensa Kacamata
  const eyePoints=[159,145,33,133,158,153,386,374,362,263,385,380,468,473];
  let glares=0;
  for(const idx of eyePoints){
@@ -415,8 +418,8 @@ function glasses(l,w,h){
   const d=patch(pt.x*w, pt.y*h, 20);
   for(let i=0;i<64;i++){
    const r=d[i*4], g=d[i*4+1], b=d[i*4+2];
-   const isWhiteGlare = (r > 230 && g > 230 && b > 230);
-   const isGreenCyanGlare = (g > 155 && (g - r > 32) && (b > 115));
+   const isWhiteGlare = (r > 215 && g > 215 && b > 215);
+   const isGreenCyanGlare = (g > 135 && (g - r > 22) && (b > 105));
    if(isWhiteGlare || isGreenCyanGlare){
     glares++;
     break;
@@ -424,7 +427,7 @@ function glasses(l,w,h){
   }
  }
 
- return (hasBridgeFrame && rimCount >= 1) || (rimCount >= 2) || (glares >= 2);
+ return (hasBridge && rimScore >= 1) || (rimScore >= 2) || (hasBridge && glares >= 1) || (glares >= 2);
 }
 
 function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
