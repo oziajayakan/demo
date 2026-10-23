@@ -336,8 +336,38 @@ function occlusion(l){
  const r=Math.hypot(nose.x-chin.x,nose.y-chin.y)/H,eD=Math.hypot(eR.x-eL.x,eR.y-eL.y),mW=Math.hypot(mR.x-mL.x,mR.y-mL.y);
  if(r<.18||r>.62||(eD>.05&&mW/eD<.32))return"Bagian bawah wajah tertutup masker atau tangan";return null}
 
+// Deteksi Kacamata yang Akurat berbasis Pantulan Lensa & Bingkai Mata
 function glasses(l,w,h){
- return false; // Kacamata tidak dijadikan hard-blocker agar kabel earphone/bayangan hidung tidak memacetkan scan
+ if(!l||l.length<468) return false;
+ 
+ // 1. Deteksi Pantulan Lensa (Specular Reflection) di area mata
+ // Saat memakai kacamata, lensa kaca memantulkan cahaya lampu/layar putih silau
+ const eyeL=[159,145,33,133,158,153], eyeR=[386,374,362,263,385,380];
+ let glares=0;
+ for(const idx of [...eyeL, ...eyeR]){
+  const pt=l[idx];
+  const d=patch(pt.x*w, pt.y*h, 16);
+  for(let i=0;i<64;i++){
+   if(d[i*4]>235 && d[i*4+1]>235 && d[i*4+2]>235){
+    glares++;
+    break;
+   }
+  }
+ }
+
+ // 2. Deteksi Garis Bingkai di Pangkal Hidung (Bridge kacamata antar kedua mata)
+ const bridge=l[168]; // Titik di tengah kedua mata
+ const bPatch=patch(bridge.x*w, bridge.y*h, 24);
+ let bMin=255, bMax=0, bEdges=0;
+ for(let i=0;i<64;i++){
+  const v=lum(bPatch, i*4);
+  bMin=Math.min(bMin, v);
+  bMax=Math.max(bMax, v);
+  if(i%8<7) bEdges+=Math.abs(v-lum(bPatch, i*4+4));
+ }
+
+ // Kacamata terdeteksi jika ada pantulan silau khas lensa kaca ATAU ada bingkai hidung yang jelas
+ return (glares >= 2) || (bMax - bMin > 95 && bEdges/64 > 18);
 }
 
 function ear(l,L){const P=L?[386,374,385,380,362,263]:[159,145,158,153,33,133];
@@ -392,8 +422,14 @@ function loop(now){
  }
  chk("cScreen","ok","Spektrum Alami");
 
- // 2. Oklusi & Kacamata (Loloskan otomatis agar tidak macet)
+ // 2. Oklusi & Kacamata
  const oc=occlusion(l);if(oc){chk("cMask","no","Tertutup");say("Wajah tertutup",oc,"no");holdT=0;return}chk("cMask","ok","Wajah Terbuka");
+ if(glasses(l,w,h)){
+  chk("cGlass","no","Kacamata");
+  say("Lepas kacamata","Agar tekstur kulit terbaca akurat","no");
+  holdT=0;
+  return;
+ }
  chk("cGlass","ok","Tanpa Kacamata");
 
  let a=1,b=0,c=1,d=0;for(const p of l){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.y);d=Math.max(d,p.y)}
