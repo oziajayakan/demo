@@ -100,7 +100,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
  <div class="hero">
   <div><h1>Kenali kulitmu<br>dalam <em>30 detik.</em></h1>
    <p>Cukup satu selfie. Kami memetakan wajahmu, menilai tipe dan masalah kulit, lalu menyusun rutinitas dari produk yang tersedia di toko kami.</p>
-   <button class="btn" id="start">Mulai analisis</button>
+   <button class="btn" id="start" onclick="window.openCam && window.openCam()">Mulai analisis</button>
    <div class="status" id="initMsg">Siap. Semua proses berjalan di perangkatmu.</div></div>
   <div class="mapart" aria-hidden="true"><svg viewBox="0 0 400 500"><g fill="none" stroke="#111" stroke-width="1"><ellipse cx="200" cy="250" rx="118" ry="165"/><path d="M110 180 Q200 110 290 180M135 330 Q200 400 265 330M200 120V380M120 250H280" opacity=".35"/></g>
    <g fill="#A9824A"><circle cx="200" cy="170" r="5"/><circle cx="150" cy="260" r="5"/><circle cx="250" cy="260" r="5"/><circle cx="200" cy="300" r="5"/><circle cx="200" cy="360" r="5"/></g></svg></div>
@@ -209,6 +209,7 @@ async function init(){
 }
 
 /* ---------- kamera ---------- */
+window.openCam = openCam;
 async function openCam(){
  stopCam();busy=false;phase="align";holdT=0;eyeClosed=false;
  chalSeq=generateChallengeSequence();chalIdx=0;
@@ -598,5 +599,19 @@ $("res").addEventListener("click",e=>{const b=e.target.closest("[data-n]");if(b)
 $("start").onclick=openCam;
 init();
 </script>
+
+<script>
+window.openCam = window.openCam || function() {
+  var s0 = document.getElementById("s0");
+  var s1 = document.getElementById("s1");
+  if(s0 && s1) {
+    s0.classList.remove("on");
+    s1.classList.add("on");
+    var stepLbl = document.getElementById("stepLbl");
+    if(stepLbl) stepLbl.textContent = "Pindai wajah";
+  }
+};
+</script>
+
 </body>
 </html>
