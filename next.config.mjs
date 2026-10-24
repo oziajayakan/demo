@@ -7,18 +7,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/',
-        destination: '/index.html',
-      },
-      {
-        source: '/scan',
-        destination: '/index.html',
-      },
-    ];
-  },
+
   async headers() {
     return [
       {
