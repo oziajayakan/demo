@@ -17,7 +17,8 @@ import {
   Check,
   Plus,
   ArrowRight,
-  Stethoscope,
+  Info,
+  CheckCheck,
 } from 'lucide-react';
 import { runSkinInference, PredictionResult } from '@/lib/onnx';
 import {
@@ -42,15 +43,7 @@ type ScanState =
   | 'FAILED'
   | 'ERROR';
 
-interface ZoneDetail {
-  coords: [number, number]; // [left%, top%]
-  name: string;
-  status: 'ok' | 'watch';
-  tag: string;
-  desc: string;
-}
-
-export default function ModernClinicalScanPage() {
+export default function SmartSkinScannerApp() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
@@ -71,7 +64,7 @@ export default function ModernClinicalScanPage() {
   const [countdownNum, setCountdownNum] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // 3 Clinical Checks
+  // 3 Validasi Kualitas Kamera
   const [checks, setChecks] = useState({
     light: 'Memeriksa' as 'Menunggu' | 'Memeriksa' | 'Lolos',
     facePos: 'Memeriksa' as 'Menunggu' | 'Memeriksa' | 'Lolos',
@@ -82,7 +75,6 @@ export default function ModernClinicalScanPage() {
   // Results state
   const [verificationData, setVerificationData] = useState<any>(null);
   const [capturedThumbnail, setCapturedThumbnail] = useState<string | null>(null);
-  const [selectedZone, setSelectedZone] = useState<string>('dahi');
   const [cartItems, setCartItems] = useState<Set<number>>(new Set());
 
   // 1. Fetch Session Challenge Nonce from Edge API
@@ -100,7 +92,7 @@ export default function ModernClinicalScanPage() {
     }
   }, []);
 
-  // 2. Start Video Camera with Clinical Resolution
+  // 2. Start Video Camera
   const startCamera = useCallback(async () => {
     try {
       if (streamRef.current) {
@@ -188,7 +180,7 @@ export default function ModernClinicalScanPage() {
     };
   }, [fetchChallenge, startCamera]);
 
-  // 3. Real-Time Camera Gates Check Loop
+  // 3. Real-Time Camera Quality Checks Loop
   useEffect(() => {
     if (
       scanState === 'SUCCESS' ||
@@ -318,7 +310,7 @@ export default function ModernClinicalScanPage() {
     return () => clearInterval(timerRef.current);
   }, [scanState]);
 
-  // 4. Clinical Countdown & Screen Flash Liveness Flow
+  // 4. Countdown & Screen Flash Liveness Flow
   const handleStartScan = async () => {
     if (scanState === 'COUNTDOWN' || scanState === 'SCANNING') return;
     setScanState('COUNTDOWN');
@@ -375,7 +367,7 @@ export default function ModernClinicalScanPage() {
       return;
     }
 
-    // Step E: Run ONNX Multi-Head Inference
+    // Run ONNX Multi-Head Inference
     await executeInference(liveness);
   };
 
@@ -463,80 +455,6 @@ export default function ModernClinicalScanPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Build Zone Map data based on actual predictions
-  const getZoneData = (): Record<string, ZoneDetail> => {
-    const analysis = verificationData?.analysis;
-    const concerns = analysis?.concerns || [];
-    const dominantType = analysis?.skinType?.type || 'kombinasi';
-
-    const getConcernProb = (code: string) => {
-      const c = concerns.find((item: any) => item.code === code);
-      return c ? c.prob : 0.3;
-    };
-
-    const isAcne = getConcernProb('jerawat') > 0.4;
-    const isPores = getConcernProb('pori_besar') > 0.42;
-    const isDarkSpots = getConcernProb('flek_hitam') > 0.4;
-    const isRedness = getConcernProb('kemerahan') > 0.38;
-    const isOilyT = dominantType === 'berminyak' || dominantType === 'kombinasi';
-
-    return {
-      dahi: {
-        coords: [50, 23],
-        name: 'Zona Frontal (Dahi)',
-        status: isOilyT ? 'watch' : 'ok',
-        tag: isOilyT ? 'Hipersekresi Sebum' : 'Barier Seimbang',
-        desc: isOilyT
-          ? 'Terdapat kelebihan sebum aktif di area T-Zone. Disarankan eksfoliasi lembut BHA dan niacinamide.'
-          : 'Kondisi mikrobioma dan hidrasi dahi terjaga stabil.',
-      },
-      pipiK: {
-        coords: [27, 52],
-        name: 'Zona Malar Kiri (Pipi Kiri)',
-        status: dominantType === 'kering' || isRedness ? 'watch' : 'ok',
-        tag:
-          dominantType === 'kering'
-            ? 'Dehidrasi Lapisan Stratum'
-            : isRedness
-            ? 'Reaktivitas Kapiler'
-            : 'Hidrasi Optimal',
-        desc:
-          dominantType === 'kering'
-            ? 'Kadar air transepidermal rendah. Perlu dukungan asam hialuronat & ceramide cair.'
-            : isRedness
-            ? 'Tampak vaskularisasi reaktif ringan. Gunakan pelembap ber-centella & panthenol.'
-            : 'Barier hidrasi pipi berada pada kondisi fisiologis optimal.',
-      },
-      pipiR: {
-        coords: [73, 52],
-        name: 'Zona Malar Kanan (Pipi Kanan)',
-        status: isDarkSpots ? 'watch' : 'ok',
-        tag: isDarkSpots ? 'Melanogenesis Aktif' : 'Tone Merata',
-        desc: isDarkSpots
-          ? 'Terdeteksi akumulasi pigmen melanin ringan. Disarankan pelindung fotoproteksi SPF 50 & asam traneksamat.'
-          : 'Pigmentasi merata tanpa tanda hiperpigmentasi aktif.',
-      },
-      hidung: {
-        coords: [50, 50],
-        name: 'Zona Nasal (Hidung)',
-        status: isPores ? 'watch' : 'ok',
-        tag: isPores ? 'Dilatasi Pori-Pori' : 'Tekstur Halus',
-        desc: isPores
-          ? 'Diameter ostium folikular melebar akibat sumbatan sebum. Gunakan pembersih asam salisilat berkala.'
-          : 'Tekstur dermal halus dengan retensi sebum minimal.',
-      },
-      dagu: {
-        coords: [50, 80],
-        name: 'Zona Mentalis (Dagu)',
-        status: isAcne ? 'watch' : 'ok',
-        tag: isAcne ? 'Lesi Inflamasi Ringan' : 'Dermis Terkontrol',
-        desc: isAcne
-          ? 'Tampak lesi papul komedo kecil. Gunakan sediaan spot treatment zinc/tea tree terfokus.'
-          : 'Bebas dari erupsi inflamasi.',
-      },
-    };
-  };
-
   // Build Transparent Metrics List from ONNX Results
   const getMetrics = () => {
     const analysis = verificationData?.analysis;
@@ -560,14 +478,14 @@ export default function ModernClinicalScanPage() {
 
     return [
       {
-        label: 'Tingkat Hidrasi Barier',
+        label: 'Tingkat Hidrasi Kulit',
         val: kelembapanPct,
         threshold: 50,
         status: kelembapanPct >= 50 ? 'Cukup Optimal' : 'Perlu Suplementasi',
         tone: kelembapanPct >= 50 ? 'ok' : 'watch',
       },
       {
-        label: 'Aktivitas Sebum Kulit',
+        label: 'Aktivitas Sebum Wajah',
         val: minyakPct,
         threshold: 60,
         status: minyakPct > 60 ? 'Produksi Tinggi' : 'Fisiologis Seimbang',
@@ -621,18 +539,18 @@ export default function ModernClinicalScanPage() {
     if (hero) {
       list.push({
         id: hero.id || 1,
-        step: 'Langkah 2: Serum Terapi Aktif',
+        step: 'Langkah 2: Serum Bahan Aktif',
         name: hero.nama,
-        desc: hero.reasons?.[0] || 'Formula klinis aktif dengan penetrasi terfokus pada target diagnosis.',
+        desc: hero.reasons?.[0] || 'Formula bahan aktif terkurasi untuk mengatasi target kondisi kulit.',
         price: hero.harga || 89000,
         bpom: hero.bpom || 'NA18210103421',
       });
     }
 
     const steps = [
-      'Langkah 1: Pembersih Seimbang',
-      'Langkah 3: Pemulihan Barier Kulit',
-      'Langkah 4: Fotoproteksi Spektrum Luas',
+      'Langkah 1: Pembersih Wajah',
+      'Langkah 3: Pelembap / Barrier Kulit',
+      'Langkah 4: Perlindungan Sunscreen UV',
     ];
 
     supporting.forEach((p: any, idx: number) => {
@@ -640,7 +558,7 @@ export default function ModernClinicalScanPage() {
         id: p.id || idx + 2,
         step: steps[idx] || `Langkah ${idx + 2}`,
         name: p.nama,
-        desc: p.fungsi || p.reasons?.[0] || 'Mendukung integritas lapisan epidermis dan hidrasi.',
+        desc: p.fungsi || p.reasons?.[0] || 'Mendukung hidrasi dan menjaga kelembapan kulit wajah.',
         price: p.harga || 75000,
         bpom: p.bpom || 'NA18220108922',
       });
@@ -666,17 +584,17 @@ export default function ModernClinicalScanPage() {
         },
         {
           id: 3,
-          step: 'Langkah 3: Pemulihan Barier Kulit',
+          step: 'Langkah 3: Pelembap / Barrier Kulit',
           name: 'Ceramide Hydro-Gel Barrier Cream',
-          desc: 'Memulihkan cadangan hidrasi dermal dan mengunci kelembapan.',
+          desc: 'Menghidrasi kulit dan mengunci kelembapan alami wajah.',
           price: 78000,
           bpom: 'NA18220108922',
         },
         {
           id: 4,
-          step: 'Langkah 4: Fotoproteksi Spektrum Luas',
+          step: 'Langkah 4: Perlindungan Sunscreen UV',
           name: 'Physical UV Shield SPF 50+ PA++++',
-          desc: 'Perlindungan maksimal terhadap fotopenuaan dan pembentukan melanin baru.',
+          desc: 'Perlindungan terhadap paparan sinar ultraviolet matahari.',
           price: 95000,
           bpom: 'NA18221700140',
         }
@@ -686,8 +604,6 @@ export default function ModernClinicalScanPage() {
     return list.slice(0, 4);
   };
 
-  const zoneData = getZoneData();
-  const currentZone = zoneData[selectedZone] || zoneData['dahi'];
   const routineProducts = getRoutineProducts();
 
   const toggleCart = (id: number) => {
@@ -715,638 +631,716 @@ export default function ModernClinicalScanPage() {
   const skinScore = verificationData?.analysis?.skinScore || 85;
   const confidence = verificationData?.analysis?.confidence || 94;
 
+  const allReady =
+    checks.light === 'Lolos' &&
+    checks.facePos === 'Lolos' &&
+    checks.lookStraight === 'Lolos' &&
+    checks.noGlasses;
+
   return (
     <main className="min-h-screen bg-[#F8FAF9] text-[#19201D] flex flex-col items-center">
       {/* Hidden offscreen canvases */}
       <canvas ref={probeCanvasRef} className="hidden" />
       <canvas ref={cropCanvasRef} className="hidden" />
 
-      {/* Main Container */}
-      <div className="w-full max-w-md mx-auto px-4 py-4 sm:py-6 flex flex-col flex-1">
-        {/* Modern Luxury Clinical Header */}
-        <header className="flex items-center justify-between pb-3.5 mb-2 border-b border-[#E5EBE8]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#FAF3F0] border border-[#E8D5CE] flex items-center justify-center text-[#B87A63]">
+      {/* Full-width Responsive Horizontal Container */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col flex-1">
+        {/* Top Header */}
+        <header className="flex items-center justify-between pb-4 mb-6 border-b border-[#E5EBE8]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#FAF3F0] border border-[#E8D5CE] flex items-center justify-center text-[#B87A63] shadow-sm">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-serif-luxury font-bold text-base tracking-wide text-[#19201D]">
-                ANNISA DERMA CLINIC
+              <div className="font-serif-luxury font-bold text-lg tracking-wide text-[#19201D]">
+                TOKO ANNISA BEAUTY SHOP
               </div>
-              <span className="text-[11px] text-[#5F7068] font-medium tracking-tight block">
-                Clinical AI Skin Diagnostics
+              <span className="text-xs text-[#5F7068] font-medium tracking-tight block">
+                Smart Skin Scanner · E-Commerce Skincare AI
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2.5 py-1 rounded-full bg-[#EEF6F2] text-[#256650] border border-[#CBE2D7]">
-              <ShieldCheck className="w-3 h-3" />
-              Biometrik AI
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-[#EEF6F2] text-[#256650] border border-[#CBE2D7]">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Katalog Resmi & Model ONNX Web
             </span>
+            {scanState === 'SUCCESS' && (
+              <button
+                type="button"
+                onClick={handleResetScan}
+                className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full border border-[#CBD6D0] hover:bg-white text-[#19201D] transition cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Pindai Ulang
+              </button>
+            )}
           </div>
         </header>
 
-        {/* SECTION 1: SCANNER SCREEN */}
-        {scanState !== 'SUCCESS' ? (
-          <section className="space-y-4 pt-1 flex flex-col flex-1 justify-between">
-            {/* Clinical Camera Viewport Card */}
-            <div className="clinical-card p-3 relative overflow-hidden bg-white shadow-xl">
-              <div
-                className={`clinical-cam relative aspect-[3/4] w-full rounded-2xl overflow-hidden flex items-center justify-center ${
-                  scanState === 'READY' || scanState === 'COUNTDOWN' ? 'ready' : ''
-                } ${scanState === 'SCANNING' ? 'scanning' : ''}`}
-              >
-                {/* Live Video Stream */}
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  autoPlay
-                  className="absolute inset-0 w-full h-full object-cover -scale-x-100"
-                />
-
-                {/* SVG Luxury Clinical Reticle */}
-                <svg
-                  viewBox="0 0 300 400"
-                  className="absolute inset-0 w-full h-full pointer-events-none z-10"
-                  aria-hidden="true"
+        {/* -------------------------------------------------------------
+            HORIZONTAL 2-COLUMN SPLIT LAYOUT (Scan di Kiri + Hasil di Kanan)
+        -------------------------------------------------------------- */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start flex-1">
+          {/* =========================================================
+              LEFT COLUMN: SCANNER / CAPTURED USER PHOTO (col-span-5)
+          ========================================================== */}
+          <div className="lg:col-span-5 space-y-4">
+            {scanState !== 'SUCCESS' ? (
+              /* ACTIVE CAMERA VIEWFINDER */
+              <div className="clinical-card p-3.5 bg-white shadow-xl space-y-4">
+                <div
+                  className={`clinical-cam relative aspect-[3/4] w-full rounded-2xl overflow-hidden flex items-center justify-center ${
+                    allReady ? 'ready' : ''
+                  } ${scanState === 'SCANNING' ? 'scanning' : ''}`}
                 >
-                  {/* Subtle Face Silhouette */}
-                  <path
-                    className="sil"
-                    d="M30 400c0-76 54-104 120-104s120 28 120 104z"
-                  />
-                  <ellipse className="sil" cx="150" cy="185" rx="78" ry="104" />
-
-                  {/* Luminous Guide Ellipse */}
-                  <ellipse
-                    className="clinical-guide"
-                    cx="150"
-                    cy="185"
-                    rx="98"
-                    ry="130"
+                  {/* Live Video Feed */}
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    muted
+                    autoPlay
+                    className="absolute inset-0 w-full h-full object-cover -scale-x-100"
                   />
 
-                  {/* 4 Delicate Corner Precision Calibration Marks */}
-                  <path
-                    d="M 58 72 L 48 72 A 16 16 0 0 0 32 88 L 32 98"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.7)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 242 72 L 252 72 A 16 16 0 0 1 268 88 L 268 98"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.7)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 58 298 L 48 298 A 16 16 0 0 1 32 282 L 32 272"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.7)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 242 298 L 252 298 A 16 16 0 0 0 268 282 L 268 272"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.7)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                  {/* Clean SVG Precision Reticle - 100% Transparent (NO opaque silhouettes!) */}
+                  <svg
+                    viewBox="0 0 300 400"
+                    className="absolute inset-0 w-full h-full pointer-events-none z-10"
+                    aria-hidden="true"
+                  >
+                    {/* Oval Target Outline (Transparent center, dashed white -> solid emerald) */}
+                    <ellipse
+                      cx="150"
+                      cy="185"
+                      rx="96"
+                      ry="128"
+                      fill="none"
+                      stroke={allReady ? '#4ADE80' : 'rgba(255, 255, 255, 0.75)'}
+                      strokeWidth="2.5"
+                      strokeDasharray={allReady ? 'none' : '6 8'}
+                      style={{
+                        filter: allReady
+                          ? 'drop-shadow(0 0 8px rgba(74, 222, 128, 0.75))'
+                          : 'none',
+                        transition: 'all 0.3s ease',
+                      }}
+                    />
 
-                {/* Cyan/Emerald Laser Scanning Sweep */}
-                <div className="clinical-sweep" />
+                    {/* 4 Precision Corner Calibration Brackets */}
+                    <path
+                      d="M 54 68 L 40 68 A 14 14 0 0 0 26 82 L 26 96"
+                      fill="none"
+                      stroke={allReady ? '#4ADE80' : 'rgba(255, 255, 255, 0.85)'}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M 246 68 L 260 68 A 14 14 0 0 1 274 82 L 274 96"
+                      fill="none"
+                      stroke={allReady ? '#4ADE80' : 'rgba(255, 255, 255, 0.85)'}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M 54 302 L 40 302 A 14 14 0 0 1 26 288 L 26 274"
+                      fill="none"
+                      stroke={allReady ? '#4ADE80' : 'rgba(255, 255, 255, 0.85)'}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M 246 302 L 260 302 A 14 14 0 0 0 274 288 L 274 274"
+                      fill="none"
+                      stroke={allReady ? '#4ADE80' : 'rgba(255, 255, 255, 0.85)'}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
 
-                {/* Big Serenity Countdown Number (3, 2, 1) */}
-                {countdownNum !== null && (
-                  <div className="clinical-countdown">{countdownNum}</div>
+                  {/* Cyan Laser Sweep Animation */}
+                  <div className="clinical-sweep" />
+
+                  {/* Large Countdown Overlay (3, 2, 1) */}
+                  {countdownNum !== null && (
+                    <div className="clinical-countdown">{countdownNum}</div>
+                  )}
+
+                  {/* Dynamic Screen Flash Overlay */}
+                  <div
+                    className={`clinical-flash ${isFlashing ? 'active' : ''}`}
+                    style={{ backgroundColor: flashColor }}
+                  />
+
+                  {/* Top Floating Badge */}
+                  <div className="absolute left-3 top-3 z-20">
+                    <span className="glass-pill px-2.5 py-1 rounded-full text-[11px] font-semibold text-[#19201D] shadow-sm flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#256650] animate-pulse" />
+                      Live Biometrik
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3 Quality Calibration Chips */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      checks.light === 'Lolos'
+                        ? 'bg-[#EEF6F2] border-[#CBE2D7] text-[#256650]'
+                        : 'bg-white border-[#E5EBE8] text-[#5F7068]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[11px] font-semibold">
+                      <Sun className="w-3.5 h-3.5" />
+                      Cahaya
+                    </div>
+                    <span className="text-[10px] font-bold block mt-0.5">
+                      {checks.light === 'Lolos' ? '✓ Optimal' : '● Kurang'}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      checks.facePos === 'Lolos'
+                        ? 'bg-[#EEF6F2] border-[#CBE2D7] text-[#256650]'
+                        : 'bg-white border-[#E5EBE8] text-[#5F7068]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[11px] font-semibold">
+                      <UserCheck className="w-3.5 h-3.5" />
+                      Posisi
+                    </div>
+                    <span className="text-[10px] font-bold block mt-0.5">
+                      {checks.facePos === 'Lolos' ? '✓ Presisi' : '● Di Tengah'}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      checks.lookStraight === 'Lolos'
+                        ? 'bg-[#EEF6F2] border-[#CBE2D7] text-[#256650]'
+                        : 'bg-white border-[#E5EBE8] text-[#5F7068]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[11px] font-semibold">
+                      <Eye className="w-3.5 h-3.5" />
+                      Pandangan
+                    </div>
+                    <span className="text-[10px] font-bold block mt-0.5">
+                      {checks.lookStraight === 'Lolos' ? '✓ Lurus' : '● Sejajar'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Glasses Warning */}
+                {!checks.noGlasses && (
+                  <div className="p-3 rounded-xl bg-[#FAF3F0] border border-[#E8D5CE] text-xs text-[#A86F59] flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-[#B87A63]" />
+                    <span>Lepas kacamata agar area mata dan dahi terbaca jelas.</span>
+                  </div>
                 )}
 
-                {/* Screen Flash Calibration Overlay */}
-                <div
-                  className={`clinical-flash ${isFlashing ? 'active' : ''}`}
-                  style={{ backgroundColor: flashColor }}
-                />
+                {/* Status Message & Action Button */}
+                <div className="space-y-2.5 pt-1">
+                  <p className="text-xs text-center font-medium text-[#19201D]">
+                    {statusText}
+                  </p>
+                  {errorMessage && (
+                    <p className="text-xs text-red-600 font-semibold text-center">
+                      {errorMessage}
+                    </p>
+                  )}
 
-                {/* Top Floating Badge */}
-                <div className="absolute left-3 top-3 z-20">
-                  <span className="glass-pill px-2.5 py-1 rounded-full text-[11px] font-semibold text-[#19201D] shadow-sm flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#256650] animate-pulse" />
-                    Biometrik Presisi
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleStartScan}
+                    disabled={
+                      scanState === 'COUNTDOWN' ||
+                      scanState === 'SCANNING' ||
+                      scanState === 'FLASH'
+                    }
+                    className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-[#B87A63] to-[#A26550] hover:from-[#A86F59] hover:to-[#915642] shadow-md shadow-[#B87A63]/25 active:scale-[0.99] transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {scanState === 'SCANNING' ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Menganalisis Kondisi Kulit…
+                      </>
+                    ) : scanState === 'COUNTDOWN' ? (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Mengambil Sampel Biometrik…
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-4 h-4" />
+                        Mulai Pemindaian Kulit
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* POST-SCAN: CAPTURED USER FACE PHOTO (NO CARTOON EGG!) */
+              <div className="clinical-card p-4 bg-white shadow-xl space-y-4">
+                <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden border border-[#E5EBE8] bg-slate-900 shadow-md">
+                  {capturedThumbnail ? (
+                    <img
+                      src={capturedThumbnail}
+                      alt="Wajah Hasil Pemindaian"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                      Foto Tersimpan
+                    </div>
+                  )}
 
-            {/* 3 Clinical Quality Chips */}
-            <div className="grid grid-cols-3 gap-2">
-              {/* 1. Pencahayaan */}
-              <div
-                className={`p-2.5 rounded-2xl border transition-all ${
-                  checks.light === 'Lolos'
-                    ? 'bg-[#EEF6F2] border-[#CBE2D7] text-[#256650]'
-                    : 'bg-white border-[#E5EBE8] text-[#5F7068]'
-                }`}
-              >
-                <div className="flex items-center gap-1 text-[11px] font-semibold mb-0.5">
-                  <Sun className="w-3.5 h-3.5" />
-                  Pencahayaan
+                  {/* Overlay Verification Stamp on the Real Face Photo */}
+                  <div className="absolute left-3 top-3">
+                    <span className="glass-pill px-2.5 py-1 rounded-full text-[11px] font-bold text-[#256650] shadow-sm flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#256650]" />
+                      Wajah Terverifikasi (Kamera Langsung)
+                    </span>
+                  </div>
+
+                  <div className="absolute bottom-3 inset-x-3 bg-black/60 backdrop-blur-md rounded-xl p-2.5 text-white flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] text-white/70 block uppercase font-bold">
+                        Respon Flash Spektral
+                      </span>
+                      <strong className="text-white">
+                        {verificationData?.analysis?.livenessMetrics?.chromaticShift || 85}% Valid
+                      </strong>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-white/70 block uppercase font-bold">
+                        Ketajaman Kontras
+                      </span>
+                      <strong className="text-emerald-400">
+                        {verificationData?.analysis?.livenessMetrics?.laplacianSharpness || 36} (Optimal)
+                      </strong>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-[10px] font-bold block">
-                  {checks.light === 'Lolos' ? '✓ Optimal' : '● Kalibrasi'}
-                </span>
-              </div>
 
-              {/* 2. Posisi Wajah */}
-              <div
-                className={`p-2.5 rounded-2xl border transition-all ${
-                  checks.facePos === 'Lolos'
-                    ? 'bg-[#EEF6F2] border-[#CBE2D7] text-[#256650]'
-                    : 'bg-white border-[#E5EBE8] text-[#5F7068]'
-                }`}
-              >
-                <div className="flex items-center gap-1 text-[11px] font-semibold mb-0.5">
-                  <UserCheck className="w-3.5 h-3.5" />
-                  Posisi Wajah
+                {/* Score & Retake Quick Bar */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#FAF3F0] border border-[#E8D5CE]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-white border border-[#E8D5CE] flex flex-col items-center justify-center shadow-sm">
+                      <span className="font-serif-luxury font-bold text-base text-[#B87A63]">
+                        {skinScore}
+                      </span>
+                      <span className="text-[8px] uppercase font-bold text-[#5F7068]">
+                        Skor
+                      </span>
+                    </div>
+                    <div>
+                      <strong className="text-xs text-[#19201D] block">
+                        Indeks Kondisi Kulit
+                      </strong>
+                      <span className="text-[11px] text-[#5F7068]">
+                        Tingkat Akurasi AI: {confidence}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleResetScan}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-[#CBD6D0] hover:bg-[#F8FAF9] text-xs font-bold text-[#19201D] transition cursor-pointer shadow-sm flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Scan Ulang
+                  </button>
                 </div>
-                <span className="text-[10px] font-bold block">
-                  {checks.facePos === 'Lolos' ? '✓ Presisi' : '● Di Tengah'}
-                </span>
-              </div>
-
-              {/* 3. Pandangan Lurus */}
-              <div
-                className={`p-2.5 rounded-2xl border transition-all ${
-                  checks.lookStraight === 'Lolos'
-                    ? 'bg-[#EEF6F2] border-[#CBE2D7] text-[#256650]'
-                    : 'bg-white border-[#E5EBE8] text-[#5F7068]'
-                }`}
-              >
-                <div className="flex items-center gap-1 text-[11px] font-semibold mb-0.5">
-                  <Eye className="w-3.5 h-3.5" />
-                  Arah Pandang
-                </div>
-                <span className="text-[10px] font-bold block">
-                  {checks.lookStraight === 'Lolos' ? '✓ Lurus' : '● Sejajar'}
-                </span>
-              </div>
-            </div>
-
-            {/* Glasses Alert Card (if detected) */}
-            {!checks.noGlasses && (
-              <div className="p-3 rounded-2xl bg-[#FAF3F0] border border-[#E8D5CE] text-xs text-[#A86F59] flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 text-[#B87A63]" />
-                <span className="leading-snug">
-                  Mohon lepas kacamata Anda agar area kontur mata dan glabella terbaca
-                  akurat.
-                </span>
               </div>
             )}
 
-            {/* Status Feedback Message */}
-            <div className="text-center py-1">
-              <p className="text-xs sm:text-sm font-medium text-[#19201D] leading-relaxed">
-                {statusText}
-              </p>
-              {errorMessage && (
-                <p className="text-xs text-red-600 font-semibold mt-1">
-                  {errorMessage}
-                </p>
-              )}
-            </div>
-
-            {/* Action Button & Medical Security Note */}
-            <div className="space-y-3 pt-1">
-              <button
-                type="button"
-                onClick={handleStartScan}
-                disabled={
-                  scanState === 'COUNTDOWN' ||
-                  scanState === 'SCANNING' ||
-                  scanState === 'FLASH'
-                }
-                className="w-full py-4 rounded-2xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-[#B87A63] to-[#A26550] hover:from-[#A86F59] hover:to-[#915642] shadow-lg shadow-[#B87A63]/25 active:scale-[0.99] transition cursor-pointer flex items-center justify-center gap-2"
-              >
-                {scanState === 'SCANNING' ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Menganalisis Kondisi Kulit…
-                  </>
-                ) : scanState === 'COUNTDOWN' ? (
-                  <>
-                    <Zap className="w-4 h-4" />
-                    Mengambil Sampel Biometrik…
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-4 h-4" />
-                    Mulai Diagnosis Kulit
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-center gap-1.5 text-center text-[11px] text-[#5F7068]">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#256650]" />
-                <span>
-                  Privasi Medis: Sampel foto diproses lokal dan segera dimusnahkan.
-                </span>
-              </div>
-            </div>
-          </section>
-        ) : (
-          /* SECTION 2: LUXURY CLINICAL CONSULTATION REPORT */
-          <section className="space-y-5 pt-1 pb-16">
-            {/* Top Verification Stamp */}
-            <div className="flex items-center justify-between text-xs pb-1">
-              <span className="inline-flex items-center gap-1 font-semibold text-[#256650] bg-[#EEF6F2] px-3 py-1 rounded-full border border-[#CBE2D7]">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Laporan Terverifikasi Biometrik Asli
+            {/* Clinical Security Notice */}
+            <div className="p-3 rounded-xl bg-[#EEF6F2] border border-[#CBE2D7] text-[11px] text-[#256650] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+              <span>
+                Data foto wajah diproses secara lokal di perangkat Anda dan tidak
+                disimpan di server.
               </span>
-              <button
-                onClick={handleResetScan}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#5F7068] hover:text-[#19201D] transition cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Pindai Ulang
-              </button>
             </div>
+          </div>
 
-            {/* Diagnostic Hero Card */}
-            <div className="clinical-card p-5 sm:p-6 space-y-5">
-              <div className="flex items-start justify-between gap-4 border-b border-[#E5EBE8] pb-4">
-                <div className="space-y-1">
-                  <span className="text-[11px] uppercase tracking-wider font-bold text-[#B87A63]">
-                    Diagnosis Dermatologi
-                  </span>
-                  <h1 className="font-serif-luxury text-2xl sm:text-3xl font-bold text-[#19201D]">
-                    Kulit {dominantSkinLabel}
-                  </h1>
-                  <p className="text-xs text-[#5F7068] leading-relaxed pt-0.5">
-                    {dominantSkinLabel.toLowerCase().includes('kombinasi')
-                      ? 'Produksi sebum aktif pada area T-Zone dengan kelembapan moderat pada area malar pipi.'
-                      : dominantSkinLabel.toLowerCase().includes('berminyak')
-                      ? 'Aktivitas kelenjar sebasea menyeluruh di seluruh area dermis wajah.'
-                      : dominantSkinLabel.toLowerCase().includes('kering')
-                      ? 'Defisit hidrasi lapisan lipid stratum korneum yang memerlukan perbaikan barier.'
-                      : 'Keseimbangan fisiologis hidrasi dan sekresi sebum pada parameter optimal.'}
-                  </p>
+          {/* =========================================================
+              RIGHT COLUMN: PRE-SCAN GUIDE OR DIAGNOSTIC RESULTS (col-span-7)
+          ========================================================== */}
+          <div className="lg:col-span-7 space-y-5">
+            {scanState !== 'SUCCESS' ? (
+              /* PRE-SCAN INSTRUCTIONAL GUIDE */
+              <div className="space-y-4">
+                <div className="clinical-card p-6 bg-white space-y-4">
+                  <div className="space-y-1">
+                    <span className="text-[11px] uppercase tracking-wider font-bold text-[#B87A63]">
+                      Panduan Pemindaian
+                    </span>
+                    <h2 className="font-serif-luxury text-2xl font-bold text-[#19201D]">
+                      Analisis Cerdas Kondisi Kulit Wajah
+                    </h2>
+                    <p className="text-xs text-[#5F7068] leading-relaxed">
+                      Sistem memanfaatkan deep learning MobileNetV3-Small ONNX di peramban dan validasi
+                      kamera langsung untuk mengenali tipe dan masalah kulit, lalu memetakan rekomendasi
+                      produk skincare Toko Annisa Beauty Shop.
+                    </p>
+                  </div>
+
+                  {/* 4 Diagnostic Scope Items */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div className="p-3.5 rounded-xl bg-[#F8FAF9] border border-[#E5EBE8] space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#19201D]">
+                        <CheckCheck className="w-3.5 h-3.5 text-[#256650]" />
+                        Identifikasi 4 Tipe Kulit
+                      </div>
+                      <p className="text-[11px] text-[#5F7068]">
+                        Mengklasifikasikan tipe kulit wajah pengguna (Normal, Kering, Berminyak, Kombinasi).
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-[#F8FAF9] border border-[#E5EBE8] space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#19201D]">
+                        <CheckCheck className="w-3.5 h-3.5 text-[#256650]" />
+                        Deteksi 5 Masalah Kulit
+                      </div>
+                      <p className="text-[11px] text-[#5F7068]">
+                        Mendeteksi jerawat, flek hitam, kemerahan, pori-pori besar, dan garis halus/kerutan.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-[#F8FAF9] border border-[#E5EBE8] space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#19201D]">
+                        <CheckCheck className="w-3.5 h-3.5 text-[#256650]" />
+                        Validasi Kamera Langsung
+                      </div>
+                      <p className="text-[11px] text-[#5F7068]">
+                        Validasi kualitas citra dan uji keaktifan untuk memastikan wajah asli (bukan foto fisik atau layar).
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-[#F8FAF9] border border-[#E5EBE8] space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#19201D]">
+                        <CheckCheck className="w-3.5 h-3.5 text-[#256650]" />
+                        Rekomendasi Skincare Katalog Toko
+                      </div>
+                      <p className="text-[11px] text-[#5F7068]">
+                        Mencocokkan bahan aktif katalog produk Toko Annisa Beauty Shop berbasis aturan (rule-based).
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Score Ring Badge */}
-                <div className="flex-shrink-0 text-center">
-                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-[#EEF6F2] border border-[#CBE2D7] flex flex-col items-center justify-center p-2 shadow-sm">
-                    <span className="text-lg sm:text-xl font-bold font-serif-luxury text-[#256650]">
-                      {skinScore}
-                    </span>
-                    <span className="text-[9px] uppercase font-bold text-[#256650]">
-                      Skor Sehat
+                {/* 3 Preparation Steps Card */}
+                <div className="clinical-card p-5 bg-white space-y-3">
+                  <h3 className="text-xs uppercase font-bold tracking-wider text-[#19201D] flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-[#B87A63]" />
+                    Panduan Memperoleh Hasil Maksimal:
+                  </h3>
+                  <div className="space-y-2 text-xs text-[#5F7068]">
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#FAF3F0] text-[#B87A63] font-bold text-[11px] flex items-center justify-center flex-shrink-0">
+                        1
+                      </span>
+                      <span>Hadapkan wajah ke sumber cahaya yang merata (hindari lampu remang atau silau).</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#FAF3F0] text-[#B87A63] font-bold text-[11px] flex items-center justify-center flex-shrink-0">
+                        2
+                      </span>
+                      <span>Pastikan wajah bersih tanpa makeup tebal dan lepas kacamata.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#FAF3F0] text-[#B87A63] font-bold text-[11px] flex items-center justify-center flex-shrink-0">
+                        3
+                      </span>
+                      <span>Posisikan wajah tepat di dalam bingkai oval hingga indikator menyala hijau.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* RESULTS DASHBOARD (Displayed side-by-side with user photo!) */
+              <div className="space-y-5">
+                {/* 1. Main Diagnosis Header Card */}
+                <div className="clinical-card p-5 sm:p-6 bg-white space-y-4">
+                  <div className="flex items-start justify-between gap-4 border-b border-[#E5EBE8] pb-3.5">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-[#B87A63] bg-[#FAF3F0] px-2 py-0.5 rounded">
+                        Hasil Analisis Kulit Wajah
+                      </span>
+                      <h2 className="font-serif-luxury text-2xl sm:text-3xl font-bold text-[#19201D] mt-1">
+                        Kulit {dominantSkinLabel}
+                      </h2>
+                      <p className="text-xs text-[#5F7068] mt-1 leading-relaxed">
+                        {dominantSkinLabel.toLowerCase().includes('kombinasi')
+                          ? 'Aktivitas sebum lebih dominan pada area T-Zone dengan kelembapan moderat pada area pipi. Memerlukan barier hidrasi ringan dan seimbang.'
+                          : dominantSkinLabel.toLowerCase().includes('berminyak')
+                          ? 'Produksi kelenjar sebasea aktif di seluruh area wajah. Memerlukan pembersihan pori mendalam dan agen sebum kontrol.'
+                          : dominantSkinLabel.toLowerCase().includes('kering')
+                          ? 'Kadar lipid dan hidrasi stratum korneum rendah. Memerlukan hidrasi ceramide dan asam hialuronat intensif.'
+                          : 'Keseimbangan kadar air dan minyak berada pada rentang fisiologis optimal.'}
+                      </p>
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-sm font-bold text-[#256650] block">
+                        Akurasi AI: {confidence}%
+                      </span>
+                      <span className="text-[10px] text-[#5F7068]">
+                        Model Multi-Head Wasm
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Transparent 4 Skin Types Breakdown */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-[#19201D] uppercase tracking-wider text-[11px]">
+                        Distribusi Probabilitas Tipe Kulit:
+                      </span>
+                      <span className="text-[10px] text-[#5F7068]">Total 100%</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {verificationData?.analysis?.skinType?.allTypes?.map((t: any) => {
+                        const pct =
+                          t.percentage ?? Math.round((t.prob || 0) * 1000) / 10;
+                        const isTop =
+                          t.type === verificationData?.analysis?.skinType?.type;
+                        return (
+                          <div
+                            key={t.type}
+                            className={`p-2.5 rounded-xl border space-y-1.5 ${
+                              isTop
+                                ? 'bg-[#EEF6F2] border-[#CBE2D7]'
+                                : 'bg-[#F8FAF9] border-[#E5EBE8]'
+                            }`}
+                          >
+                            <div className="flex justify-between text-xs">
+                              <span
+                                className={`font-semibold ${
+                                  isTop ? 'text-[#256650]' : 'text-[#5F7068]'
+                                }`}
+                              >
+                                {t.label} {isTop && '✦ (Utama)'}
+                              </span>
+                              <span className="font-mono font-bold text-xs">
+                                {pct}%
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-[#E5EBE8] rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-700 ${
+                                  isTop
+                                    ? 'bg-gradient-to-r from-[#256650] to-[#34D399]'
+                                    : 'bg-[#CBD6D0]'
+                                }`}
+                                style={{ width: `${Math.max(3, pct)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Transparent 5 Skin Concerns vs Thresholds */}
+                <div className="clinical-card p-5 sm:p-6 bg-white space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-[#B87A63]">
+                        Analisis Permasalahan Kulit
+                      </span>
+                      <h3 className="font-serif-luxury text-xl font-bold text-[#19201D]">
+                        Tingkat Keyakinan 5 Masalah Kulit Wajah
+                      </h3>
+                    </div>
+                    <span className="text-[10px] text-[#5F7068] font-mono">
+                      Sigmoid Thresholds
                     </span>
                   </div>
-                  <span className="text-[10px] text-[#5F7068] font-medium block mt-1">
-                    AI Akurasi: {confidence}%
-                  </span>
-                </div>
-              </div>
 
-              {/* 1. Transparent 4 Skin Types Distribution */}
-              <div className="space-y-2.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#19201D]">
-                    Distribusi Tipe Kulit (Transparan):
-                  </span>
-                  <span className="text-[10px] text-[#5F7068]">Total 100%</span>
-                </div>
-                <div className="space-y-2">
-                  {verificationData?.analysis?.skinType?.allTypes?.map((t: any) => {
-                    const pct =
-                      t.percentage ?? Math.round((t.prob || 0) * 1000) / 10;
-                    const isTop =
-                      t.type === verificationData?.analysis?.skinType?.type;
-                    return (
-                      <div key={t.type} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span
-                            className={`font-semibold ${
-                              isTop ? 'text-[#256650]' : 'text-[#5F7068]'
-                            }`}
-                          >
-                            {t.label} {isTop && '✦ (Diagnosis Utama)'}
+                  <div className="space-y-2.5 pt-1">
+                    {getMetrics().map((m, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl bg-[#F8FAF9] border border-[#E5EBE8] space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[#19201D]">
+                            {m.label}
                           </span>
-                          <span
-                            className={`font-mono text-xs ${
-                              isTop ? 'text-[#256650] font-bold' : 'text-[#5F7068]'
-                            }`}
-                          >
-                            {pct}%
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[#19201D]">
+                              {m.val}%
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                m.tone === 'ok'
+                                  ? 'bg-[#EEF6F2] text-[#256650] border border-[#CBE2D7]'
+                                  : 'bg-[#FEF7ED] text-[#C27D1A] border border-[#FCD9A5]'
+                              }`}
+                            >
+                              {m.status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="h-2 w-full bg-[#E5EBE8] rounded-full overflow-hidden">
+
+                        {/* Progress Bar with Ambang Indicator */}
+                        <div className="relative h-2 w-full bg-[#E5EBE8] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-700 ${
-                              isTop
+                              m.tone === 'ok'
                                 ? 'bg-gradient-to-r from-[#256650] to-[#34D399]'
-                                : 'bg-[#CBD6D0]'
+                                : 'bg-gradient-to-r from-[#C27D1A] to-[#F59E0B]'
                             }`}
-                            style={{ width: `${Math.max(3, pct)}%` }}
+                            style={{ width: `${Math.max(3, m.val)}%` }}
                           />
                         </div>
+
+                        <div className="flex justify-between text-[10px] text-[#5F7068]">
+                          <span>Terdeteksi AI: {m.val}%</span>
+                          <span>Ambang Batas Deteksi: {m.threshold}%</span>
+                        </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* 2. Interactive Clinical Face Diagnostic Map */}
-            <div className="clinical-card p-5 sm:p-6 space-y-4">
-              <div>
-                <span className="text-[11px] uppercase tracking-wider font-bold text-[#B87A63]">
-                  Pemetaan Zona Wajah
-                </span>
-                <h2 className="font-serif-luxury text-xl font-bold text-[#19201D] mt-0.5">
-                  Analisis Lokasi & Kelenjar
-                </h2>
-                <p className="text-xs text-[#5F7068]">
-                  Pilih titik zona wajah di bawah untuk melihat rincian kondisi lokal.
-                </p>
-              </div>
+                {/* 3. Toko Annisa Skincare Regimen */}
+                <div className="clinical-card p-5 sm:p-6 bg-white space-y-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#B87A63]">
+                      Rekomendasi Produk Toko Annisa
+                    </span>
+                    <h3 className="font-serif-luxury text-xl font-bold text-[#19201D]">
+                      Rekomendasi Skincare Toko Annisa Beauty Shop
+                    </h3>
+                    <p className="text-xs text-[#5F7068]">
+                      Rekomendasi produk dihasilkan melalui aturan pencocokan bahan aktif katalog toko dengan kondisi kulit hasil pemindaian.
+                    </p>
+                  </div>
 
-              {/* Face Map Illustration */}
-              <div className="relative aspect-[4/5] max-w-[280px] mx-auto my-2">
-                <svg viewBox="0 0 200 250" className="w-full h-full" aria-hidden="true">
-                  <ellipse
-                    cx="100"
-                    cy="125"
-                    rx="78"
-                    ry="104"
-                    fill="#F3DDD8"
-                    stroke="#E6D8DD"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M60 98q14-9 28 0M112 98q14-9 28 0M82 188q18 10 36 0"
-                    fill="none"
-                    stroke="#7A6670"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    opacity=".6"
-                  />
-                </svg>
-
-                {/* Hotspot Pins */}
-                {Object.entries(zoneData).map(([key, zone]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`clinical-hotspot ${zone.status}`}
-                    style={{
-                      left: `${zone.coords[0]}%`,
-                      top: `${zone.coords[1]}%`,
-                    }}
-                    aria-pressed={selectedZone === key}
-                    onClick={() => setSelectedZone(key)}
-                    aria-label={`${zone.name}: ${zone.tag}`}
-                  >
-                    {zone.status === 'ok' ? '✓' : '!'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Dynamic Zone Details Card */}
-              <div
-                className={`p-4 rounded-2xl border transition-all ${
-                  currentZone.status === 'ok'
-                    ? 'bg-[#EEF6F2] border-[#CBE2D7]'
-                    : 'bg-[#FEF7ED] border-[#FCD9A5]'
-                }`}
-              >
-                <div className="flex items-center justify-between pb-1">
-                  <h4 className="font-bold text-sm text-[#19201D]">
-                    {currentZone.name}
-                  </h4>
-                  <span
-                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                      currentZone.status === 'ok'
-                        ? 'bg-[#256650] text-white'
-                        : 'bg-[#C27D1A] text-white'
-                    }`}
-                  >
-                    {currentZone.tag}
-                  </span>
-                </div>
-                <p className="text-xs text-[#5F7068] leading-relaxed pt-1">
-                  {currentZone.desc}
-                </p>
-              </div>
-            </div>
-
-            {/* 3. Transparent 5 Skin Concerns vs Threshold */}
-            <div className="clinical-card p-5 sm:p-6 space-y-4">
-              <div>
-                <span className="text-[11px] uppercase tracking-wider font-bold text-[#B87A63]">
-                  Kondisi Dermal Fisiologis
-                </span>
-                <h2 className="font-serif-luxury text-xl font-bold text-[#19201D] mt-0.5">
-                  Analisis Masalah Kulit & Ambang Klinis
-                </h2>
-                <p className="text-xs text-[#5F7068]">
-                  Persentase deteksi multi-label dibandingkan dengan batas ambang klinis
-                  dermatologi.
-                </p>
-              </div>
-
-              <div className="space-y-3 pt-1">
-                {getMetrics().map((m, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#E5EBE8] space-y-2"
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-[#19201D]">
-                        {m.label}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-[#19201D]">
-                          {m.val}%
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                            m.tone === 'ok'
-                              ? 'bg-[#EEF6F2] text-[#256650] border border-[#CBE2D7]'
-                              : 'bg-[#FEF7ED] text-[#C27D1A] border border-[#FCD9A5]'
+                  <div className="space-y-2.5">
+                    {routineProducts.map((p) => {
+                      const inCart = cartItems.has(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          className={`p-3.5 rounded-xl border transition-all ${
+                            inCart
+                              ? 'bg-[#FAF3F0] border-[#E8D5CE]'
+                              : 'bg-white border-[#E5EBE8]'
                           }`}
                         >
-                          {m.status}
+                          <div className="flex justify-between items-start gap-2 mb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-[#B87A63] bg-[#FAF3F0] px-2 py-0.5 rounded">
+                              {p.step}
+                            </span>
+                            <span className="font-bold text-xs text-[#19201D]">
+                              {formatRp(p.price)}
+                            </span>
+                          </div>
+
+                          <h4 className="font-bold text-sm text-[#19201D]">
+                            {p.name}
+                          </h4>
+                          <p className="text-xs text-[#5F7068] mt-0.5 leading-relaxed">
+                            {p.desc}
+                          </p>
+
+                          <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-[#E5EBE8]/70">
+                            <span className="text-[10px] text-[#5F7068] font-mono">
+                              BPOM: {p.bpom || 'NA18220108922'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleCart(p.id)}
+                              className={`text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${
+                                inCart
+                                  ? 'bg-[#B87A63] text-white shadow-sm'
+                                  : 'border border-[#B87A63] text-[#B87A63] hover:bg-[#FAF3F0]'
+                              }`}
+                            >
+                              {inCart ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  Ditambahkan
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-3.5 h-3.5" />
+                                  Tambah ke Keranjang
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Store Recommendation Verification / System Info */}
+                  <div className="p-3.5 rounded-xl bg-[#FAF3F0] border border-[#E8D5CE] text-xs text-[#19201D] flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <ShoppingBag className="w-4 h-4 text-[#B87A63] flex-shrink-0" />
+                      <div>
+                        <span className="font-bold text-xs text-[#19201D] block">
+                          Toko Annisa Beauty Shop · Katalog Terverifikasi
+                        </span>
+                        <span className="text-[11px] text-[#5F7068]">
+                          Rekomendasi berbasis aturan bahan aktif & inferensi lokal ONNX
                         </span>
                       </div>
                     </div>
-
-                    {/* Progress Bar with Indicator */}
-                    <div className="relative h-2 w-full bg-[#E5EBE8] rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          m.tone === 'ok'
-                            ? 'bg-gradient-to-r from-[#256650] to-[#34D399]'
-                            : 'bg-gradient-to-r from-[#C27D1A] to-[#F59E0B]'
-                        }`}
-                        style={{ width: `${Math.max(3, m.val)}%` }}
-                      />
-                    </div>
-
-                    <div className="flex justify-between text-[10px] text-[#5F7068]">
-                      <span>Nilai Sampel: {m.val}%</span>
-                      <span>Batas Ambang Terapi: {m.threshold}%</span>
-                    </div>
+                    <span className="text-[10px] uppercase font-bold text-[#B87A63] bg-white px-2 py-0.5 rounded border border-[#E8D5CE]">
+                      Katalog Toko ✓
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* 4. Clinical Regimen & Recommended BPOM Products */}
-            <div className="clinical-card p-5 sm:p-6 space-y-4">
-              <div>
-                <span className="text-[11px] uppercase tracking-wider font-bold text-[#B87A63]">
-                  Resep Perawatan Terfokus
-                </span>
-                <h2 className="font-serif-luxury text-xl font-bold text-[#19201D] mt-0.5">
-                  Protokol Produk Resmi BPOM
-                </h2>
-                <p className="text-xs text-[#5F7068]">
-                  Kombinasi formulasi aktif yang direkomendasikan dokter sesuai profil
-                  kulit Anda.
-                </p>
-              </div>
+                  {/* Sticky Floating Action Bar for Checkout */}
+                  <div className="clinical-cart-bar">
+                    <div>
+                      <span className="text-xs block text-white/80">
+                        {cartItems.size > 0
+                          ? `${cartItems.size} produk dipilih`
+                          : 'Pilih produk untuk keranjang belanja'}
+                      </span>
+                      <span className="font-bold text-sm text-white">
+                        {cartItems.size > 0 ? formatRp(cartTotal) : 'Total Belanja'}
+                      </span>
+                    </div>
 
-              <div className="space-y-3 pt-1">
-                {routineProducts.map((p, idx) => {
-                  const inCart = cartItems.has(p.id);
-                  return (
-                    <div
-                      key={p.id}
-                      className={`p-4 rounded-2xl border transition-all ${
-                        inCart
-                          ? 'bg-[#FAF3F0] border-[#E8D5CE]'
-                          : 'bg-white border-[#E5EBE8]'
+                    <button
+                      type="button"
+                      disabled={cartItems.size === 0}
+                      onClick={() => {
+                        alert(
+                          `Pemesanan ${cartItems.size} produk senilai ${formatRp(
+                            cartTotal
+                          )} siap diproses pada keranjang belanja Toko Annisa Beauty Shop.`
+                        );
+                      }}
+                      className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition ${
+                        cartItems.size > 0
+                          ? 'bg-[#B87A63] hover:bg-[#A86F59] text-white shadow-md cursor-pointer'
+                          : 'bg-white/10 text-white/40 cursor-not-allowed'
                       }`}
                     >
-                      <div className="flex justify-between items-start gap-2 mb-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#B87A63] bg-[#FAF3F0] px-2 py-0.5 rounded">
-                          {p.step}
-                        </span>
-                        <span className="font-bold text-xs text-[#19201D]">
-                          {formatRp(p.price)}
-                        </span>
-                      </div>
-
-                      <h4 className="font-bold text-sm text-[#19201D] leading-snug">
-                        {p.name}
-                      </h4>
-                      <p className="text-xs text-[#5F7068] mt-1 leading-relaxed">
-                        {p.desc}
-                      </p>
-
-                      <div className="flex items-center justify-between pt-3 mt-2 border-t border-[#E5EBE8]/60">
-                        <span className="text-[10px] text-[#5F7068] font-mono">
-                          BPOM: {p.bpom || 'NA18220108922'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => toggleCart(p.id)}
-                          className={`text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer ${
-                            inCart
-                              ? 'bg-[#B87A63] text-white shadow-sm'
-                              : 'border border-[#B87A63] text-[#B87A63] hover:bg-[#FAF3F0]'
-                          }`}
-                        >
-                          {inCart ? (
-                            <>
-                              <Check className="w-3.5 h-3.5" />
-                              Ditambahkan
-                            </>
-                          ) : (
-                            <>
-                              <Plus className="w-3.5 h-3.5" />
-                              Tambah ke Resep
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Medical Validator Sign-off */}
-              <div className="p-3.5 rounded-2xl bg-[#EEF6F2] border border-[#CBE2D7] text-xs text-[#256650] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Stethoscope className="w-4 h-4 text-[#256650]" />
-                  <div>
-                    <span className="font-bold block">
-                      {verificationData?.validationDoctor?.name || 'dr. Annisa Pratami, Sp.D.V.E.'}
-                    </span>
-                    <span className="text-[10px] opacity-80">
-                      SIP: {verificationData?.validationDoctor?.sip || 'SIP.440/092/Dinkes/2024'}
-                    </span>
+                      Checkout Pesanan
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-                <span className="text-[10px] uppercase font-bold text-[#256650]">
-                  Terverifikasi ✓
-                </span>
               </div>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={handleResetScan}
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl border border-[#CBD6D0] hover:bg-white text-[#19201D] font-bold text-xs shadow-sm transition cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Pindai Ulang Wajah
-              </button>
-            </div>
-
-            {/* Sticky Floating Action Bar */}
-            <div className="clinical-cart-bar">
-              <div>
-                <span className="text-xs block text-white/80">
-                  {cartItems.size > 0
-                    ? `${cartItems.size} produk resep dipilih`
-                    : 'Pilih produk untuk rutinitasmu'}
-                </span>
-                <span className="font-bold text-sm text-white">
-                  {cartItems.size > 0 ? formatRp(cartTotal) : 'Resep Rekomendasi'}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                disabled={cartItems.size === 0}
-                onClick={() => {
-                  alert(
-                    `Pemesanan resep ${cartItems.size} produk senilai ${formatRp(
-                      cartTotal
-                    )} siap dikonsultasikan langsung ke klinik.`
-                  );
-                }}
-                className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition ${
-                  cartItems.size > 0
-                    ? 'bg-[#B87A63] hover:bg-[#A86F59] text-white shadow-md cursor-pointer'
-                    : 'bg-white/10 text-white/40 cursor-not-allowed'
-                }`}
-              >
-                Pesan Resep
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </section>
-        )}
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );

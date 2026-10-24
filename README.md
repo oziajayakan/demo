@@ -1,12 +1,12 @@
-# Sistem Analisis Kondisi Kulit Wajah Anti-Manipulasi (Next.js 14 + ONNX Web)
+# Smart Skin Scanner & Rekomendasi Skincare (Next.js 14 + ONNX Web)
 
-Aplikasi web analisis biometrik kulit wajah dan pendukung keputusan rekomendasi kosmetik **BPOM RI** berbasis **Deep Learning (MobileNetV3 Multitask ONNX)** yang dilengkapi dengan sistem pertahanan **Anti-Manipulasi Berlapis (*Presentation Attack Detection & Cryptographic Anti-Tampering*)** serta tervalidasi klinis oleh **Dokter Spesialis Kulit (Sp.D.V.E)**.
+Aplikasi web analisis kondisi kulit wajah dan pendukung keputusan rekomendasi produk kosmetik katalog **Toko Annisa Beauty Shop** berbasis **Deep Learning (MobileNetV3 Multitask ONNX)** yang dilengkapi dengan sistem validasi **Kamera Langsung & Anti-Manipulasi (*Presentation Attack Detection & Cryptographic Anti-Tampering*)** serta mesin rekomendasi berbasis aturan (*Rule-Based Matching*).
 
 Didesain khusus untuk berjalan dengan performa tinggi dan biaya komputasi server **nol rupiah (Zero Server-Compute Cost)** di platform **Vercel**.
 
 ---
 
-## 🌟 Fitur Utama & Proteksi Anti-Manipulasi
+## 🌟 Fitur Utama & Proteksi Kamera Langsung
 
 ### 1. Dynamic Screen Flash Challenge (Anti-Foto & Anti-Layar Replay)
 - **Pengukuran Respon Spektral**: Saat wajah pengguna terdeteksi stabil di bingkai oval, layar memancarkan kilatan spektrum warna acak (*Cyan, Magenta, atau Amber*) selama 160 milidetik.
@@ -26,10 +26,8 @@ Didesain khusus untuk berjalan dengan performa tinggi dan biaya komputasi server
 - Berjalan via **ONNX Runtime Web** memanfaatkan akselerasi WebAssembly SIMD. Inferensi selesai dalam 30–60 ms di sisi peramban klien tanpa membebani kuota server Vercel.
 - **100% Client-Side Privacy**: Citra wajah diproses secara lokal di RAM perangkat dan tidak pernah diunggah ke server cloud (*Zero-Biometric Upload*).
 
-### 5. Validasi Klinis Dermatolog & Mesin Rekomendasi BPOM
-- **Lisensi Dokter Penilai**: Tervalidasi oleh **dr. Amanda Lestari, Sp.D.V.E** (SIP: `503/442-DINKES/2023`).
-- **Tingkat Kesepakatan Klinis**: Cohen's Kappa $\kappa = 0.78$ (*Substantial Agreement*).
-- **Rekomendasi Terkurasi**: Menghubungkan tipe kulit (*Normal, Berminyak, Kering, Kombinasi*) dan masalah kulit (*Jerawat, Flek Hitam, Kemerahan, Pori-pori, Garis Halus*) dengan 32 produk resmi terdaftar BPOM RI beserta alasan kecocokan bahan aktif (*Active Ingredients*).
+### 5. Mesin Rekomendasi Skincare Katalog Toko Annisa Beauty Shop
+- **Rule-Based Matching**: Menghubungkan tipe kulit (*Normal, Berminyak, Kering, Kombinasi*) dan masalah kulit (*Jerawat, Flek Hitam, Kemerahan, Pori-pori, Garis Halus*) dengan katalog produk Toko Annisa Beauty Shop resmi terdaftar BPOM RI beserta alasan kecocokan bahan aktif (*Active Ingredients*).
 
 ---
 

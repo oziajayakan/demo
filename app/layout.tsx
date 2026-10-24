@@ -4,9 +4,9 @@ import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Clinical Skin Diagnosis · Annisa Derma Clinic',
+  title: 'Smart Skin Scanner · Toko Annisa Beauty Shop',
   description:
-    'Sistem pemindai kondisi kulit wajah real-time berbasis deep learning dengan verifikasi anti-spoofing biometrik dan rekomendasi resep klinis BPOM.',
+    'Sistem pemindai kondisi kulit wajah real-time berbasis deep learning (MobileNetV3 ONNX) dan rekomendasi produk skincare berbasis aturan katalog Toko Annisa Beauty Shop.',
 };
 
 export default function RootLayout({

@@ -83,11 +83,7 @@ export async function POST(req: NextRequest) {
       status: 'success',
       verified: true,
       timestamp: new Date().toISOString(),
-      validationDoctor: {
-        name: 'dr. Amanda Lestari, Sp.D.V.E',
-        sip: '503/442-DINKES/2023',
-        institution: 'Klinik Dermatologi & Estetika Medis',
-      },
+      store: 'Toko Annisa Beauty Shop',
       analysis: {
         skinType: prediction.skinType,
         concerns: prediction.concerns,
