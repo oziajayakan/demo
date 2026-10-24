@@ -19,12 +19,17 @@ import {
   ArrowRight,
   Info,
   CheckCheck,
+  ScanFace,
+  Smartphone,
 } from 'lucide-react';
 import { runSkinInference, PredictionResult } from '@/lib/onnx';
 import {
   sampleSkinRGB,
   computeLaplacianVariance,
   evaluateFlashChromaticity,
+  calculateEAR,
+  BlinkTracker,
+  detectScreenBezel,
   LivenessResult,
 } from '@/lib/flash-liveness';
 import {
@@ -48,6 +53,7 @@ export default function SmartSkinScannerApp() {
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
   const landmarkerRef = useRef<any>(null);
+  const blinkTrackerRef = useRef<BlinkTracker>(new BlinkTracker());
   const autoTriggerCountRef = useRef<number>(0);
 
   // Hidden offscreen canvases for analysis
@@ -65,12 +71,14 @@ export default function SmartSkinScannerApp() {
   const [countdownNum, setCountdownNum] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // 3 Validasi Kualitas Kamera + Kacamata
+  // 4 Validasi Kualitas Kamera + Anti-Layar HP / Foto
   const [checks, setChecks] = useState({
     light: 'Memeriksa' as 'Menunggu' | 'Memeriksa' | 'Lolos',
     facePos: 'Memeriksa' as 'Menunggu' | 'Memeriksa' | 'Lolos',
     lookStraight: 'Memeriksa' as 'Menunggu' | 'Memeriksa' | 'Lolos',
+    liveBlink: 'Menunggu' as 'Menunggu' | 'Lolos',
     noGlasses: true,
+    phoneBezel: false,
   });
 
   // Results state
@@ -115,7 +123,7 @@ export default function SmartSkinScannerApp() {
         await videoRef.current.play();
       }
       setScanState('CHECKING');
-      setStatusText('Posisikan wajah Anda tepat di dalam bingkai oval');
+      setStatusText('Posisikan wajah Anda di dalam oval dan kedipkan mata');
     } catch (err: any) {
       console.error('Camera access error:', err);
       setScanState('ERROR');
@@ -185,7 +193,7 @@ export default function SmartSkinScannerApp() {
     };
   }, [fetchChallenge, startCamera]);
 
-  // 3. Real-Time Camera Quality Checks Loop & Auto-Trigger
+  // 3. Real-Time Camera Quality Checks Loop & Strict Anti-Spoof Protection
   useEffect(() => {
     if (
       scanState === 'SUCCESS' ||
@@ -223,10 +231,12 @@ export default function SmartSkinScannerApp() {
       const avgLuma = totalLuma / (imgData.length / 4);
       const isLightOk = avgLuma >= 45 && avgLuma <= 240;
 
-      // 2. Face Position & Look Straight
+      // 2. Face Position, Look Straight, Glasses & Biological Blink Liveness
       let isPosOk = false;
       let isStraightOk = false;
       let isNoGlassesOk = true;
+      let isBlinkOk = false;
+      let isBezelDetected = false;
 
       if (landmarkerRef.current) {
         try {
@@ -247,6 +257,7 @@ export default function SmartSkinScannerApp() {
             const faceH = Math.abs(chin.y - topForehead.y);
             const cx = (leftCheek.x + rightCheek.x) / 2;
             const cy = (topForehead.y + chin.y) / 2;
+            const faceW = Math.abs(rightCheek.x - leftCheek.x);
 
             isPosOk =
               cx >= 0.26 && cx <= 0.74 && cy >= 0.18 && cy <= 0.78 && faceH >= 0.24;
@@ -258,8 +269,22 @@ export default function SmartSkinScannerApp() {
             const tilt = Math.abs(leftEye.y - rightEye.y);
             isStraightOk = isYawOk && tilt < 0.12;
 
+            // Kacamata check
             const glassesRes = checkGlassesWithLandmarks(lm, pCtx, 320, 240);
             isNoGlassesOk = glassesRes.pass;
+
+            // Biological eye blink detection (EAR calculation)
+            const ear = calculateEAR(lm);
+            isBlinkOk = blinkTrackerRef.current.update(ear);
+
+            // Phone screen bezel detection around face
+            const bezelCheck = detectScreenBezel(pCtx, 320, 240, {
+              cx,
+              cy,
+              width: faceW,
+              height: faceH,
+            });
+            isBezelDetected = bezelCheck.detected;
           } else {
             isPosOk = avgLuma > 40;
             isStraightOk = isPosOk;
@@ -283,12 +308,23 @@ export default function SmartSkinScannerApp() {
         light: isLightOk ? 'Lolos' : 'Memeriksa',
         facePos: isPosOk ? 'Lolos' : 'Memeriksa',
         lookStraight: isStraightOk ? 'Lolos' : 'Memeriksa',
+        liveBlink: isBlinkOk ? 'Lolos' : 'Menunggu',
         noGlasses: isNoGlassesOk,
+        phoneBezel: isBezelDetected,
       });
 
-      const allReady = isLightOk && isPosOk && isStraightOk && isNoGlassesOk;
+      // Strict readiness check: Must NOT be a phone bezel, and MUST have biological blink
+      const allReady =
+        isLightOk &&
+        isPosOk &&
+        isStraightOk &&
+        isNoGlassesOk &&
+        isBlinkOk &&
+        !isBezelDetected;
 
-      if (!isNoGlassesOk) {
+      if (isBezelDetected) {
+        setStatusText('Peringatan: Terdeteksi bingkai layar HP / perangkat lain di depan kamera!');
+      } else if (!isNoGlassesOk) {
         setStatusText('Mohon lepas kacamata untuk ketepatan pemindaian');
       } else if (!isLightOk) {
         setStatusText(
@@ -300,15 +336,17 @@ export default function SmartSkinScannerApp() {
         setStatusText('Posisikan wajah Anda tepat di dalam bingkai oval');
       } else if (!isStraightOk) {
         setStatusText('Arahkan pandangan lurus dan tegak ke arah kamera');
+      } else if (!isBlinkOk) {
+        setStatusText('Kedipkan mata Anda 1x untuk verifikasi wajah asli (anti-foto/layar)');
       } else {
-        setStatusText('Posisi optimal terkalibrasi. Siap memindai.');
+        setStatusText('Posisi optimal terkalibrasi & wajah hidup valid. Siap memindai.');
       }
 
       if (allReady) {
         if (scanState !== 'READY') setScanState('READY');
         autoTriggerCountRef.current += 1;
-        // Auto trigger after 1.4s of steady alignment (14 frames x 100ms)
-        if (autoTriggerCountRef.current >= 14) {
+        // Auto trigger only after 1.5s of steady alignment with confirmed living blink
+        if (autoTriggerCountRef.current >= 15) {
           autoTriggerCountRef.current = 0;
           handleStartScan();
         }
@@ -330,6 +368,27 @@ export default function SmartSkinScannerApp() {
       scanState === 'FLASH' ||
       scanState === 'SUCCESS'
     ) {
+      return;
+    }
+
+    // STRICT ANTI-SPOOF PRE-CHECK:
+    // 1. If screen bezel was detected, immediately block
+    if (checks.phoneBezel) {
+      setScanState('FAILED');
+      setStatusText('Verifikasi ditolak: Terdeteksi bingkai layar ponsel');
+      setErrorMessage(
+        'Sistem mendeteksi layar ponsel lain atau tablet di depan kamera. Harap gunakan wajah Anda langsung di kamera.'
+      );
+      return;
+    }
+
+    // 2. If eye blink was never detected (static photo on screen), block
+    if (checks.liveBlink !== 'Lolos') {
+      setScanState('FAILED');
+      setStatusText('Verifikasi ditolak: Terdeteksi foto statis / layar HP');
+      setErrorMessage(
+        'Sistem mendeteksi gambar foto statis tanpa kedipan mata biologis alami. Harap hadapkan wajah asli Anda langsung dan kedipkan mata.'
+      );
       return;
     }
 
@@ -371,7 +430,11 @@ export default function SmartSkinScannerApp() {
           preRGB,
           flashRGB,
           targetColor,
-          laplacianVar
+          laplacianVar,
+          {
+            blinkVerified: checks.liveBlink === 'Lolos',
+            bezelDetected: checks.phoneBezel,
+          }
         );
       }
     } else {
@@ -381,9 +444,10 @@ export default function SmartSkinScannerApp() {
     // Blokir jika terdeteksi pantulan layar HP lain atau foto cetak
     if (liveness && !liveness.passed) {
       setScanState('FAILED');
-      setStatusText('Verifikasi biometrik tidak lolos: gunakan wajah asli');
+      setStatusText('Verifikasi biometrik ditolak: Terdeteksi layar HP lain atau foto');
       setErrorMessage(
-        'Sistem mendeteksi kemungkinan foto cetak, layar HP lain, atau pantulan tidak alami. Harap hadapkan wajah langsung ke kamera.'
+        liveness.reason ||
+          'Sistem mendeteksi pantulan kaca layar HP lain atau foto fisik. Harap hadapkan wajah asli Anda langsung ke kamera.'
       );
       return;
     }
@@ -442,6 +506,11 @@ export default function SmartSkinScannerApp() {
       });
 
       const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || verifyData.status === 'error') {
+        throw new Error(verifyData.message || 'Verifikasi anti-manipulasi ditolak oleh server');
+      }
+
       setVerificationData(verifyData);
       setScanState('SUCCESS');
       setStatusText('Analisis kulit berhasil diselesaikan.');
@@ -451,7 +520,7 @@ export default function SmartSkinScannerApp() {
       }
     } catch (err: any) {
       console.error(err);
-      setScanState('ERROR');
+      setScanState('FAILED');
       setErrorMessage(err.message || 'Gagal memproses model analisis kulit');
     }
   };
@@ -465,12 +534,15 @@ export default function SmartSkinScannerApp() {
     setErrorMessage('');
     setCartItems(new Set());
     autoTriggerCountRef.current = 0;
-    setStatusText('Posisikan wajah Anda tepat di dalam bingkai oval');
+    blinkTrackerRef.current.reset();
+    setStatusText('Posisikan wajah Anda tepat di dalam bingkai oval dan kedipkan mata');
     setChecks({
       light: 'Memeriksa',
       facePos: 'Memeriksa',
       lookStraight: 'Memeriksa',
+      liveBlink: 'Menunggu',
       noGlasses: true,
+      phoneBezel: false,
     });
     fetchChallenge().then(() => {
       startCamera();
@@ -658,7 +730,9 @@ export default function SmartSkinScannerApp() {
     checks.light === 'Lolos' &&
     checks.facePos === 'Lolos' &&
     checks.lookStraight === 'Lolos' &&
-    checks.noGlasses;
+    checks.noGlasses &&
+    checks.liveBlink === 'Lolos' &&
+    !checks.phoneBezel;
 
   return (
     <main className="min-h-screen bg-[#14091a] text-[#fdf4ff] flex flex-col items-center relative overflow-hidden selection:bg-[#c084fc] selection:text-[#14091a]">
@@ -691,7 +765,7 @@ export default function SmartSkinScannerApp() {
           <div className="flex items-center gap-2.5">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-[rgba(255,255,255,0.06)] text-[#e9d5ff] border border-[rgba(255,255,255,0.12)] backdrop-blur-md">
               <ShieldCheck className="w-3.5 h-3.5 text-[#4ade80]" />
-              Model ONNX Web · Liveness Aktif
+              Anti-Layar HP · Liveness 3D Aktif
             </span>
             {scanState === 'SUCCESS' && (
               <button
@@ -805,39 +879,39 @@ export default function SmartSkinScannerApp() {
                   {/* Top Floating Badge */}
                   <div className="absolute left-3 top-3 z-20">
                     <span className="glass-pill px-2.5 py-1 rounded-full text-[11px] font-semibold text-white shadow-sm flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#4ade80] animate-pulse" />
-                      Live Biometrik
+                      <span className={`w-2 h-2 rounded-full ${checks.liveBlink === 'Lolos' ? 'bg-[#4ade80] animate-pulse' : 'bg-[#fbbf24]'}`} />
+                      {checks.liveBlink === 'Lolos' ? 'Biometrik Hidup Aktif' : 'Menunggu Kedipan'}
                     </span>
                   </div>
                 </div>
 
-                {/* 3 Quality Calibration Chips */}
-                <div className="grid grid-cols-3 gap-2">
+                {/* 4 Quality Calibration Chips (Light, Pos, Straight, Biological Blink) */}
+                <div className="grid grid-cols-4 gap-2">
                   <div
-                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                    className={`p-2 rounded-xl border text-center transition-all ${
                       checks.light === 'Lolos'
                         ? 'bg-[rgba(74,222,128,0.12)] border-[#4ade80]/40 text-[#4ade80]'
                         : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.08)] text-[#c4b5fd]'
                     }`}
                   >
-                    <div className="flex items-center justify-center gap-1 text-[11px] font-semibold">
-                      <Sun className="w-3.5 h-3.5" />
+                    <div className="flex items-center justify-center gap-1 text-[10px] font-semibold">
+                      <Sun className="w-3 h-3" />
                       Cahaya
                     </div>
                     <span className="text-[10px] font-bold block mt-0.5">
-                      {checks.light === 'Lolos' ? '✓ Optimal' : '○ Menyesuaikan'}
+                      {checks.light === 'Lolos' ? '✓ Pas' : '○ Sesuaikan'}
                     </span>
                   </div>
 
                   <div
-                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                    className={`p-2 rounded-xl border text-center transition-all ${
                       checks.facePos === 'Lolos'
                         ? 'bg-[rgba(74,222,128,0.12)] border-[#4ade80]/40 text-[#4ade80]'
                         : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.08)] text-[#c4b5fd]'
                     }`}
                   >
-                    <div className="flex items-center justify-center gap-1 text-[11px] font-semibold">
-                      <UserCheck className="w-3.5 h-3.5" />
+                    <div className="flex items-center justify-center gap-1 text-[10px] font-semibold">
+                      <UserCheck className="w-3 h-3" />
                       Posisi
                     </div>
                     <span className="text-[10px] font-bold block mt-0.5">
@@ -846,21 +920,47 @@ export default function SmartSkinScannerApp() {
                   </div>
 
                   <div
-                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                    className={`p-2 rounded-xl border text-center transition-all ${
                       checks.lookStraight === 'Lolos'
                         ? 'bg-[rgba(74,222,128,0.12)] border-[#4ade80]/40 text-[#4ade80]'
                         : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.08)] text-[#c4b5fd]'
                     }`}
                   >
-                    <div className="flex items-center justify-center gap-1 text-[11px] font-semibold">
-                      <Eye className="w-3.5 h-3.5" />
-                      Pandangan
+                    <div className="flex items-center justify-center gap-1 text-[10px] font-semibold">
+                      <Eye className="w-3 h-3" />
+                      Lurus
                     </div>
                     <span className="text-[10px] font-bold block mt-0.5">
-                      {checks.lookStraight === 'Lolos' ? '✓ Lurus' : '○ Sejajar'}
+                      {checks.lookStraight === 'Lolos' ? '✓ Sejajar' : '○ Miring'}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`p-2 rounded-xl border text-center transition-all ${
+                      checks.liveBlink === 'Lolos'
+                        ? 'bg-[rgba(74,222,128,0.12)] border-[#4ade80]/40 text-[#4ade80]'
+                        : 'bg-[rgba(251,191,36,0.12)] border-[#fbbf24]/40 text-[#fbbf24]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[10px] font-semibold">
+                      <ScanFace className="w-3 h-3" />
+                      Mata Hidup
+                    </div>
+                    <span className="text-[10px] font-bold block mt-0.5">
+                      {checks.liveBlink === 'Lolos' ? '✓ Berkedip' : '○ Kedip 1x'}
                     </span>
                   </div>
                 </div>
+
+                {/* Phone Screen Bezel Warning (Anti-Device Spoofing) */}
+                {checks.phoneBezel && (
+                  <div className="p-3 rounded-xl bg-[rgba(251,113,133,0.2)] border border-[#fb7185]/60 text-xs text-[#fecdd3] flex items-center gap-2 animate-pulse">
+                    <Smartphone className="w-4 h-4 flex-shrink-0 text-[#fb7185]" />
+                    <span className="font-semibold">
+                      Terdeteksi layar ponsel lain di depan kamera! Harap singkirkan perangkat lain dan gunakan wajah asli Anda langsung.
+                    </span>
+                  </div>
+                )}
 
                 {/* Glasses Warning */}
                 {!checks.noGlasses && (
@@ -876,12 +976,16 @@ export default function SmartSkinScannerApp() {
                     {statusText}
                   </p>
                   {errorMessage && (
-                    <p className="text-xs text-[#fb7185] font-semibold text-center bg-[rgba(251,113,133,0.1)] p-2 rounded-lg border border-[rgba(251,113,133,0.3)]">
+                    <div className="text-xs text-[#fb7185] font-semibold text-center bg-[rgba(251,113,133,0.1)] p-3 rounded-xl border border-[rgba(251,113,133,0.3)]">
+                      <p className="font-bold flex items-center justify-center gap-1 mb-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Pindaian Ditolak Sistem Anti-Manipulasi
+                      </p>
                       {errorMessage}
-                    </p>
+                    </div>
                   )}
 
-                  {/* Mulai Pemindaian Kulit Button - Clickable, responsive, NEVER permanently locked */}
+                  {/* Mulai Pemindaian Kulit Button - Protected against other device screens */}
                   <button
                     type="button"
                     onClick={handleStartScan}
@@ -909,7 +1013,7 @@ export default function SmartSkinScannerApp() {
                     ) : allReady ? (
                       <>
                         <Zap className="w-4 h-4 text-emerald-200" />
-                        Pindai Wajah Sekarang (Otomatis)
+                        Pindai Wajah Sekarang (Wajah Hidup ✓)
                       </>
                     ) : (
                       <>
@@ -949,7 +1053,7 @@ export default function SmartSkinScannerApp() {
                       <span className="text-[10px] text-white/70 block uppercase font-bold">
                         Respon Flash Spektral
                       </span>
-                      <strong className="text-white">
+                      <strong className="text-[#4ade80]">
                         {verificationData?.analysis?.livenessMetrics?.chromaticShift || 85}% Valid
                       </strong>
                     </div>
@@ -1001,7 +1105,7 @@ export default function SmartSkinScannerApp() {
             <div className="p-3 rounded-xl bg-[rgba(74,222,128,0.08)] border border-[#4ade80]/25 text-[11px] text-[#4ade80] flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 flex-shrink-0" />
               <span>
-                Verifikasi anti-manipulasi spektral memastikan pemindaian berasal dari jaringan dermis hidup asli secara lokal.
+                Verifikasi anti-manipulasi 3D menolak foto cetak dan layar HP lain menggunakan analisis kedipan biologis dan respon spektral jaringan dermis hidup.
               </span>
             </div>
           </div>
@@ -1023,7 +1127,7 @@ export default function SmartSkinScannerApp() {
                     </h2>
                     <p className="text-xs text-[#c4b5fd] leading-relaxed">
                       Sistem memanfaatkan deep learning MobileNetV3-Small ONNX di peramban dan validasi
-                      kamera langsung untuk mengenali tipe dan masalah kulit, lalu mencocokkan formulasi skincare terbaik.
+                      kamera langsung anti-manipulasi untuk mengenali tipe dan masalah kulit, lalu mencocokkan formulasi skincare terbaik.
                     </p>
                   </div>
 
@@ -1052,10 +1156,10 @@ export default function SmartSkinScannerApp() {
                     <div className="p-3.5 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] space-y-1">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                         <CheckCheck className="w-3.5 h-3.5 text-[#4ade80]" />
-                        Validasi Kamera Langsung
+                        Anti-Layar HP &amp; Foto
                       </div>
                       <p className="text-[11px] text-[#c4b5fd]">
-                        Uji pantulan spektral untuk memverifikasi wajah asli (anti-foto atau layar HP).
+                        Verifikasi kedipan mata biologis &amp; pantulan spektral untuk menolak layar HP lain.
                       </p>
                     </div>
 
@@ -1094,7 +1198,7 @@ export default function SmartSkinScannerApp() {
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-[#9333ea] to-[#c026d3] text-white font-bold text-[11px] flex items-center justify-center flex-shrink-0">
                         3
                       </span>
-                      <span>Posisikan wajah tepat di dalam bingkai oval hingga indikator menyala hijau.</span>
+                      <span>Posisikan wajah tepat di dalam bingkai oval lalu <strong>kedipkan mata Anda 1 kali</strong> untuk verifikasi hidup.</span>
                     </div>
                   </div>
                 </div>

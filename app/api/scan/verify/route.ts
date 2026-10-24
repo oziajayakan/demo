@@ -56,13 +56,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Verify Liveness Score
-    if (!livenessResult || !livenessResult.passed) {
+    // 3. Verify Liveness Score (Strict Anti-Spoof: Reject other screens & photos)
+    if (
+      !livenessResult ||
+      !livenessResult.passed ||
+      (typeof livenessResult.metrics?.chromaticShift === 'number' &&
+        livenessResult.metrics.chromaticShift < 70) ||
+      livenessResult.metrics?.blinkVerified === false ||
+      livenessResult.metrics?.bezelDetected === true
+    ) {
       return NextResponse.json(
         {
           status: 'error',
           code: 'SPOOF_REJECTED',
-          message: livenessResult?.reason || 'Verifikasi pantulan kulit asli gagal.',
+          message:
+            livenessResult?.reason ||
+            'Verifikasi gagal: terdeteksi layar perangkat lain atau foto fisik.',
         },
         { status: 422 }
       );
