@@ -3,25 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --bg-clinical: #F8FAF9;
-  --surface: #FFFFFF;
-  --ink: #19201D;
-  --muted: #5F7068;
-  --sage: #256650;
-  --sage-hover: #1B4F3D;
-  --sage-light: #EEF6F2;
-  --sage-border: #CBE2D7;
-  --rose-gold: #B87A63;
-  --rose-gold-hover: #A26550;
-  --rose-gold-light: #FAF3F0;
-  --rose-gold-border: #E8D5CE;
-  --turmeric: #C27D1A;
-  --turmeric-light: #FEF7ED;
-  --turmeric-border: #FCD9A5;
-  --line: #E5EBE8;
-  --cam-lens: #151D19;
+  --bg-dark: #14091a;
+  --bg-dark-secondary: #1c0d24;
+  --surface-dark: rgba(255, 255, 255, 0.05);
+  --surface-border: rgba(255, 255, 255, 0.1);
+  --surface-card: rgba(28, 13, 36, 0.75);
+  --ink: #fdf4ff;
+  --muted: #c4b5fd;
+  --muted-sub: #94a3b8;
+  --violet-primary: #c084fc;
+  --plum-accent: #d946ef;
+  --emerald-accent: #4ade80;
+  --amber-accent: #fbbf24;
+  --rose-accent: #fb7185;
   box-sizing: border-box;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 * {
@@ -30,7 +26,7 @@
 
 body {
   margin: 0;
-  background-color: var(--bg-clinical);
+  background-color: var(--bg-dark);
   color: var(--ink);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow-x: hidden;
@@ -38,23 +34,26 @@ body {
 }
 
 .font-serif-luxury {
-  font-family: 'Playfair Display', 'Young Serif', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
 }
 
-/* Luxury Clinical Card */
+/* Luxury Dark Card */
 .clinical-card {
-  background: #FFFFFF;
-  border: 1px solid var(--line);
+  background: rgba(28, 13, 36, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 24px;
-  box-shadow: 0 10px 30px -5px rgba(27, 77, 62, 0.05), 0 4px 10px -2px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Glassmorphism Badge */
 .glass-pill {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fdf4ff;
 }
 
 /* Camera Lens Box */
@@ -179,15 +178,18 @@ body {
   position: sticky;
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   margin-top: 24px;
-  background: var(--ink);
-  color: #FFFFFF;
+  background: rgba(20, 9, 26, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fdf4ff;
   border-radius: 20px;
   padding: 12px 14px 12px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  box-shadow: 0 14px 35px -6px rgba(25, 32, 29, 0.35);
+  box-shadow: 0 16px 40px -6px rgba(0, 0, 0, 0.7);
   z-index: 40;
 }
 
@@ -196,9 +198,12 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F1F5F3;
+  background: #14091a;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD6D0;
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
 }

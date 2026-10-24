@@ -8,6 +8,23 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 
+  async redirects() {
+    return [
+      {
+        source: '/index.html',
+        destination: '/',
+        permanent: false,
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/index.html',
+        destination: '/',
+      },
+    ];
+  },
   async headers() {
     return [
       {
