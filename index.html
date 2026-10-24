@@ -259,7 +259,7 @@
       stroke: url(#gradOk);
       stroke-width: 5;
       stroke-linecap: round;
-      transition: stroke-dasharray .12s linear;
+      transition: stroke-dasharray .1s linear;
       filter: drop-shadow(0 0 8px rgba(74, 222, 128, .8));
     }
 
@@ -305,16 +305,10 @@
       transition: all .2s;
     }
 
-    .hint.active-blink {
-      background: rgba(142, 47, 148, 0.95);
-      border-color: var(--a2);
+    .hint.ok {
+      background: rgba(16, 185, 129, 0.92);
+      border-color: #34d399;
       color: #fff;
-      animation: bounceHint 0.8s infinite alternate;
-    }
-
-    @keyframes bounceHint {
-      from { transform: translateX(-50%) translateY(0); }
-      to { transform: translateX(-50%) translateY(-3px); }
     }
 
     .hint.error {
@@ -388,6 +382,17 @@
     .btn-main:hover {
       transform: translateY(-2px);
       box-shadow: 0 14px 30px rgba(142, 47, 148, .6);
+    }
+
+    .btn-capture {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(16, 185, 129, .4);
+    }
+
+    .btn-capture:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(16, 185, 129, .55);
     }
 
     .btn-ghost {
@@ -680,7 +685,7 @@
       <!-- Input Kamera Section -->
       <section class="card" aria-label="Input Kamera Wajah">
         <div class="stage" id="stage">
-          <video id="video" playsinline muted></video>
+          <video id="video" playsinline muted autoplay></video>
           <canvas id="snap"></canvas>
 
           <!-- Guide Oval & Progress Ring -->
@@ -697,7 +702,7 @@
           </svg>
 
           <div class="scanline"></div>
-          <div class="hint" id="hint">Tekan "Buka Kamera" untuk Auto-Scan</div>
+          <div class="hint" id="hint">Tekan "Buka Kamera & Mulai Auto-Scan"</div>
         </div>
 
         <!-- Alert Penolakan Layar HP / Foto -->
@@ -709,13 +714,14 @@
         <div class="controls">
           <div class="action-row">
             <button id="btnStart" class="btn btn-main">▶️ Buka Kamera &amp; Mulai Auto-Scan</button>
-            <button id="btnRetry" class="btn btn-ghost" style="display:none;">🔄 Auto-Scan Ulang</button>
+            <button id="btnCaptureNow" class="btn btn-capture" style="display:none;">📸 Pindai Sekarang</button>
+            <button id="btnRetry" class="btn btn-ghost" style="display:none;">🔄 Pindai Ulang</button>
           </div>
 
           <!-- Status Badge -->
           <div class="status-badge" id="statusBadge">
             <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">Memuat modul AI &amp; 3D Liveness...</span>
+            <span id="statusText">Memuat modul AI...</span>
           </div>
         </div>
       </section>
@@ -728,22 +734,16 @@
           <div class="empty">
             <b>🪞</b>
             Belum ada hasil analisis.<br>
-            Buka kamera dan ikuti instruksi kedip untuk auto-scan langsung.
+            Buka kamera dan arahkan wajah asli ke oval untuk auto-scan langsung.
           </div>
         </div>
       </section>
     </div>
 
-    <footer>DEMO AI · Real-Time 3D Liveness &amp; MobileNetV3 Deep Learning</footer>
+    <footer>DEMO AI · Real-Time Liveness &amp; MobileNetV3 Deep Learning</footer>
   </main>
 
-  <!-- Modul AI, ONNX Runtime Web & MediaPipe 3D Landmarker -->
-  <script type="module">
-    import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
-
-    const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
-    const LANDMARKER_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-
+  <script>
     const $ = id => document.getElementById(id);
     const video = $("video"), snap = $("snap"), stage = $("stage"), hint = $("hint");
     const rejectAlert = $("rejectAlert"), rejectTitle = $("rejectTitle"), rejectMsg = $("rejectMsg");
@@ -801,16 +801,18 @@
       }
     ];
 
-    let session = null, landmarker = null, spec = null, stream = null;
+    let session = null, spec = null, stream = null;
     let productsList = DEFAULT_PRODUK;
     let animFrameId = null;
+    let isAnalyzing = false;
 
-    // State Liveness:
-    // "idle" -> "align" (posisi di oval) -> "blink_challenge" (wajib kedip mata asli) -> "capturing" -> "done"
-    let phase = "idle";
-    let eyeWasClosed = false;
-    let blinkStartTime = 0;
-    const BLINK_TIMEOUT_MS = 6000;
+    // State Liveness
+    let scanHoldStart = 0;
+    const REQUIRED_HOLD_MS = 1200; // Tahan posisi pas 1.2s -> Auto Capture!
+
+    // Buffer liveness tracking
+    let prevFrameData = null;
+    let motionHistory = [];
 
     function setStatus(text, type = "normal") {
       $("statusText").textContent = text;
@@ -820,10 +822,9 @@
       if (type === "err") dot.classList.add("err");
     }
 
-    function setHint(text, isError = false, isBlink = false) {
+    function setHint(text, isError = false, isOk = false) {
       hint.textContent = text;
-      hint.classList.toggle("error", isError);
-      hint.classList.toggle("active-blink", isBlink);
+      hint.className = "hint" + (isError ? " error" : (isOk ? " ok" : ""));
     }
 
     function hideAlert() {
@@ -847,194 +848,266 @@
       throw new Error("Gagal memuat " + urls[0]);
     }
 
-    // Inisialisasi Model AI & MediaPipe
-    async function initSystem() {
+    // Inisialisasi ONNX Model (WASM Single-Thread, Tanpa Dependency Berat)
+    async function initModel() {
       try {
-        setStatus("Memuat modul AI & 3D Liveness...", "normal");
+        setStatus("Memuat model AI...", "normal");
 
-        const initONNX = async () => {
-          const [respLabel, onnxResp, respProd] = await Promise.all([
-            fetchWithFallback(["./labels.json", "/models/labels.json", "/public/models/labels.json"]),
-            fetchWithFallback(["./skin_model.onnx", "/models/skin_model.onnx", "/public/models/skin_model.onnx"]),
-            fetchWithFallback(["./products.json", "/products.json", "/public/products.json"]).catch(() => null)
-          ]);
+        const [respLabel, onnxResp, respProd] = await Promise.all([
+          fetchWithFallback(["./labels.json", "/models/labels.json", "/public/models/labels.json"]),
+          fetchWithFallback(["./skin_model.onnx", "/models/skin_model.onnx", "/public/models/skin_model.onnx"]),
+          fetchWithFallback(["./products.json", "/products.json", "/public/products.json"]).catch(() => null)
+        ]);
 
-          spec = await respLabel.json();
-          if (respProd && respProd.ok) {
-            try {
-              const pData = await respProd.json();
-              if (Array.isArray(pData) && pData.length) productsList = pData;
-            } catch(e){}
-          }
-
-          ort.env.wasm.numThreads = 1;
-          ort.env.wasm.simd = true;
-          const onnxBuffer = await onnxResp.arrayBuffer();
-          session = await ort.InferenceSession.create(onnxBuffer, { executionProviders: ["wasm"] });
-
-          // Pre-warm ONNX session
-          const dummy = new ort.Tensor("float32", new Float32Array(3 * 224 * 224), [1, 3, 224, 224]);
-          await session.run({ input: dummy });
-          dummy.dispose?.();
-        };
-
-        const initLandmarker = async () => {
-          const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-          const baseOpts = { modelAssetPath: LANDMARKER_URL };
+        spec = await respLabel.json();
+        if (respProd && respProd.ok) {
           try {
-            landmarker = await FaceLandmarker.createFromOptions(fileset, {
-              baseOptions: { ...baseOpts, delegate: "GPU" },
-              runningMode: "VIDEO", numFaces: 1,
-              outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
-            });
-          } catch(gpuErr) {
-            landmarker = await FaceLandmarker.createFromOptions(fileset, {
-              baseOptions: { ...baseOpts, delegate: "CPU" },
-              runningMode: "VIDEO", numFaces: 1,
-              outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
-            });
-          }
-        };
+            const pData = await respProd.json();
+            if (Array.isArray(pData) && pData.length) productsList = pData;
+          } catch(e){}
+        }
 
-        await Promise.all([initONNX(), initLandmarker()]);
-        setStatus("Sistem AI & 3D Liveness Siap", "ok");
+        ort.env.wasm.numThreads = 1;
+        ort.env.wasm.simd = true;
+        const onnxBuffer = await onnxResp.arrayBuffer();
+        session = await ort.InferenceSession.create(onnxBuffer, { executionProviders: ["wasm"] });
+
+        // Pre-warm ONNX session
+        const dummy = new ort.Tensor("float32", new Float32Array(3 * 224 * 224), [1, 3, 224, 224]);
+        await session.run({ input: dummy });
+        dummy.dispose?.();
+
+        setStatus("Model AI Siap Digunakan", "ok");
         setHint("Tekan 'Buka Kamera & Mulai Auto-Scan' di bawah");
       } catch (err) {
-        console.error("Gagal load sistem:", err);
+        console.error("Gagal load model:", err);
         setStatus("Gagal memuat AI: " + err.message, "err");
         setHint("Gagal memuat model. Periksa koneksi internet.", true);
       }
     }
 
     // =========================================================================
-    // ALGORITMA ANTI-SPOOFING 3D LIVENESS: BLINK DETECTION & DEPTH VALIDATION
-    // (MENOLAK 100% FOTO HP LAIN, FOTO CETAK, MAUPUN VIDEO STATIS)
+    // DETEKTOR REAL-TIME: ANTI-LAYAR HP / FOTO + KUALITAS WAJAH + AUTO-SCAN
     // =========================================================================
+    const testCanvas = document.createElement("canvas");
+    testCanvas.width = 96;
+    testCanvas.height = 96;
+    const testCtx = testCanvas.getContext("2d", { willReadFrequently: true });
 
-    // Eye Aspect Ratio (EAR)
-    function getEAR(lm) {
-      if (!lm || lm.length < 400) return 0.28;
+    function analyzeLiveFace(videoEl) {
+      const vw = videoEl.videoWidth || 640;
+      const vh = videoEl.videoHeight || 480;
+      if (!vw || !vh) return { ok: false, reason: "Menunggu video feed...", code: "NO_FEED" };
 
-      // Left eye: 362 (outer), 263 (inner), 386/374, 385/380
-      const l_t1 = lm[386], l_b1 = lm[374];
-      const l_t2 = lm[385], l_b2 = lm[380];
-      const l_lp = lm[362], l_rp = lm[263];
+      // 1. SAMPLE SELURUH FRAME UNTUK DETEKSI BEZEL / BINGKAI HP LAIN
+      testCtx.drawImage(videoEl, 0, 0, 96, 96);
+      const fullData = testCtx.getImageData(0, 0, 96, 96).data;
 
-      // Right eye: 33 (outer), 133 (inner), 159/145, 158/153
-      const r_t1 = lm[159], r_b1 = lm[145];
-      const r_t2 = lm[158], r_b2 = lm[153];
-      const r_lp = lm[33], r_rp = lm[133];
-
-      if (!l_t1 || !l_b1 || !l_t2 || !l_b2 || !l_lp || !l_rp ||
-          !r_t1 || !r_b1 || !r_t2 || !r_b2 || !r_lp || !r_rp) return 0.28;
-
-      const l_v1 = Math.hypot(l_t1.x - l_b1.x, l_t1.y - l_b1.y);
-      const l_v2 = Math.hypot(l_t2.x - l_b2.x, l_t2.y - l_b2.y);
-      const l_h  = Math.hypot(l_lp.x - l_rp.x, l_lp.y - l_rp.y);
-      const l_ear = (l_v1 + l_v2) / (2.0 * (l_h || 0.001));
-
-      const r_v1 = Math.hypot(r_t1.x - r_b1.x, r_t1.y - r_b1.y);
-      const r_v2 = Math.hypot(r_t2.x - r_b2.x, r_t2.y - r_b2.y);
-      const r_h  = Math.hypot(r_lp.x - r_rp.x, r_lp.y - r_rp.y);
-      const r_ear = (r_v1 + r_v2) / (2.0 * (r_h || 0.001));
-
-      return (l_ear + r_ear) / 2.0;
-    }
-
-    // Canvas optik pembantu deteksi bezel & pantulan layar gawai
-    const optCanvas = document.createElement("canvas");
-    optCanvas.width = optCanvas.height = 64;
-    const optCtx = optCanvas.getContext("2d", { willReadFrequently: true });
-
-    function detectScreenGlareOrBezel(videoEl, lm) {
-      const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
-      if (!vw || !vh || !lm) return null;
-
-      // 1. Cek pantulan layar HP (cheek patch)
-      const cheekL = lm[117], cheekR = lm[346];
-      if (cheekL && cheekR) {
-        const cx = ((cheekL.x + cheekR.x) / 2) * vw;
-        const cy = ((cheekL.y + cheekR.y) / 2) * vh;
-        optCtx.drawImage(videoEl, cx - 24, cy - 24, 48, 48, 0, 0, 32, 32);
-        const d = optCtx.getImageData(0, 0, 32, 32).data;
-
-        let sum = 0, sumSq = 0, glarePixels = 0;
-        for (let i = 0; i < 32 * 32; i++) {
-          const idx = i * 4;
-          const r = d[idx], g = d[idx + 1], b = d[idx + 2];
-          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-          sum += lum;
-          sumSq += lum * lum;
-          if (r > 242 && g > 242 && b > 242) glarePixels++;
-        }
-        const mean = sum / (32 * 32);
-        const variance = (sumSq / (32 * 32)) - (mean * mean);
-        if (glarePixels / (32 * 32) > 0.12) {
-          return "Terdeteksi pantulan cahaya/backlight layar HP";
-        }
-        if (variance < 28) {
-          return "Tekstur terlalu datar (Foto/Layar perangkat lain)";
+      // Cek tepian persegi panjang kontras tinggi (bingkai fisik HP lain yang disorotkan)
+      let bezelEdgeCount = 0;
+      for (let y = 6; y < 90; y += 3) {
+        for (let x = 6; x < 90; x += 3) {
+          if (x < 22 || x > 74 || y < 20 || y > 76) {
+            const idx = (y * 96 + x) * 4;
+            const l1 = 0.299 * fullData[idx] + 0.587 * fullData[idx + 1] + 0.114 * fullData[idx + 2];
+            const nextIdx = (y * 96 + Math.min(95, x + 3)) * 4;
+            const l2 = 0.299 * fullData[nextIdx] + 0.587 * fullData[nextIdx + 1] + 0.114 * fullData[nextIdx + 2];
+            if (Math.abs(l1 - l2) > 75) bezelEdgeCount++;
+          }
         }
       }
 
-      // 2. Cek kurvatur 3D (Wajah nyata memiliki hidung menonjol di sumbu Z, layar 2D datar)
-      const noseTip = lm[1], earL = lm[234], earR = lm[454];
-      if (noseTip && earL && earR) {
-        const avgCheekZ = (earL.z + earR.z) / 2.0;
-        const depth = avgCheekZ - noseTip.z;
-        if (depth < 0.018) {
-          return "Wajah terlalu datar tanpa kontur 3D (Foto 2D)";
+      // 2. SAMPLE AREA OVAL WAJAH (Tengah Frame 55%)
+      const centerW = Math.min(vw, vh) * 0.55;
+      const csx = (vw - centerW) / 2;
+      const csy = (vh - centerW) / 2;
+      testCtx.drawImage(videoEl, csx, csy, centerW, centerW, 0, 0, 64, 64);
+      const faceData = testCtx.getImageData(0, 0, 64, 64).data;
+      const totalPx = 64 * 64;
+
+      let skinCount = 0;
+      let glareCount = 0;
+      let totalL = 0;
+      let totalL2 = 0;
+      let gradSum = 0;
+      const currentLuma = new Float32Array(totalPx);
+
+      for (let y = 0; y < 64; y++) {
+        for (let x = 0; x < 64; x++) {
+          const idx = (y * 64 + x) * 4;
+          const r = faceData[idx], g = faceData[idx + 1], b = faceData[idx + 2];
+          const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+          currentLuma[y * 64 + x] = luma;
+
+          totalL += luma;
+          totalL2 += luma * luma;
+
+          // Deteksi rona kulit manusia asli (Fleksibel untuk berbagai kondisi cahaya & kacamata)
+          const isSkin = (r > 35 && g > 20 && b > 12 && r >= g && g >= (b - 8) && (r - b) > 5);
+          if (isSkin) skinCount++;
+
+          // Deteksi pantulan backlight layar HP (>242 pada RGB)
+          if (r > 242 && g > 242 && b > 242) glareCount++;
+
+          if (x < 63) {
+            const nextIdx = (y * 64 + (x + 1)) * 4;
+            const nextL = 0.299 * faceData[nextIdx] + 0.587 * faceData[nextIdx + 1] + 0.114 * faceData[nextIdx + 2];
+            gradSum += Math.abs(luma - nextL);
+          }
         }
       }
 
-      return null;
+      const meanL = totalL / totalPx;
+      const variance = Math.max(0, (totalL2 / totalPx) - (meanL * meanL));
+      const stdDev = Math.sqrt(variance);
+      const avgGrad = gradSum / (64 * 63);
+      const skinRatio = skinCount / totalPx;
+      const glareRatio = glareCount / totalPx;
+
+      // 3. Motion & Liveness Tracking
+      let motionScore = 0;
+      if (prevFrameData) {
+        let diff = 0;
+        for (let i = 0; i < totalPx; i++) {
+          diff += Math.abs(currentLuma[i] - prevFrameData[i]);
+        }
+        motionScore = diff / totalPx;
+      }
+      prevFrameData = currentLuma;
+
+      motionHistory.push(motionScore);
+      if (motionHistory.length > 8) motionHistory.shift();
+      const avgMotion = motionHistory.reduce((a, b) => a + b, 0) / (motionHistory.length || 1);
+
+      // --- EVALUASI PENOLAKAN ANTI-LAYAR HP & SPOOFING ---
+
+      // A. Deteksi Bezel HP Lain yang dipegang
+      if (bezelEdgeCount > 35) {
+        return {
+          ok: false,
+          reason: "❌ Terdeteksi bingkai layar gawai lain! Hadapkan wajah asli.",
+          code: "SCREEN_SPOOF"
+        };
+      }
+
+      // B. Pantulan Glare Layar Ponsel
+      if (glareRatio > 0.08 || (glareRatio > 0.03 && stdDev < 15)) {
+        return {
+          ok: false,
+          reason: "❌ Terdeteksi pantulan cahaya layar HP!",
+          code: "SCREEN_GLARE"
+        };
+      }
+
+      // C. Foto 2D Datar (StdDev sangat rendah / datar)
+      if (stdDev < 10) {
+        return {
+          ok: false,
+          reason: "❌ Terdeteksi foto 2D / gambar datar!",
+          code: "FLAT_PHOTO"
+        };
+      }
+
+      // D. Filter Beauty / Virtual Smoothing
+      if (avgGrad < 1.15 && stdDev < 14) {
+        return {
+          ok: false,
+          reason: "⚠️ Terdeteksi filter kecantikan / smoothing!",
+          code: "BEAUTY_FILTER"
+        };
+      }
+
+      // E. Wajah Belum Pas di Oval
+      if (skinRatio < 0.18) {
+        return {
+          ok: false,
+          reason: "Pusatkan wajah Anda tepat di dalam oval",
+          code: "ALIGN"
+        };
+      }
+
+      // F. Gambar Diam / Layar HP Beku
+      if (motionHistory.length >= 6 && avgMotion < 0.12) {
+        return {
+          ok: false,
+          reason: "⚠️ Gambar terlalu diam. Gerakkan sedikit wajah Anda",
+          code: "STILL_SPOOF"
+        };
+      }
+
+      // Wajah asli valid!
+      return {
+        ok: true,
+        reason: "Wajah asli terverifikasi! Tahan posisi...",
+        code: "VALID"
+      };
     }
 
     // Camera Handlers & Auto-Scan Loop
     async function startCamera() {
-      if (!session || !landmarker) {
-        alert("Modul AI sedang dimuat, harap tunggu beberapa detik...");
+      if (!session) {
+        alert("Modul AI sedang dimuat, harap tunggu sebentar...");
         return;
       }
       hideAlert();
       setProgress(0);
       setStatus("Menghubungkan ke kamera...");
       setHint("Menghubungkan ke kamera...");
+      $("btnStart").disabled = true;
 
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        let constraints = {
           video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
-        });
-      } catch (e1) {
+        };
         try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (e) {
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        } catch (e2) {
-          setStatus("Izin kamera ditolak", "err");
-          setHint("Izin kamera diperlukan untuk auto-scan.", true);
-          return;
         }
+
+        video.srcObject = stream;
+        video.setAttribute("playsinline", "true");
+        video.muted = true;
+
+        // Tunggu hingga frame pertama siap
+        await new Promise(resolve => {
+          if (video.readyState >= 2) return resolve();
+          video.onloadedmetadata = () => resolve();
+          setTimeout(resolve, 1000);
+        });
+
+        try {
+          await video.play();
+        } catch(err) {
+          console.warn("video.play error:", err);
+        }
+
+        video.style.display = "block";
+        snap.style.display = "none";
+        $("btnStart").style.display = "none";
+        $("btnRetry").style.display = "none";
+        $("btnCaptureNow").style.display = "inline-flex";
+        $("btnCaptureNow").disabled = true;
+        $("ring").className = "ring";
+
+        setStatus("Kamera Aktif — Posisikan wajah di oval", "ok");
+        setHint("Posisikan wajah Anda di dalam bingkai oval");
+
+        scanHoldStart = 0;
+        prevFrameData = null;
+        motionHistory = [];
+        isAnalyzing = false;
+
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        animFrameId = requestAnimationFrame(autoScanLoop);
+      } catch (err) {
+        console.error("Camera access error:", err);
+        setStatus("Gagal mengakses kamera: " + err.message, "err");
+        setHint("Klik izin kamera di browser untuk mulai.", true);
+        $("btnStart").disabled = false;
+        $("btnStart").style.display = "inline-flex";
       }
-
-      video.srcObject = stream;
-      video.setAttribute("playsinline", "true");
-      await video.play();
-
-      video.style.display = "block";
-      snap.style.display = "none";
-      $("btnStart").style.display = "none";
-      $("btnRetry").style.display = "none";
-      $("ring").className = "ring";
-
-      phase = "align";
-      eyeWasClosed = false;
-      blinkStartTime = 0;
-
-      setStatus("Kamera Aktif — Posisikan wajah di oval", "ok");
-      setHint("Posisikan wajah di dalam bingkai oval");
-
-      if (animFrameId) cancelAnimationFrame(animFrameId);
-      animFrameId = requestAnimationFrame(autoScanLoop);
     }
 
     function stopCamera() {
@@ -1048,167 +1121,72 @@
       }
       $("ring").className = "ring";
       setProgress(0);
+      $("btnStart").disabled = false;
       $("btnStart").style.display = "inline-flex";
+      $("btnCaptureNow").style.display = "none";
     }
 
-    let lastDetectTime = 0;
-
-    // Loop Utama Deteksi Real-Time
+    // Loop Evaluasi Real-Time
     function autoScanLoop(now) {
-      if (phase === "done" || phase === "idle" || phase === "capturing") return;
-
+      if (isAnalyzing) return;
       animFrameId = requestAnimationFrame(autoScanLoop);
 
-      if (video.readyState < 2 || !landmarker) return;
-      if (now - lastDetectTime < 45) return; // Evaluasi tiap ~45ms (~22 FPS)
-      lastDetectTime = now;
+      if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
 
-      let res = null;
-      try {
-        res = landmarker.detectForVideo(video, now);
-      } catch (e) {
-        return;
-      }
+      const evalResult = analyzeLiveFace(video);
 
-      const hasFace = res && res.faceLandmarks && res.faceLandmarks.length > 0;
-      if (!hasFace) {
-        phase = "align";
-        eyeWasClosed = false;
-        $("ring").className = "ring";
-        setProgress(0);
-        setHint("Posisikan wajah di dalam bingkai oval", false);
-        setStatus("Wajah belum terdeteksi", "normal");
+      if (evalResult.ok) {
+        // Wajah asli live terkonfirmasi!
+        $("ring").className = "ring ok";
         hideAlert();
-        return;
-      }
+        $("btnCaptureNow").disabled = false;
 
-      // Tolak jika lebih dari 1 wajah (misal seseorang memegang foto di depan wajahnya)
-      if (res.faceLandmarks.length > 1) {
-        $("ring").className = "ring warn";
-        setProgress(0);
-        showAlert("⚠️ Terdeteksi Lebih dari 1 Wajah", "Pastikan hanya 1 orang di depan kamera.");
-        setHint("Pastikan hanya 1 wajah di kamera", true);
-        return;
-      }
+        if (!scanHoldStart) scanHoldStart = now;
+        const elapsed = now - scanHoldStart;
+        const pct = Math.min(1, elapsed / REQUIRED_HOLD_MS);
+        setProgress(pct);
 
-      const lm = res.faceLandmarks[0];
+        setHint(`Wajah pas! Tahan posisi (${Math.round(pct * 100)}%)...`, false, true);
+        setStatus("Wajah Asli Terverifikasi — Memindai...", "ok");
 
-      // 1. Cek Anti-Screen Spoof & Glare
-      const spoofError = detectScreenGlareOrBezel(video, lm);
-      if (spoofError) {
-        $("ring").className = "ring warn";
-        setProgress(0);
-        showAlert("❌ Layar Perangkat Lain Terdeteksi", spoofError + ". Harap hadapkan wajah asli Anda.");
-        setHint(spoofError, true);
-        setStatus(spoofError, "err");
-        phase = "align";
-        eyeWasClosed = false;
-        return;
+        // Jika tahan posisi stabil 1.2 detik -> AUTO-CAPTURE LANGSUNG!
+        if (pct >= 1) {
+          executeCapture();
+          return;
+        }
       } else {
-        hideAlert();
-      }
-
-      // Evaluasi Geometri Posisi di Tengah Oval
-      let minx = 1, maxx = 0, miny = 1, maxy = 0;
-      for (const p of lm) {
-        if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x;
-        if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y;
-      }
-      const cx = (minx + maxx) / 2;
-      const cy = (miny + maxy) / 2;
-      const fh = maxy - miny;
-      const isCentered = Math.abs(cx - 0.5) < 0.22 && Math.abs(cy - 0.48) < 0.22 && fh > 0.28 && fh < 0.90;
-
-      // Rotasi Kepala Yaw (harus hadap depan)
-      const rotMatrix = res.facialTransformationMatrixes?.[0]?.data || null;
-      let yaw = 0;
-      if (rotMatrix && rotMatrix.length >= 16) {
-        yaw = Math.atan2(rotMatrix[8], rotMatrix[0]) * (180 / Math.PI);
-      }
-      const isFrontal = Math.abs(yaw) < 14;
-
-      // TAHAP 1: ALIGNMENT POSISI
-      if (phase === "align") {
+        scanHoldStart = 0;
         setProgress(0);
-        if (isCentered && isFrontal) {
-          $("ring").className = "ring ok";
-          phase = "blink_challenge";
-          blinkStartTime = now;
-          eyeWasClosed = false;
-          setHint("😉 Kedipkan kedua matamu untuk verifikasi wajah asli", false, true);
-          setStatus("Posisi Pas — Verifikasi Gerakan Alami...", "ok");
+        $("btnCaptureNow").disabled = true;
+
+        if (evalResult.code === "SCREEN_SPOOF" || evalResult.code === "SCREEN_GLARE" || evalResult.code === "FLAT_PHOTO" || evalResult.code === "BEAUTY_FILTER") {
+          $("ring").className = "ring warn";
+          showAlert("❌ Pindaian Ditolak", evalResult.reason);
+          setHint(evalResult.reason, true);
+          setStatus(evalResult.reason, "err");
         } else {
           $("ring").className = "ring";
-          if (fh <= 0.28) setHint("Dekatkan sedikit wajah ke kamera");
-          else if (fh >= 0.90) setHint("Mundur sedikit dari kamera");
-          else if (!isCentered) setHint("Pusatkan wajah di dalam bingkai oval");
-          else setHint("Hadap lurus ke arah kamera");
-          setStatus("Arahkan wajah lurus ke oval", "normal");
-        }
-        return;
-      }
-
-      // TAHAP 2: ACTIVE 3D BLINK VERIFICATION
-      // (Foto HP, gambar cetak, atau layar beku TIDAK BISA berkedip secara biologis!)
-      if (phase === "blink_challenge") {
-        if (!isCentered) {
-          phase = "align";
-          eyeWasClosed = false;
-          return;
-        }
-
-        const avgEAR = getEAR(lm);
-
-        // Jika mata benar-benar tertutup (EAR < 0.14)
-        if (avgEAR < 0.14) {
-          eyeWasClosed = true;
-          setProgress(0.65);
-          setHint("Buka kembali matamu...", false, true);
-        }
-        // Setelah tertutup, mata membuka kembali secara alami (EAR > 0.22)
-        else if (eyeWasClosed && avgEAR > 0.22) {
-          setProgress(1.0);
-          $("ring").className = "ring ok";
-          setHint("✅ Wajah Asli Terverifikasi! Memindai...", false, false);
-          setStatus("Liveness 3D Lolos — Menjalankan Analisis...", "ok");
-
-          phase = "capturing";
-          cancelAnimationFrame(animFrameId);
-          setTimeout(() => executeCapture(lm), 120);
-          return;
-        }
-
-        // Timeout jika dalam 6 detik tidak ada kedipan mata (indikasi foto layar beku)
-        if (now - blinkStartTime > BLINK_TIMEOUT_MS) {
-          showAlert("⚠️ Gerakan Alami Tidak Terdeteksi", "Tidak terdeteksi kedipan mata asli. Coba lagi.");
-          setHint("Kedipkan matamu di depan kamera", true);
-          $("ring").className = "ring warn";
-          phase = "align";
-          eyeWasClosed = false;
-          setProgress(0);
+          setHint(evalResult.reason, false);
+          setStatus(evalResult.reason, "normal");
         }
       }
     }
 
-    async function executeCapture(lm) {
+    async function executeCapture() {
+      if (isAnalyzing) return;
+      isAnalyzing = true;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+
       stage.classList.add("scanning");
-      setHint("⚡ Memindai Wajah & Menjalankan Inferensi Deep Learning...");
+      setProgress(1.0);
+      setHint("⚡ Memindai Wajah & Menjalankan Analisis AI...", false, true);
       setStatus("Menjalankan Inferensi AI ONNX...", "normal");
 
       const vw = video.videoWidth || 640;
       const vh = video.videoHeight || 480;
-
-      // Crop wajah presisi 224x224
-      let minx = 1, maxx = 0, miny = 1, maxy = 0;
-      for (const p of lm) {
-        if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x;
-        if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y;
-      }
-      const boxW = (maxx - minx) * vw;
-      const boxH = (maxy - miny) * vh;
-      const side = Math.min(Math.max(boxW, boxH) * 1.25, vw, vh);
-      const sx = Math.max(0, Math.min(vw - side, ((minx + maxx) / 2) * vw - side / 2));
-      const sy = Math.max(0, Math.min(vh - side, ((miny + maxy) / 2) * vh - side / 2));
+      const side = Math.min(vw, vh);
+      const sx = (vw - side) / 2;
+      const sy = (vh - side) / 2;
 
       snap.width = snap.height = 224;
       const ctx = snap.getContext("2d");
@@ -1219,14 +1197,14 @@
       stopCamera();
       video.style.display = "none";
       snap.style.display = "block";
+      $("btnCaptureNow").style.display = "none";
 
       try {
         const probs = await inferFromCanvas(snap);
         stage.classList.remove("scanning");
-        setHint("✅ Pemindaian Selesai!");
+        setHint("✅ Pemindaian Selesai!", false, true);
         setStatus("Analisis Kulit Berhasil Dilakukan", "ok");
         showResults(probs.type, probs.concern);
-        phase = "done";
         $("btnRetry").style.display = "inline-flex";
       } catch (err) {
         console.error(err);
@@ -1340,7 +1318,6 @@
           </div>
         `;
 
-        // Opsional: Jika ada produk pendukung nomor 2
         if (matchedProducts.length > 1) {
           const sub = matchedProducts[1];
           html += `
@@ -1377,6 +1354,7 @@
     });
 
     $("btnStart").onclick = startCamera;
+    $("btnCaptureNow").onclick = executeCapture;
     $("btnRetry").onclick = () => {
       hideAlert();
       setProgress(0);
@@ -1384,7 +1362,7 @@
         <div class="empty">
           <b>🪞</b>
           Belum ada hasil analisis.<br>
-          Buka kamera dan ikuti instruksi kedip untuk auto-scan langsung.
+          Arahkan wajah asli ke dalam bingkai oval untuk auto-scan langsung.
         </div>`;
       $("btnRetry").style.display = "none";
       startCamera();
@@ -1392,7 +1370,7 @@
 
     const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
-    initSystem();
+    initModel();
   </script>
 </body>
 
